@@ -1,0 +1,31 @@
+# Build outputs
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider / JetBrains
+.idea/
+*.DotSettings.user
+
+# VS Code
+.vscode/
+
+# NuGet
+*.nupkg
+packages/
+
+# Publish profiles
+**/Properties/PublishProfiles/
+publish/
+
+# Runtime data (AppData — hors repo de toute façon)
+*.db
+*.db-shm
+*.db-wal
+CONTEXT.md
