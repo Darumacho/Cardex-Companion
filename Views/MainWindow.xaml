@@ -54,13 +54,40 @@
                                 <Run Text="{Binding Rarity, Mode=OneWay}"/>
                             </TextBlock>
 
-                            <!-- Checkbox possédée -->
+                            <!-- Checkbox Owned + compteur d'exemplaires -->
                             <CheckBox Margin="0,4,0,0"
                                       IsChecked="{Binding IsOwned}"
                                       Foreground="{StaticResource BrushText}"
                                       FontSize="11"
                                       Content="Owned"
                                       Cursor="Hand"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsOwned}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <Button Command="{Binding DecrementCommand}"
+                                        Style="{StaticResource SetButtonStyle}"
+                                        Width="22" Height="22" FontSize="14" Padding="0"
+                                        Content="−"/>
+                                <Border Width="30" Background="#111122" CornerRadius="3" Margin="3,0">
+                                    <TextBlock Text="{Binding Quantity}"
+                                               Foreground="{StaticResource BrushHighlight}"
+                                               FontWeight="Bold" FontSize="12"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                                <Button Command="{Binding IncrementCommand}"
+                                        Style="{StaticResource SetButtonStyle}"
+                                        Width="22" Height="22" FontSize="14" Padding="0"
+                                        Content="+"/>
+                            </StackPanel>
                         </StackPanel>
                     </StackPanel>
                 </Grid>
@@ -137,14 +164,23 @@
                 <Border DockPanel.Dock="Top"
                         Background="{StaticResource BrushAccent}"
                         Padding="12,10">
-                    <StackPanel>
-                        <TextBlock Text="CARDEX"
-                                   Foreground="{StaticResource BrushHighlight}"
-                                   FontSize="16" FontWeight="Black"/>
-                        <TextBlock Text="Pokémon TCG Collection"
-                                   Foreground="{StaticResource BrushSubtext}"
-                                   FontSize="10"/>
-                    </StackPanel>
+                    <Grid>
+                        <StackPanel>
+                            <TextBlock Text="CARDEX"
+                                       Foreground="{StaticResource BrushHighlight}"
+                                       FontSize="16" FontWeight="Black"/>
+                            <TextBlock Text="Pokémon TCG Collection"
+                                       Foreground="{StaticResource BrushSubtext}"
+                                       FontSize="10"/>
+                        </StackPanel>
+                        <Button HorizontalAlignment="Right" VerticalAlignment="Center"
+                                Command="{Binding LoadSetsCommand}"
+                                ToolTip="Reload sets"
+                                FontSize="16" Padding="6,2"
+                                Style="{StaticResource SetButtonStyle}">
+                            ↻
+                        </Button>
+                    </Grid>
                 </Border>
 
                 <!-- Liste des séries / sets -->
@@ -187,24 +223,25 @@
                     <!-- Fond de base -->
                     <Border Background="{StaticResource BrushAccent}"/>
 
-                    <!-- Logo du set en filigrane à droite -->
+                    <!-- Logo du set en filigrane au centre -->
                     <Image Source="{Binding SelectedSet.LogoImage}"
                            Stretch="Uniform"
-                           HorizontalAlignment="Right"
+                           HorizontalAlignment="Center"
                            VerticalAlignment="Center"
                            MaxHeight="80"
                            Opacity="0.35"
-                           Margin="0,8,16,8"
+                           Margin="0,8"
                            RenderOptions.BitmapScalingMode="HighQuality"/>
 
-                    <!-- Dégradé pour lisibilité du texte à gauche -->
+                    <!-- Dégradé des deux côtés pour lisibilité du texte -->
                     <Border>
                         <Border.Background>
                             <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
                                 <GradientStop Color="#FF0f3460" Offset="0.0"/>
-                                <GradientStop Color="#EE0f3460" Offset="0.45"/>
-                                <GradientStop Color="#880f3460" Offset="0.75"/>
-                                <GradientStop Color="#000f3460" Offset="1.0"/>
+                                <GradientStop Color="#AA0f3460" Offset="0.2"/>
+                                <GradientStop Color="#000f3460" Offset="0.5"/>
+                                <GradientStop Color="#AA0f3460" Offset="0.8"/>
+                                <GradientStop Color="#FF0f3460" Offset="1.0"/>
                             </LinearGradientBrush>
                         </Border.Background>
                     </Border>
@@ -244,6 +281,24 @@
                         <!-- Droite : bouton + compteur -->
                         <StackPanel Grid.Column="1" Orientation="Horizontal"
                                     HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <!-- Show dupes only -->
+                            <ToggleButton IsChecked="{Binding SelectedSet.ShowDupesOnly}"
+                                          FontSize="12" Margin="0,0,10,0"
+                                          VerticalAlignment="Center">
+                                <ToggleButton.Style>
+                                    <Style TargetType="ToggleButton" BasedOn="{StaticResource ToggleButtonStyle}">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedSet.IsLoading}" Value="False">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ToggleButton.Style>
+                                Show dupes only
+                            </ToggleButton>
+
+                            <!-- Check / Uncheck all -->
                             <Button Content="{Binding SelectedSet.ToggleAllLabel}"
                                     Command="{Binding ToggleAllOwnedCommand}"
                                     FontSize="12" Padding="12,6"
@@ -289,7 +344,7 @@
                           Background="{StaticResource BrushBg}"
                           x:Name="CardsScrollViewer"
                           ScrollChanged="CardsScrollViewer_ScrollChanged">
-                <ItemsControl ItemsSource="{Binding SelectedSet.Cards}"
+                <ItemsControl ItemsSource="{Binding SelectedSet.FilteredCards}"
                               ItemTemplate="{StaticResource CardTemplate}"
                               x:Name="CardsItemsControl"
                               Loaded="CardsItemsControl_Loaded">

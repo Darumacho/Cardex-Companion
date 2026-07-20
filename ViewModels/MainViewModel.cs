@@ -55,6 +55,16 @@ public partial class MainViewModel : ObservableObject
                 Series.Add(seriesVm);
             }
 
+            var ownedCounts = await _db.OwnedCards
+                .GroupBy(o => o.SetId)
+                .Select(g => new { SetId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(g => g.SetId, g => g.Count);
+
+            foreach (var series in Series)
+                foreach (var set in series.Sets)
+                    if (ownedCounts.TryGetValue(set.SetId, out var count))
+                        set.SetPreloadedCount(count);
+
             StatusText = $"{sets.Count} sets loaded";
             _ = LoadSymbolsAsync(Series.SelectMany(s => s.Sets).ToList());
         }
@@ -90,11 +100,10 @@ public partial class MainViewModel : ObservableObject
         StatusText = $"Loading {set.Name}…";
         try
         {
-            var ownedList = await _db.OwnedCards
+            var ownedMap = (await _db.OwnedCards
                 .Where(o => o.SetId == set.SetId)
-                .Select(o => o.CardId)
-                .ToListAsync();
-            var ownedIds = ownedList.ToHashSet();
+                .ToListAsync())
+                .ToDictionary(o => o.CardId, o => o.Quantity);
 
             var cards = await _tcgService.GetCardsAsync(set.SetId);
 
@@ -103,13 +112,13 @@ public partial class MainViewModel : ObservableObject
                 var vm = new CardViewModel(
                     card.Id, card.Name, card.Number, card.Set.Id,
                     card.Images.Small, card.Rarity,
-                    ownedIds.Contains(card.Id),
+                    ownedMap.TryGetValue(card.Id, out var qty) ? qty : 0,
                     _imageCache);
 
                 vm.PropertyChanged += async (s, e) =>
                 {
-                    if (e.PropertyName == nameof(CardViewModel.IsOwned))
-                        await OnCardOwnershipChangedAsync(vm, set);
+                    if (e.PropertyName == nameof(CardViewModel.Quantity))
+                        await OnCardQuantityChangedAsync(vm, set);
                 };
 
                 set.Cards.Add(vm);
@@ -153,27 +162,24 @@ public partial class MainViewModel : ObservableObject
 
     private bool _isBulkUpdate;
 
-    private async Task OnCardOwnershipChangedAsync(CardViewModel card, SetViewModel set)
+    private async Task OnCardQuantityChangedAsync(CardViewModel card, SetViewModel set)
     {
         if (_isBulkUpdate) return;
 
-        if (card.IsOwned)
+        var entry = await _db.OwnedCards.FindAsync(card.CardId);
+        if (card.Quantity > 0)
         {
-            if (!await _db.OwnedCards.AnyAsync(o => o.CardId == card.CardId))
-            {
-                _db.OwnedCards.Add(new OwnedCard { CardId = card.CardId, SetId = card.SetId });
-                await _db.SaveChangesAsync();
-            }
+            if (entry is null)
+                _db.OwnedCards.Add(new OwnedCard { CardId = card.CardId, SetId = card.SetId, Quantity = card.Quantity });
+            else
+                entry.Quantity = card.Quantity;
         }
-        else
+        else if (entry is not null)
         {
-            var entry = await _db.OwnedCards.FindAsync(card.CardId);
-            if (entry is not null)
-            {
-                _db.OwnedCards.Remove(entry);
-                await _db.SaveChangesAsync();
-            }
+            _db.OwnedCards.Remove(entry);
         }
+
+        await _db.SaveChangesAsync();
         set.NotifyOwnershipChanged();
         StatusText = $"{set.Name} — {set.CompletionText}";
     }

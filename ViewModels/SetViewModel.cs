@@ -19,11 +19,27 @@ public partial class SetViewModel : ObservableObject
     [ObservableProperty] private BitmapImage? _logoImage;
     [ObservableProperty] private BitmapImage? _symbolImage;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FilteredCards))]
+    private bool _showDupesOnly;
+
     public ObservableCollection<CardViewModel> Cards { get; } = [];
 
-    public int OwnedCount => Cards.Count(c => c.IsOwned);
+    public IEnumerable<CardViewModel> FilteredCards =>
+        ShowDupesOnly ? Cards.Where(c => c.Quantity > 1) : Cards;
+
+    private int _dbOwnedCount;
+
+    public int OwnedCount => Cards.Count > 0 ? Cards.Count(c => c.IsOwned) : _dbOwnedCount;
 
     public string CompletionText => $"{OwnedCount} / {Total}";
+
+    public void SetPreloadedCount(int count)
+    {
+        _dbOwnedCount = count;
+        OnPropertyChanged(nameof(OwnedCount));
+        OnPropertyChanged(nameof(CompletionText));
+    }
 
     public bool AllOwned => Cards.Count > 0 && Cards.All(c => c.IsOwned);
 
@@ -47,5 +63,6 @@ public partial class SetViewModel : ObservableObject
         OnPropertyChanged(nameof(CompletionText));
         OnPropertyChanged(nameof(AllOwned));
         OnPropertyChanged(nameof(ToggleAllLabel));
+        OnPropertyChanged(nameof(FilteredCards));
     }
 }
