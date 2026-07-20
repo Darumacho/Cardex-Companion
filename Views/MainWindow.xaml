@@ -174,8 +174,8 @@
                                        FontSize="10"/>
                         </StackPanel>
                         <Button HorizontalAlignment="Right" VerticalAlignment="Center"
-                                Command="{Binding LoadSetsCommand}"
-                                ToolTip="Reload sets"
+                                Command="{Binding RefreshSetsCommand}"
+                                ToolTip="Refresh from API (clears cache)"
                                 FontSize="16" Padding="6,2"
                                 Style="{StaticResource SetButtonStyle}">
                             ↻

@@ -7,6 +7,8 @@ namespace Cardex.Data;
 public class AppDbContext : DbContext
 {
     public DbSet<OwnedCard> OwnedCards { get; set; }
+    public DbSet<CachedSet> CachedSets { get; set; }
+    public DbSet<CachedCard> CachedCards { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder options)
     {

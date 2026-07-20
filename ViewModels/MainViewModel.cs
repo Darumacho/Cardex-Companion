@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Cardex.Data;
 using Cardex.Models;
@@ -35,37 +35,31 @@ public partial class MainViewModel : ObservableObject
         StatusText = "Loading sets…";
         try
         {
-            var sets = await _tcgService.GetSetsAsync();
-            var owned = await _db.OwnedCards.Select(o => o.SetId).Distinct().ToListAsync();
+            var apiSets = await _tcgService.GetSetsAsync();
 
-            Series.Clear();
-            var grouped = sets
-                .GroupBy(s => s.Series)
-                .OrderBy(g => sets.First(s => s.Series == g.Key).ReleaseDate);
+            var cachedIds = (await _db.CachedSets.Select(s => s.SetId).ToListAsync()).ToHashSet();
+            var newSets = apiSets.Where(s => !cachedIds.Contains(s.Id)).ToList();
 
-            foreach (var group in grouped)
+            if (newSets.Count > 0)
             {
-                var seriesVm = new SeriesViewModel(group.Key);
-                foreach (var set in group.OrderBy(s => s.ReleaseDate))
+                _db.CachedSets.AddRange(newSets.Select(s => new CachedSet
                 {
-                    seriesVm.Sets.Add(new SetViewModel(
-                        set.Id, set.Name, set.Total, set.Series, set.ReleaseDate,
-                        set.Images.Logo, set.Images.Symbol));
-                }
-                Series.Add(seriesVm);
+                    SetId = s.Id, Name = s.Name, Series = s.Series, Total = s.Total,
+                    ReleaseDate = s.ReleaseDate, LogoUrl = s.Images.Logo,
+                    SymbolUrl = s.Images.Symbol, CachedAt = DateTime.UtcNow
+                }));
+                await _db.SaveChangesAsync();
             }
 
-            var ownedCounts = await _db.OwnedCards
-                .GroupBy(o => o.SetId)
-                .Select(g => new { SetId = g.Key, Count = g.Count() })
-                .ToDictionaryAsync(g => g.SetId, g => g.Count);
+            var allCached = await _db.CachedSets.OrderBy(s => s.ReleaseDate).ToListAsync();
+            BuildSeries(allCached.Select(s =>
+                new SetData(s.SetId, s.Name, s.Total, s.Series, s.ReleaseDate, s.LogoUrl, s.SymbolUrl)));
 
-            foreach (var series in Series)
-                foreach (var set in series.Sets)
-                    if (ownedCounts.TryGetValue(set.SetId, out var count))
-                        set.SetPreloadedCount(count);
+            StatusText = newSets.Count > 0
+                ? $"{allCached.Count} sets loaded — {newSets.Count} new"
+                : $"{allCached.Count} sets loaded";
 
-            StatusText = $"{sets.Count} sets loaded";
+            await ApplyOwnedCountsAsync();
             _ = LoadSymbolsAsync(Series.SelectMany(s => s.Sets).ToList());
         }
         catch (Exception ex)
@@ -76,6 +70,51 @@ public partial class MainViewModel : ObservableObject
         {
             IsBusy = false;
         }
+    }
+
+    [RelayCommand]
+    public async Task RefreshSetsAsync()
+    {
+        if (IsBusy) return;
+
+        // Supprime le cache sets et cartes, recharge tout depuis l'API
+        await _db.CachedSets.ExecuteDeleteAsync();
+        await _db.CachedCards.ExecuteDeleteAsync();
+
+        SelectedSet = null;
+        Series.Clear();
+
+        await LoadSetsAsync();
+    }
+
+    private void BuildSeries(IEnumerable<SetData> data)
+    {
+        Series.Clear();
+        var list = data.ToList();
+        var grouped = list
+            .GroupBy(s => s.Series)
+            .OrderBy(g => g.Min(s => s.ReleaseDate));
+
+        foreach (var group in grouped)
+        {
+            var seriesVm = new SeriesViewModel(group.Key);
+            foreach (var s in group.OrderBy(s => s.ReleaseDate))
+                seriesVm.Sets.Add(new SetViewModel(s.Id, s.Name, s.Total, s.Series, s.ReleaseDate, s.LogoUrl, s.SymbolUrl));
+            Series.Add(seriesVm);
+        }
+    }
+
+    private async Task ApplyOwnedCountsAsync()
+    {
+        var ownedCounts = await _db.OwnedCards
+            .GroupBy(o => o.SetId)
+            .Select(g => new { SetId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.SetId, g => g.Count);
+
+        foreach (var series in Series)
+            foreach (var set in series.Sets)
+                if (ownedCounts.TryGetValue(set.SetId, out var count))
+                    set.SetPreloadedCount(count);
     }
 
     [RelayCommand]
@@ -105,27 +144,37 @@ public partial class MainViewModel : ObservableObject
                 .ToListAsync())
                 .ToDictionary(o => o.CardId, o => o.Quantity);
 
-            var cards = await _tcgService.GetCardsAsync(set.SetId);
+            var cachedCards = await _db.CachedCards
+                .Where(c => c.SetId == set.SetId)
+                .OrderBy(c => c.SortOrder)
+                .ToListAsync();
 
-            foreach (var card in cards)
+            if (cachedCards.Count > 0)
             {
-                var vm = new CardViewModel(
-                    card.Id, card.Name, card.Number, card.Set.Id,
-                    card.Images.Small, card.Rarity,
-                    ownedMap.TryGetValue(card.Id, out var qty) ? qty : 0,
-                    _imageCache);
+                BuildCardViewModels(cachedCards.Select(c =>
+                    new CardData(c.CardId, c.Name, c.Number, c.SetId, c.ImageSmall, c.Rarity)),
+                    ownedMap, set);
+                StatusText = $"{set.Name} — {set.CompletionText}";
+            }
+            else
+            {
+                var apiCards = await _tcgService.GetCardsAsync(set.SetId);
 
-                vm.PropertyChanged += async (s, e) =>
+                _db.CachedCards.AddRange(apiCards.Select((c, i) => new CachedCard
                 {
-                    if (e.PropertyName == nameof(CardViewModel.Quantity))
-                        await OnCardQuantityChangedAsync(vm, set);
-                };
+                    CardId = c.Id, SetId = c.Set.Id, Name = c.Name,
+                    Number = c.Number, ImageSmall = c.Images.Small,
+                    Rarity = c.Rarity, SortOrder = i
+                }));
+                await _db.SaveChangesAsync();
 
-                set.Cards.Add(vm);
+                BuildCardViewModels(apiCards.Select(c =>
+                    new CardData(c.Id, c.Name, c.Number, c.Set.Id, c.Images.Small, c.Rarity)),
+                    ownedMap, set);
+                StatusText = $"{set.Name} — {set.CompletionText}";
             }
 
             set.NotifyOwnershipChanged();
-            StatusText = $"{set.Name} — {set.CompletionText}";
         }
         catch (Exception ex)
         {
@@ -134,6 +183,26 @@ public partial class MainViewModel : ObservableObject
         finally
         {
             set.IsLoading = false;
+        }
+    }
+
+    private void BuildCardViewModels(IEnumerable<CardData> cards, Dictionary<string, int> ownedMap, SetViewModel set)
+    {
+        foreach (var card in cards)
+        {
+            var vm = new CardViewModel(
+                card.Id, card.Name, card.Number, card.SetId,
+                card.ImageSmall, card.Rarity,
+                ownedMap.TryGetValue(card.Id, out var qty) ? qty : 0,
+                _imageCache);
+
+            vm.PropertyChanged += async (s, e) =>
+            {
+                if (e.PropertyName == nameof(CardViewModel.Quantity))
+                    await OnCardQuantityChangedAsync(vm, set);
+            };
+
+            set.Cards.Add(vm);
         }
     }
 
@@ -227,4 +296,7 @@ public partial class MainViewModel : ObservableObject
             _isBulkUpdate = false;
         }
     }
+
+    private record SetData(string Id, string Name, int Total, string Series, string ReleaseDate, string LogoUrl, string SymbolUrl);
+    private record CardData(string Id, string Name, string Number, string SetId, string ImageSmall, string? Rarity);
 }
