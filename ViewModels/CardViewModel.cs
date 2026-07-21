@@ -18,6 +18,7 @@ public partial class CardViewModel : ObservableObject
 
     [ObservableProperty] private BitmapImage? _cardImage;
     [ObservableProperty] private bool _isLoadingImage;
+    [ObservableProperty] private bool _isWanted;
 
     private int _quantity;
     private bool _isOwned;
@@ -50,7 +51,7 @@ public partial class CardViewModel : ObservableObject
 
     public CardViewModel(
         string cardId, string name, string number, string setId,
-        string imageUrl, string? rarity, int quantity,
+        string imageUrl, string? rarity, int quantity, bool isWanted,
         ImageCacheService imageCache)
     {
         CardId = cardId;
@@ -61,6 +62,7 @@ public partial class CardViewModel : ObservableObject
         Rarity = rarity;
         _quantity = quantity;
         _isOwned = quantity > 0;
+        _isWanted = isWanted;
         _imageCache = imageCache;
     }
 

@@ -13,6 +13,8 @@
     <Content Include="Logo.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <EmbeddedResource Include="Logo.png"/>
+    <EmbeddedResource Include="Name.png"/>
   </ItemGroup>
 
   <ItemGroup>

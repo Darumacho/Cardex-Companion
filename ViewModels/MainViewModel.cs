@@ -5,6 +5,8 @@ using Cardex.Models;
 using Cardex.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.ObjectModel;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace Cardex.ViewModels;
 
@@ -18,6 +20,8 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty] private SetViewModel? _selectedSet;
     [ObservableProperty] private string _statusText = "Welcome to Cardex";
+    [ObservableProperty] private BitmapImage? _appLogo;
+    [ObservableProperty] private ImageSource? _appName;
     [ObservableProperty] private bool _isBusy;
 
     public MainViewModel(PokemonTcgService tcgService, ImageCacheService imageCache, AppDbContext db)
@@ -58,6 +62,10 @@ public partial class MainViewModel : ObservableObject
             StatusText = newSets.Count > 0
                 ? $"{allCached.Count} sets loaded — {newSets.Count} new"
                 : $"{allCached.Count} sets loaded";
+
+            var favoriteIds = (await _db.FavoriteSets.Select(f => f.SetId).ToListAsync()).ToHashSet();
+            ApplyFavorites(favoriteIds);
+            RefreshFavoritesGroup();
 
             await ApplyOwnedCountsAsync();
             _ = LoadSymbolsAsync(Series.SelectMany(s => s.Sets).ToList());
@@ -104,6 +112,48 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    [RelayCommand]
+    private async Task ToggleFavoriteAsync(SetViewModel set)
+    {
+        var entry = await _db.FavoriteSets.FindAsync(set.SetId);
+        if (set.IsFavorite)
+        {
+            if (entry is null)
+                _db.FavoriteSets.Add(new FavoriteSet { SetId = set.SetId });
+        }
+        else if (entry is not null)
+        {
+            _db.FavoriteSets.Remove(entry);
+        }
+        await _db.SaveChangesAsync();
+        RefreshFavoritesGroup();
+    }
+
+    private void ApplyFavorites(HashSet<string> favoriteIds)
+    {
+        foreach (var series in Series.Where(s => !s.IsFavoriteGroup))
+            foreach (var set in series.Sets)
+                set.IsFavorite = favoriteIds.Contains(set.SetId);
+    }
+
+    private void RefreshFavoritesGroup()
+    {
+        var favGroup = Series.FirstOrDefault(s => s.IsFavoriteGroup);
+        if (favGroup != null) Series.Remove(favGroup);
+
+        var favorites = Series
+            .SelectMany(s => s.Sets)
+            .Where(s => s.IsFavorite)
+            .ToList();
+
+        if (favorites.Count == 0) return;
+
+        var group = new SeriesViewModel("★ Favorites", isFavoriteGroup: true);
+        foreach (var set in favorites)
+            group.Sets.Add(set);
+        Series.Insert(0, group);
+    }
+
     private async Task ApplyOwnedCountsAsync()
     {
         var ownedCounts = await _db.OwnedCards
@@ -144,6 +194,11 @@ public partial class MainViewModel : ObservableObject
                 .ToListAsync())
                 .ToDictionary(o => o.CardId, o => o.Quantity);
 
+            var wantedIds = (await _db.WantedCards
+                .Where(w => w.SetId == set.SetId)
+                .Select(w => w.CardId)
+                .ToListAsync()).ToHashSet();
+
             var cachedCards = await _db.CachedCards
                 .Where(c => c.SetId == set.SetId)
                 .OrderBy(c => c.SortOrder)
@@ -153,7 +208,7 @@ public partial class MainViewModel : ObservableObject
             {
                 BuildCardViewModels(cachedCards.Select(c =>
                     new CardData(c.CardId, c.Name, c.Number, c.SetId, c.ImageSmall, c.Rarity)),
-                    ownedMap, set);
+                    ownedMap, wantedIds, set);
                 StatusText = $"{set.Name} — {set.CompletionText}";
             }
             else
@@ -170,10 +225,11 @@ public partial class MainViewModel : ObservableObject
 
                 BuildCardViewModels(apiCards.Select(c =>
                     new CardData(c.Id, c.Name, c.Number, c.Set.Id, c.Images.Small, c.Rarity)),
-                    ownedMap, set);
+                    ownedMap, wantedIds, set);
                 StatusText = $"{set.Name} — {set.CompletionText}";
             }
 
+            set.NotifyCardsLoaded();
             set.NotifyOwnershipChanged();
         }
         catch (Exception ex)
@@ -186,7 +242,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private void BuildCardViewModels(IEnumerable<CardData> cards, Dictionary<string, int> ownedMap, SetViewModel set)
+    private void BuildCardViewModels(IEnumerable<CardData> cards, Dictionary<string, int> ownedMap, HashSet<string> wantedIds, SetViewModel set)
     {
         foreach (var card in cards)
         {
@@ -194,16 +250,36 @@ public partial class MainViewModel : ObservableObject
                 card.Id, card.Name, card.Number, card.SetId,
                 card.ImageSmall, card.Rarity,
                 ownedMap.TryGetValue(card.Id, out var qty) ? qty : 0,
+                wantedIds.Contains(card.Id),
                 _imageCache);
 
             vm.PropertyChanged += async (s, e) =>
             {
                 if (e.PropertyName == nameof(CardViewModel.Quantity))
                     await OnCardQuantityChangedAsync(vm, set);
+                else if (e.PropertyName == nameof(CardViewModel.IsWanted))
+                    await OnCardWantedChangedAsync(vm, set);
             };
 
             set.Cards.Add(vm);
         }
+    }
+
+    private async Task OnCardWantedChangedAsync(CardViewModel card, SetViewModel set)
+    {
+        var entry = await _db.WantedCards.FindAsync(card.CardId);
+        if (card.IsWanted)
+        {
+            if (entry is null)
+                _db.WantedCards.Add(new WantedCard { CardId = card.CardId, SetId = card.SetId });
+        }
+        else if (entry is not null)
+        {
+            _db.WantedCards.Remove(entry);
+        }
+
+        await _db.SaveChangesAsync();
+        set.NotifyWantsChanged();
     }
 
     private async Task LoadLogoAsync(SetViewModel set)
