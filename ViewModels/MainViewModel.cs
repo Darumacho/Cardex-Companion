@@ -15,10 +15,13 @@ public partial class MainViewModel : ObservableObject
     private readonly PokemonTcgService _tcgService;
     private readonly ImageCacheService _imageCache;
     private readonly AppDbContext _db;
+    private readonly UpdateService _updateService = new();
 
     public ObservableCollection<SeriesViewModel> Series { get; } = [];
     public ObservableCollection<SetViewModel> HomeFavorites { get; } = [];
     public ObservableCollection<SearchResultViewModel> SearchResults { get; } = [];
+    public ObservableCollection<SearchResultViewModel> WantedCards { get; } = [];
+    public bool HasWantedCards => WantedCards.Count > 0;
 
     [ObservableProperty] private SetViewModel? _selectedSet;
     [ObservableProperty] private string _globalSearch = "";
@@ -27,11 +30,24 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private ImageSource? _appName;
     [ObservableProperty] private bool _isBusy;
 
+    [ObservableProperty] private UpdateInfo? _pendingUpdate;
+    [ObservableProperty] private bool _isUpdating;
+    [ObservableProperty] private int _updateProgress;
+
+    public bool HasUpdate => PendingUpdate is not null;
+
+    partial void OnPendingUpdateChanged(UpdateInfo? value)
+        => OnPropertyChanged(nameof(HasUpdate));
+
+    partial void OnIsUpdatingChanged(bool value)
+        => InstallUpdateCommand.NotifyCanExecuteChanged();
+
     public MainViewModel(PokemonTcgService tcgService, ImageCacheService imageCache, AppDbContext db)
     {
         _tcgService = tcgService;
         _imageCache = imageCache;
         _db = db;
+        WantedCards.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasWantedCards));
     }
 
     public bool IsHomeVisible => SelectedSet is null;
@@ -186,6 +202,7 @@ public partial class MainViewModel : ObservableObject
 
             await ApplyOwnedCountsAsync();
             _ = LoadSymbolsAsync(Series.SelectMany(s => s.Sets).ToList());
+            _ = LoadWantedCardsAsync();
 
             _preloadCts?.Cancel();
             _preloadCts = new CancellationTokenSource();
@@ -414,6 +431,49 @@ public partial class MainViewModel : ObservableObject
 
         await _db.SaveChangesAsync();
         set.NotifyWantsChanged();
+        await LoadWantedCardsAsync();
+    }
+
+    private async Task LoadWantedCardsAsync()
+    {
+        var wantedIds = (await _db.WantedCards.Select(w => w.CardId).ToListAsync()).ToHashSet();
+        if (wantedIds.Count == 0)
+        {
+            WantedCards.Clear();
+            return;
+        }
+
+        var cards = await _db.CachedCards
+            .Where(c => wantedIds.Contains(c.CardId))
+            .OrderBy(c => c.SetId).ThenBy(c => c.SortOrder)
+            .ToListAsync();
+
+        var setIds = cards.Select(c => c.SetId).Distinct().ToList();
+        var setNames = await _db.CachedSets
+            .Where(s => setIds.Contains(s.SetId))
+            .ToDictionaryAsync(s => s.SetId, s => s.Name);
+
+        var ownedQty = await _db.OwnedCards
+            .Where(o => wantedIds.Contains(o.CardId))
+            .ToDictionaryAsync(o => o.CardId, o => o.Quantity);
+
+        WantedCards.Clear();
+        foreach (var c in cards)
+            WantedCards.Add(new SearchResultViewModel(
+                c.CardId, c.Name, c.Number, c.SetId,
+                setNames.GetValueOrDefault(c.SetId, c.SetId),
+                c.ImageSmall, c.Rarity,
+                ownedQty.GetValueOrDefault(c.CardId),
+                _imageCache));
+
+        using var sem = new SemaphoreSlim(8, 8);
+        _ = Task.WhenAll(WantedCards.Select(async vm =>
+        {
+            await sem.WaitAsync();
+            try { await vm.LoadImageAsync(); }
+            catch { }
+            finally { sem.Release(); }
+        }));
     }
 
     private async Task LoadLogoAsync(SetViewModel set)
@@ -571,6 +631,24 @@ public partial class MainViewModel : ObservableObject
             _isBulkUpdate = false;
         }
     }
+
+    public async Task CheckForUpdateAsync()
+    {
+        var info = await _updateService.CheckAsync();
+        PendingUpdate = info;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanInstallUpdate))]
+    private async Task InstallUpdateAsync()
+    {
+        if (PendingUpdate is null) return;
+        IsUpdating = true;
+        UpdateProgress = 0;
+        var progress = new Progress<int>(p => UpdateProgress = p);
+        await _updateService.DownloadAndInstallAsync(PendingUpdate, progress);
+    }
+
+    private bool CanInstallUpdate() => !IsUpdating;
 
     private record SetData(string Id, string Name, int Total, string Series, string ReleaseDate, string LogoUrl, string SymbolUrl);
     private record CardData(string Id, string Name, string Number, string SetId, string ImageSmall, string? Rarity);

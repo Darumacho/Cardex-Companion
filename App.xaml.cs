@@ -86,6 +86,7 @@ public partial class App : Application
 
         await SeedDbFromEmbeddedAsync(db);
         await MainVm.LoadSetsAsync();
+        _ = MainVm.CheckForUpdateAsync();
     }
 
     private static async Task SeedDbFromEmbeddedAsync(AppDbContext db)

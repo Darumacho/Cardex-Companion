@@ -326,6 +326,7 @@
 
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="28"/>
         </Grid.RowDefinitions>
@@ -334,8 +335,52 @@
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
+        <!-- ===== BANNIÈRE MISE À JOUR ===== -->
+        <Border Grid.Row="0" Grid.ColumnSpan="2"
+                Background="#1a5c32" Padding="14,8">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasUpdate}" Value="True">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Grid>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Foreground="White" FontSize="12" VerticalAlignment="Center">
+                        <Run Text="Nouvelle version disponible : "/>
+                        <Run Text="{Binding PendingUpdate.Version, Mode=OneWay}" FontWeight="Bold"/>
+                    </TextBlock>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <ProgressBar Width="140" Height="6" Value="{Binding UpdateProgress}" Maximum="100"
+                                 Margin="0,0,8,0" VerticalAlignment="Center"
+                                 Visibility="{Binding IsUpdating, Converter={StaticResource BoolToVis}}"/>
+                    <TextBlock Foreground="White" FontSize="11" Margin="0,0,12,0" VerticalAlignment="Center"
+                               Visibility="{Binding IsUpdating, Converter={StaticResource BoolToVis}}">
+                        <Run Text="{Binding UpdateProgress, Mode=OneWay}"/><Run Text=" %"/>
+                    </TextBlock>
+                    <Button Command="{Binding InstallUpdateCommand}" FontSize="12" Padding="12,4">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource SetButtonStyle}">
+                                <Setter Property="Content" Value="⬇ Installer"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsUpdating}" Value="True">
+                                        <Setter Property="Content" Value="Téléchargement…"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
         <!-- ===== SIDEBAR ===== -->
-        <Border Grid.Row="0" Grid.Column="0"
+        <Border Grid.Row="1" Grid.Column="0"
                 Background="{StaticResource BrushPanel}"
                 BorderBrush="{StaticResource BrushAccent}"
                 BorderThickness="0,0,1,0">
@@ -402,7 +447,7 @@
         </Border>
 
         <!-- ===== ZONE PRINCIPALE ===== -->
-        <Grid Grid.Row="0" Grid.Column="1">
+        <Grid Grid.Row="1" Grid.Column="1">
 
             <!-- Écran d'accueil -->
             <Grid>
@@ -513,6 +558,41 @@
                     </ItemsControl>
                 </ScrollViewer>
 
+                <!-- Cartes wanted -->
+                <ScrollViewer Grid.Row="2"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Background="{StaticResource BrushBg}">
+                    <ScrollViewer.Style>
+                        <Style TargetType="ScrollViewer">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding GlobalSearch}" Value=""/>
+                                        <Condition Binding="{Binding HasWantedCards}" Value="True"/>
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </MultiDataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ScrollViewer.Style>
+                    <StackPanel>
+                        <TextBlock Text="★  Wanted Cards"
+                                   Foreground="#ffd700"
+                                   FontSize="12" FontWeight="Bold"
+                                   Margin="16,12,0,4"/>
+                        <ItemsControl ItemsSource="{Binding WantedCards}"
+                                      ItemTemplate="{StaticResource SearchResultTemplate}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" Margin="6"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+
                 <!-- Message de bienvenue -->
                 <StackPanel Grid.Row="2"
                             HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -520,9 +600,13 @@
                         <Style TargetType="StackPanel">
                             <Setter Property="Visibility" Value="Collapsed"/>
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding GlobalSearch}" Value="">
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding GlobalSearch}" Value=""/>
+                                        <Condition Binding="{Binding HasWantedCards}" Value="False"/>
+                                    </MultiDataTrigger.Conditions>
                                     <Setter Property="Visibility" Value="Visible"/>
-                                </DataTrigger>
+                                </MultiDataTrigger>
                             </Style.Triggers>
                         </Style>
                     </StackPanel.Style>
@@ -760,7 +844,7 @@
         </Grid>
 
         <!-- ===== BARRE DE STATUT ===== -->
-        <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+        <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
                 Background="{StaticResource BrushAccent}"
                 Padding="10,0">
             <Grid>
