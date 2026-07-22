@@ -17,8 +17,11 @@ public partial class MainViewModel : ObservableObject
     private readonly AppDbContext _db;
 
     public ObservableCollection<SeriesViewModel> Series { get; } = [];
+    public ObservableCollection<SetViewModel> HomeFavorites { get; } = [];
+    public ObservableCollection<SearchResultViewModel> SearchResults { get; } = [];
 
     [ObservableProperty] private SetViewModel? _selectedSet;
+    [ObservableProperty] private string _globalSearch = "";
     [ObservableProperty] private string _statusText = "Welcome to Cardex";
     [ObservableProperty] private BitmapImage? _appLogo;
     [ObservableProperty] private ImageSource? _appName;
@@ -31,6 +34,99 @@ public partial class MainViewModel : ObservableObject
         _db = db;
     }
 
+    public bool IsHomeVisible => SelectedSet is null;
+
+    partial void OnSelectedSetChanged(SetViewModel? value)
+        => OnPropertyChanged(nameof(IsHomeVisible));
+
+    private CancellationTokenSource? _searchCts;
+
+    partial void OnGlobalSearchChanged(string value)
+    {
+        _searchCts?.Cancel();
+        _searchCts = new CancellationTokenSource();
+        var token = _searchCts.Token;
+        _ = Task.Delay(300, token).ContinueWith(
+            _ => RunSearchAsync(value, token),
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnRanToCompletion,
+            TaskScheduler.FromCurrentSynchronizationContext());
+    }
+
+    private async Task RunSearchAsync(string query, CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            SearchResults.Clear();
+            return;
+        }
+
+        try
+        {
+            var q = query.Trim();
+            var cards = await _db.CachedCards
+                .Where(c => EF.Functions.Like(c.Name, $"%{q}%") || EF.Functions.Like(c.Number, $"%{q}%"))
+                .OrderBy(c => c.Name)
+                .Take(100)
+                .ToListAsync(token);
+
+            if (token.IsCancellationRequested) return;
+
+            var setIds = cards.Select(c => c.SetId).Distinct().ToList();
+            var setNames = await _db.CachedSets
+                .Where(s => setIds.Contains(s.SetId))
+                .ToDictionaryAsync(s => s.SetId, s => s.Name, token);
+
+            if (token.IsCancellationRequested) return;
+
+            var cardIds = cards.Select(c => c.CardId).ToList();
+            var ownedQty = await _db.OwnedCards
+                .Where(o => cardIds.Contains(o.CardId))
+                .ToDictionaryAsync(o => o.CardId, o => o.Quantity, token);
+
+            if (token.IsCancellationRequested) return;
+
+            SearchResults.Clear();
+            foreach (var c in cards)
+                SearchResults.Add(new SearchResultViewModel(
+                    c.CardId, c.Name, c.Number, c.SetId,
+                    setNames.GetValueOrDefault(c.SetId, c.SetId),
+                    c.ImageSmall, c.Rarity,
+                    ownedQty.GetValueOrDefault(c.CardId),
+                    _imageCache));
+
+            using var sem = new SemaphoreSlim(8, 8);
+            _ = Task.WhenAll(SearchResults.Select(async vm =>
+            {
+                await sem.WaitAsync();
+                try { await vm.LoadImageAsync(); }
+                catch { }
+                finally { sem.Release(); }
+            }));
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    [RelayCommand]
+    private async Task OpenSearchResultAsync(SearchResultViewModel result)
+    {
+        var set = Series.SelectMany(s => s.Sets).FirstOrDefault(s => s.SetId == result.SetId);
+        if (set is null) return;
+        GlobalSearch = "";
+        SearchResults.Clear();
+        await SelectSetAsync(set);
+    }
+
+    [RelayCommand]
+    private void GoHome()
+    {
+        if (SelectedSet is not null)
+            SelectedSet.IsSelected = false;
+        SelectedSet = null;
+        GlobalSearch = "";
+        SearchResults.Clear();
+    }
+
     [RelayCommand]
     public async Task LoadSetsAsync()
     {
@@ -39,29 +135,50 @@ public partial class MainViewModel : ObservableObject
         StatusText = "Loading sets…";
         try
         {
-            var apiSets = await _tcgService.GetSetsAsync();
+            int newCount = 0;
+            string? apiError = null;
 
-            var cachedIds = (await _db.CachedSets.Select(s => s.SetId).ToListAsync()).ToHashSet();
-            var newSets = apiSets.Where(s => !cachedIds.Contains(s.Id)).ToList();
-
-            if (newSets.Count > 0)
+            try
             {
-                _db.CachedSets.AddRange(newSets.Select(s => new CachedSet
+                var apiSets = await _tcgService.GetSetsAsync();
+                var cachedIds = (await _db.CachedSets.Select(s => s.SetId).ToListAsync()).ToHashSet();
+                var newSets = apiSets.Where(s => !cachedIds.Contains(s.Id)).ToList();
+                newCount = newSets.Count;
+
+                if (newSets.Count > 0)
                 {
-                    SetId = s.Id, Name = s.Name, Series = s.Series, Total = s.Total,
-                    ReleaseDate = s.ReleaseDate, LogoUrl = s.Images.Logo,
-                    SymbolUrl = s.Images.Symbol, CachedAt = DateTime.UtcNow
-                }));
-                await _db.SaveChangesAsync();
+                    _db.CachedSets.AddRange(newSets.Select(s => new CachedSet
+                    {
+                        SetId = s.Id, Name = s.Name, Series = s.Series, Total = s.Total,
+                        ReleaseDate = s.ReleaseDate, LogoUrl = s.Images.Logo,
+                        SymbolUrl = s.Images.Symbol, CachedAt = DateTime.UtcNow
+                    }));
+                    await _db.SaveChangesAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                apiError = ex.Message;
             }
 
             var allCached = await _db.CachedSets.OrderBy(s => s.ReleaseDate).ToListAsync();
+
+            if (allCached.Count == 0)
+            {
+                StatusText = apiError is null
+                    ? "No sets found"
+                    : $"API unavailable and no local cache — check your connection";
+                return;
+            }
+
             BuildSeries(allCached.Select(s =>
                 new SetData(s.SetId, s.Name, s.Total, s.Series, s.ReleaseDate, s.LogoUrl, s.SymbolUrl)));
 
-            StatusText = newSets.Count > 0
-                ? $"{allCached.Count} sets loaded — {newSets.Count} new"
-                : $"{allCached.Count} sets loaded";
+            StatusText = apiError is not null
+                ? $"{allCached.Count} sets loaded from cache (API error: {apiError})"
+                : newCount > 0
+                    ? $"{allCached.Count} sets loaded — {newCount} new"
+                    : $"{allCached.Count} sets loaded";
 
             var favoriteIds = (await _db.FavoriteSets.Select(f => f.SetId).ToListAsync()).ToHashSet();
             ApplyFavorites(favoriteIds);
@@ -69,6 +186,10 @@ public partial class MainViewModel : ObservableObject
 
             await ApplyOwnedCountsAsync();
             _ = LoadSymbolsAsync(Series.SelectMany(s => s.Sets).ToList());
+
+            _preloadCts?.Cancel();
+            _preloadCts = new CancellationTokenSource();
+            _ = PreloadAllCardsAsync(_preloadCts.Token);
         }
         catch (Exception ex)
         {
@@ -85,7 +206,8 @@ public partial class MainViewModel : ObservableObject
     {
         if (IsBusy) return;
 
-        // Supprime le cache sets et cartes, recharge tout depuis l'API
+        _preloadCts?.Cancel();
+
         await _db.CachedSets.ExecuteDeleteAsync();
         await _db.CachedCards.ExecuteDeleteAsync();
 
@@ -145,6 +267,10 @@ public partial class MainViewModel : ObservableObject
             .SelectMany(s => s.Sets)
             .Where(s => s.IsFavorite)
             .ToList();
+
+        HomeFavorites.Clear();
+        foreach (var set in favorites)
+            HomeFavorites.Add(set);
 
         if (favorites.Count == 0) return;
 
@@ -213,20 +339,28 @@ public partial class MainViewModel : ObservableObject
             }
             else
             {
-                var apiCards = await _tcgService.GetCardsAsync(set.SetId);
-
-                _db.CachedCards.AddRange(apiCards.Select((c, i) => new CachedCard
+                try
                 {
-                    CardId = c.Id, SetId = c.Set.Id, Name = c.Name,
-                    Number = c.Number, ImageSmall = c.Images.Small,
-                    Rarity = c.Rarity, SortOrder = i
-                }));
-                await _db.SaveChangesAsync();
+                    var apiCards = await _tcgService.GetCardsAsync(set.SetId);
 
-                BuildCardViewModels(apiCards.Select(c =>
-                    new CardData(c.Id, c.Name, c.Number, c.Set.Id, c.Images.Small, c.Rarity)),
-                    ownedMap, wantedIds, set);
-                StatusText = $"{set.Name} — {set.CompletionText}";
+                    _db.CachedCards.AddRange(apiCards.Select((c, i) => new CachedCard
+                    {
+                        CardId = c.Id, SetId = c.Set.Id, Name = c.Name,
+                        Number = c.Number, ImageSmall = c.Images.Small,
+                        Rarity = c.Rarity, SortOrder = i
+                    }));
+                    await _db.SaveChangesAsync();
+
+                    BuildCardViewModels(apiCards.Select(c =>
+                        new CardData(c.Id, c.Name, c.Number, c.Set.Id, c.Images.Small, c.Rarity)),
+                        ownedMap, wantedIds, set);
+                    StatusText = $"{set.Name} — {set.CompletionText}";
+                }
+                catch (Exception ex)
+                {
+                    StatusText = $"Could not load {set.Name} — API error: {ex.Message}";
+                    return;
+                }
             }
 
             set.NotifyCardsLoaded();
@@ -303,6 +437,71 @@ public partial class MainViewModel : ObservableObject
             finally { semaphore.Release(); }
         });
         await Task.WhenAll(tasks);
+    }
+
+    private CancellationTokenSource? _preloadCts;
+
+    private async Task PreloadAllCardsAsync(CancellationToken token)
+    {
+        try
+        {
+            var cachedSetIds = (await _db.CachedCards
+                .Select(c => c.SetId).Distinct()
+                .ToListAsync(token)).ToHashSet();
+
+            var toLoad = Series.SelectMany(s => s.Sets)
+                .Where(s => !cachedSetIds.Contains(s.SetId))
+                .ToList();
+
+            if (toLoad.Count == 0) return;
+
+            int done = 0, total = toLoad.Count;
+            using var db = new AppDbContext();
+
+            // Semaphore limite à 3 fetches API simultanés ; écriture DB séquentielle
+            using var sem = new SemaphoreSlim(3, 3);
+
+            async Task<(string SetId, List<ApiCard>? Cards)> FetchAsync(SetViewModel set)
+            {
+                await sem.WaitAsync(token);
+                try
+                {
+                    var cards = await _tcgService.GetCardsAsync(set.SetId);
+                    return (set.SetId, cards);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch { return (set.SetId, null); }
+                finally { sem.Release(); }
+            }
+
+            var fetchTasks = toLoad.Select(FetchAsync).ToList();
+
+            foreach (var task in fetchTasks)
+            {
+                if (token.IsCancellationRequested) break;
+
+                var (setId, cards) = await task;
+                done++;
+
+                if (cards is not null && !await db.CachedCards.AnyAsync(c => c.SetId == setId, token))
+                {
+                    db.CachedCards.AddRange(cards.Select((c, i) => new CachedCard
+                    {
+                        CardId = c.Id, SetId = c.Set.Id, Name = c.Name,
+                        Number = c.Number, ImageSmall = c.Images.Small,
+                        Rarity = c.Rarity, SortOrder = i
+                    }));
+                    await db.SaveChangesAsync(token);
+                }
+
+                if (SelectedSet is null)
+                    StatusText = $"Indexing… {done}/{total} sets cached";
+            }
+
+            if (!token.IsCancellationRequested && SelectedSet is null)
+                StatusText = $"{total} sets · all cards indexed — global search ready";
+        }
+        catch (OperationCanceledException) { }
     }
 
     private bool _isBulkUpdate;

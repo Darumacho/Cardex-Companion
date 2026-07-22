@@ -1,10 +1,12 @@
 ﻿using Cardex.Data;
+using Cardex.Models;
 using Cardex.Services;
 using Cardex.ViewModels;
 using Cardex.Views;
 using Microsoft.EntityFrameworkCore;
 using System.IO;
 using System.Reflection;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -47,7 +49,8 @@ public partial class App : Application
                 SetId TEXT PRIMARY KEY NOT NULL)"); }
         catch { }
 
-        var tcgService = new PokemonTcgService();
+        var settings = AppSettings.Load();
+        var tcgService = new PokemonTcgService(settings.ApiKey);
         var imageCache = new ImageCacheService();
 
         MainVm = new MainViewModel(tcgService, imageCache, db);
@@ -81,8 +84,73 @@ public partial class App : Application
 
         window.Show();
 
+        await SeedDbFromEmbeddedAsync(db);
         await MainVm.LoadSetsAsync();
     }
+
+    private static async Task SeedDbFromEmbeddedAsync(AppDbContext db)
+    {
+        try
+        {
+            if (await db.CachedSets.AnyAsync()) return;
+
+            var asm = Assembly.GetExecutingAssembly();
+            var jsonOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+            // StreamReader with BOM detection — PowerShell 5.1 adds UTF-8 BOM
+            using var setsStream = asm.GetManifestResourceStream("Cardex.SeedData.sets.json");
+            if (setsStream is null) return;
+            var setsJson = await new StreamReader(setsStream, detectEncodingFromByteOrderMarks: true).ReadToEndAsync();
+            var sets = JsonSerializer.Deserialize<List<SeedSetEntry>>(setsJson, jsonOpts);
+            if (sets is null || sets.Count == 0) return;
+
+            db.ChangeTracker.AutoDetectChangesEnabled = false;
+
+            db.CachedSets.AddRange(sets.Select(s => new CachedSet
+            {
+                SetId = s.Id, Name = s.Name, Series = s.Series, Total = s.Total,
+                ReleaseDate = s.ReleaseDate, LogoUrl = s.LogoUrl, SymbolUrl = s.SymbolUrl,
+                CachedAt = DateTime.UtcNow
+            }));
+            await db.SaveChangesAsync();
+            db.ChangeTracker.Clear();
+
+            using var cardsStream = asm.GetManifestResourceStream("Cardex.SeedData.cards.json");
+            if (cardsStream is not null)
+            {
+                var cardsJson = await new StreamReader(cardsStream, detectEncodingFromByteOrderMarks: true).ReadToEndAsync();
+                var cards = JsonSerializer.Deserialize<List<SeedCardEntry>>(cardsJson, jsonOpts);
+                if (cards is not null && cards.Count > 0)
+                {
+                    int sort = 0;
+                    foreach (var batch in cards.Chunk(1000))
+                    {
+                        db.CachedCards.AddRange(batch.Select(c => new CachedCard
+                        {
+                            CardId = c.Id, SetId = c.SetId, Name = c.Name,
+                            Number = c.Number, ImageSmall = c.ImageSmall,
+                            Rarity = c.Rarity, SortOrder = sort++
+                        }));
+                        await db.SaveChangesAsync();
+                        db.ChangeTracker.Clear();
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Seed failed: {ex}");
+        }
+        finally
+        {
+            db.ChangeTracker.AutoDetectChangesEnabled = true;
+        }
+    }
+
+    private record SeedSetEntry(string Id, string Name, string Series, int Total,
+        string ReleaseDate, string LogoUrl, string SymbolUrl);
+    private record SeedCardEntry(string Id, string Name, string Number,
+        string SetId, string ImageSmall, string? Rarity);
 
     private static ImageSource LoadAndCrop(Stream stream)
     {

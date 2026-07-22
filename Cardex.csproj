@@ -7,6 +7,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>Logo.ico</ApplicationIcon>
+    <!-- Publish single-file -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!-- Exclure les satellites de langues inutiles -->
+    <SatelliteResourceLanguages>fr</SatelliteResourceLanguages>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,6 +22,8 @@
     </Content>
     <EmbeddedResource Include="Logo.png"/>
     <EmbeddedResource Include="Name.png"/>
+    <EmbeddedResource Include="SeedData\sets.json" LogicalName="Cardex.SeedData.sets.json"/>
+    <EmbeddedResource Include="SeedData\cards.json" LogicalName="Cardex.SeedData.cards.json"/>
   </ItemGroup>
 
   <ItemGroup>

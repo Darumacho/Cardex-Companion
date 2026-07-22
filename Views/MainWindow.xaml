@@ -200,6 +200,128 @@
                 </Border>
             </Button>
         </DataTemplate>
+
+        <!-- Template tuile favoris (écran d'accueil) -->
+        <DataTemplate x:Key="HomeFavoriteTileTemplate" DataType="{x:Type vm:SetViewModel}">
+            <Button Style="{StaticResource SetButtonStyle}"
+                    Command="{Binding DataContext.SelectSetCommand,
+                              RelativeSource={RelativeSource AncestorType=Window}}"
+                    CommandParameter="{Binding}"
+                    Margin="4">
+                <Border Width="120" CornerRadius="6" BorderThickness="2" Cursor="Hand">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
+                            <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsComplete}" Value="True">
+                                    <Setter Property="BorderBrush" Value="#ffd700"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                    <Setter Property="BorderBrush" Value="{StaticResource BrushHighlight}"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel>
+                        <Grid Height="48" Background="#111122">
+                            <Image Source="{Binding SymbolImage}" Width="32" Height="32"
+                                   Stretch="Uniform" HorizontalAlignment="Center"
+                                   RenderOptions.BitmapScalingMode="HighQuality"/>
+                        </Grid>
+                        <StackPanel Margin="6,4,6,6">
+                            <TextBlock Text="{Binding Name}"
+                                       Foreground="{StaticResource BrushText}"
+                                       FontSize="10" FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding Name}"/>
+                            <TextBlock Foreground="{StaticResource BrushSubtext}" FontSize="9">
+                                <Run Text="{Binding CompletionText, Mode=OneWay}"/>
+                            </TextBlock>
+                            <TextBlock Text="✓ Completed!"
+                                       Foreground="#ffd700"
+                                       FontSize="9" FontWeight="SemiBold">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsComplete}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Button>
+        </DataTemplate>
+
+        <!-- Template résultat de recherche globale -->
+        <DataTemplate x:Key="SearchResultTemplate" DataType="{x:Type vm:SearchResultViewModel}">
+            <Button Style="{StaticResource SetButtonStyle}"
+                    Command="{Binding DataContext.OpenSearchResultCommand,
+                              RelativeSource={RelativeSource AncestorType=Window}}"
+                    CommandParameter="{Binding}">
+                <Border Width="140" Margin="6" CornerRadius="8"
+                        Background="{StaticResource BrushPanel}"
+                        BorderThickness="2">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="BorderBrush" Value="{StaticResource BrushHighlight}"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding OwnedQuantity}" Value="0">
+                                    <Setter Property="BorderBrush" Value="Transparent"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel>
+                        <Grid Height="185" Background="#111122">
+                            <TextBlock Text="…" Foreground="{StaticResource BrushSubtext}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       FontSize="24"
+                                       Visibility="{Binding IsLoadingImage, Converter={StaticResource BoolToVis}}"/>
+                            <Image Source="{Binding CardImage}" Stretch="Uniform"
+                                   RenderOptions.BitmapScalingMode="HighQuality"/>
+                            <Border CornerRadius="4" Background="{StaticResource BrushHighlight}"
+                                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                                    Margin="0,4,4,0" Padding="4,2">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding OwnedQuantity}" Value="0">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding OwnedQuantity}"
+                                           Foreground="{StaticResource BrushBg}"
+                                           FontSize="10" FontWeight="Bold"/>
+                            </Border>
+                        </Grid>
+                        <StackPanel Margin="6,4,6,6">
+                            <TextBlock Text="{Binding Name}"
+                                       Foreground="{StaticResource BrushText}"
+                                       FontSize="11" FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding Name}"/>
+                            <TextBlock Text="{Binding SetName}"
+                                       Foreground="{StaticResource BrushHighlight}"
+                                       FontSize="10"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Foreground="{StaticResource BrushSubtext}" FontSize="10">
+                                <Run Text="N°"/><Run Text="{Binding Number, Mode=OneWay}"/>
+                                <Run Text=" · "/><Run Text="{Binding Rarity, Mode=OneWay}"/>
+                            </TextBlock>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Button>
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
@@ -233,11 +355,11 @@
                                    VerticalAlignment="Center"/>
                         </StackPanel>
                         <Button HorizontalAlignment="Right" VerticalAlignment="Center"
-                                Command="{Binding RefreshSetsCommand}"
-                                ToolTip="Refresh from API (clears cache)"
-                                FontSize="16" Padding="6,2"
+                                Command="{Binding GoHomeCommand}"
+                                ToolTip="Home"
+                                FontSize="18" Padding="6,2"
                                 Style="{StaticResource SetButtonStyle}">
-                            ↻
+                            ⌂
                         </Button>
                     </Grid>
                 </Border>
@@ -281,11 +403,155 @@
 
         <!-- ===== ZONE PRINCIPALE ===== -->
         <Grid Grid.Row="0" Grid.Column="1">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
+
+            <!-- Écran d'accueil -->
+            <Grid>
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsHomeVisible}" Value="True">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Barre de recherche globale -->
+                <Border Grid.Row="0" Background="{StaticResource BrushAccent}" Padding="20,14">
+                    <Grid>
+                        <TextBox Text="{Binding GlobalSearch, UpdateSourceTrigger=PropertyChanged}"
+                                 Background="#111122"
+                                 Foreground="{StaticResource BrushText}"
+                                 CaretBrush="{StaticResource BrushText}"
+                                 BorderBrush="{StaticResource BrushAccent}"
+                                 BorderThickness="1"
+                                 Padding="10,7"
+                                 FontSize="13">
+                            <TextBox.Resources>
+                                <Style TargetType="{x:Type Border}">
+                                    <Setter Property="CornerRadius" Value="4"/>
+                                </Style>
+                            </TextBox.Resources>
+                        </TextBox>
+                        <TextBlock Text="Search all cards across all sets…"
+                                   Foreground="{StaticResource BrushSubtext}"
+                                   FontSize="13" IsHitTestVisible="False"
+                                   Margin="12,0,0,0" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding GlobalSearch}" Value="">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+                </Border>
+
+                <!-- Sets favoris -->
+                <Border Grid.Row="1"
+                        Background="{StaticResource BrushPanel}"
+                        BorderBrush="{StaticResource BrushAccent}" BorderThickness="0,0,0,1"
+                        Padding="12,10">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HomeFavorites.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel>
+                        <TextBlock Text="★  Favorite Sets"
+                                   Foreground="#ffd700"
+                                   FontSize="12" FontWeight="Bold"
+                                   Margin="0,0,0,8"/>
+                        <ItemsControl ItemsSource="{Binding HomeFavorites}"
+                                      ItemTemplate="{StaticResource HomeFavoriteTileTemplate}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Résultats de recherche globale -->
+                <ScrollViewer Grid.Row="2"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Background="{StaticResource BrushBg}">
+                    <ScrollViewer.Style>
+                        <Style TargetType="ScrollViewer">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding GlobalSearch}" Value="">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ScrollViewer.Style>
+                    <ItemsControl ItemsSource="{Binding SearchResults}"
+                                  ItemTemplate="{StaticResource SearchResultTemplate}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" Margin="6"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- Message de bienvenue -->
+                <StackPanel Grid.Row="2"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding GlobalSearch}" Value="">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <TextBlock Text="Select a set from the sidebar"
+                               Foreground="{StaticResource BrushSubtext}" FontSize="16"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="or search for cards across all sets above"
+                               Foreground="{StaticResource BrushSubtext}" FontSize="12"
+                               HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- Vue set -->
+            <Grid>
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Visible"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsHomeVisible}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
 
             <!-- En-tête set sélectionné -->
             <Border Grid.Row="0" MinHeight="90" ClipToBounds="True">
@@ -490,16 +756,26 @@
                     </ItemsControl.ItemsPanel>
                 </ItemsControl>
             </ScrollViewer>
+            </Grid><!-- fin Vue set -->
         </Grid>
 
         <!-- ===== BARRE DE STATUT ===== -->
         <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
                 Background="{StaticResource BrushAccent}"
                 Padding="10,0">
-            <TextBlock Text="{Binding StatusText}"
-                       Foreground="{StaticResource BrushSubtext}"
-                       FontSize="11"
-                       VerticalAlignment="Center"/>
+            <Grid>
+                <TextBlock Text="{Binding StatusText}"
+                           Foreground="{StaticResource BrushSubtext}"
+                           FontSize="11"
+                           VerticalAlignment="Center"/>
+                <Button HorizontalAlignment="Right" VerticalAlignment="Center"
+                        Command="{Binding RefreshSetsCommand}"
+                        ToolTip="Refresh from API (clears cache)"
+                        FontSize="13" Padding="6,2"
+                        Style="{StaticResource SetButtonStyle}">
+                    ↻ Refresh
+                </Button>
+            </Grid>
         </Border>
     </Grid>
 </Window>
