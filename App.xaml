@@ -166,7 +166,8 @@
                                     <ContentPresenter Grid.Column="0"
                                                       Content="{TemplateBinding SelectionBoxItem}"
                                                       ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                                      VerticalAlignment="Center"/>
+                                                      VerticalAlignment="Center"
+                                                      IsHitTestVisible="False"/>
                                     <TextBlock Grid.Column="1"
                                                Text="▾"
                                                Foreground="{StaticResource BrushSubtext}"

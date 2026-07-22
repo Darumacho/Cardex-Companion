@@ -351,7 +351,7 @@
             <Grid>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Foreground="White" FontSize="12" VerticalAlignment="Center">
-                        <Run Text="Nouvelle version disponible : "/>
+                        <Run Text="A new version is available : "/>
                         <Run Text="{Binding PendingUpdate.Version, Mode=OneWay}" FontWeight="Bold"/>
                     </TextBlock>
                 </StackPanel>
@@ -366,10 +366,10 @@
                     <Button Command="{Binding InstallUpdateCommand}" FontSize="12" Padding="12,4">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource SetButtonStyle}">
-                                <Setter Property="Content" Value="⬇ Installer"/>
+                                <Setter Property="Content" Value="⬇ Install"/>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsUpdating}" Value="True">
-                                        <Setter Property="Content" Value="Téléchargement…"/>
+                                        <Setter Property="Content" Value="Downloading..."/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -416,29 +416,60 @@
                     <ItemsControl ItemsSource="{Binding Series}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type vm:SeriesViewModel}">
-                                <Expander IsExpanded="{Binding IsExpanded}"
-                                          Style="{StaticResource SeriesExpanderStyle}"
-                                          Margin="4,2">
-                                    <Expander.Header>
-                                        <TextBlock Text="{Binding SeriesName}"
-                                                   FontSize="11" FontWeight="Bold"
-                                                   Margin="2,0">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Foreground" Value="{StaticResource BrushHighlight}"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsFavoriteGroup}" Value="True">
-                                                            <Setter Property="Foreground" Value="#ffd700"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    </Expander.Header>
-                                    <ItemsControl ItemsSource="{Binding Sets}"
-                                                  ItemTemplate="{StaticResource SetItemTemplate}"
-                                                  Margin="8,0,0,0"/>
-                                </Expander>
+                                <StackPanel>
+                                    <!-- Label de section "All Sets" -->
+                                    <Border Padding="10,10,0,2">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsAllSetsHeader}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <TextBlock Text="ALL SETS"
+                                                   FontSize="9" FontWeight="Bold"
+                                                   Foreground="{StaticResource BrushSubtext}"/>
+                                    </Border>
+
+                                    <!-- Expander normal (Favorites, My Collection, séries) -->
+                                    <Expander IsExpanded="{Binding IsExpanded}"
+                                              Margin="4,2">
+                                        <Expander.Style>
+                                            <Style TargetType="Expander" BasedOn="{StaticResource SeriesExpanderStyle}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsAllSetsHeader}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Expander.Style>
+                                        <Expander.Header>
+                                            <TextBlock Text="{Binding SeriesName}"
+                                                       FontSize="11" FontWeight="Bold"
+                                                       Margin="2,0">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="{StaticResource BrushHighlight}"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsFavoriteGroup}" Value="True">
+                                                                <Setter Property="Foreground" Value="#ffd700"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsMyCollectionGroup}" Value="True">
+                                                                <Setter Property="Foreground" Value="#4ecdc4"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Expander.Header>
+                                        <ItemsControl ItemsSource="{Binding Sets}"
+                                                      ItemTemplate="{StaticResource SetItemTemplate}"
+                                                      Margin="8,0,0,0"/>
+                                    </Expander>
+                                </StackPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -683,36 +714,42 @@
                                        FontSize="11"
                                        Foreground="{StaticResource BrushSubtext}"
                                        Visibility="{Binding SelectedSet, Converter={StaticResource BoolToVis}}"/>
-                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                                <ToggleButton IsChecked="{Binding SelectedSet.ShowWantsOnly}"
-                                              FontSize="12" Margin="0,0,8,0">
-                                    <ToggleButton.Style>
-                                        <Style TargetType="ToggleButton" BasedOn="{StaticResource ToggleButtonStyle}">
-                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding SelectedSet.IsLoading}" Value="False">
-                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </ToggleButton.Style>
-                                    ★ Show all wants
-                                </ToggleButton>
-                                <ToggleButton IsChecked="{Binding SelectedSet.ShowDupesOnly}"
-                                              FontSize="12">
-                                    <ToggleButton.Style>
-                                        <Style TargetType="ToggleButton" BasedOn="{StaticResource ToggleButtonStyle}">
-                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding SelectedSet.IsLoading}" Value="False">
-                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </ToggleButton.Style>
-                                    Show dupes only
-                                </ToggleButton>
-                            </StackPanel>
+                            <Grid Margin="0,6,0,0">
+                                <Grid.Style>
+                                    <Style TargetType="Grid">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedSet.IsLoading}" Value="False">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Grid.Style>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <ToggleButton Grid.Row="0" Grid.Column="0"
+                                              IsChecked="{Binding SelectedSet.ShowWantsOnly}"
+                                              FontSize="12" Margin="0,0,4,4"
+                                              Style="{StaticResource ToggleButtonStyle}">★ Wants</ToggleButton>
+                                <ToggleButton Grid.Row="0" Grid.Column="1"
+                                              IsChecked="{Binding SelectedSet.ShowDupesOnly}"
+                                              FontSize="12" Margin="0,0,0,4"
+                                              Style="{StaticResource ToggleButtonStyle}">Dupes</ToggleButton>
+                                <ToggleButton Grid.Row="1" Grid.Column="0"
+                                              IsChecked="{Binding SelectedSet.ShowOwnedOnly}"
+                                              FontSize="12" Margin="0,0,4,0"
+                                              Style="{StaticResource ToggleButtonStyle}">Owned</ToggleButton>
+                                <ToggleButton Grid.Row="1" Grid.Column="1"
+                                              IsChecked="{Binding SelectedSet.ShowMissingOnly}"
+                                              FontSize="12"
+                                              Style="{StaticResource ToggleButtonStyle}">Missing</ToggleButton>
+                            </Grid>
                         </StackPanel>
 
                         <!-- Droite : bouton + compteur -->
@@ -806,9 +843,9 @@
 
                     <!-- Sélecteur de rareté -->
                     <ComboBox Grid.Column="1"
-                              Style="{StaticResource DarkComboBoxStyle}"
                               ItemsSource="{Binding SelectedSet.AvailableRarities}"
-                              SelectedItem="{Binding SelectedSet.SelectedRarity}"
+                              SelectedItem="{Binding SelectedSet.SelectedRarity, Mode=OneWay}"
+                              SelectionChanged="RarityFilter_SelectionChanged"
                               FontSize="12"
                               Margin="8,0,0,0"/>
                 </Grid>

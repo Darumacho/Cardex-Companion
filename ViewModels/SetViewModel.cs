@@ -32,6 +32,14 @@ public partial class SetViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FilteredCards))]
+    private bool _showOwnedOnly;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FilteredCards))]
+    private bool _showMissingOnly;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FilteredCards))]
     private string _searchText = "";
 
     [ObservableProperty]
@@ -58,6 +66,10 @@ public partial class SetViewModel : ObservableObject
                 cards = cards.Where(c => c.IsWanted);
             if (ShowDupesOnly)
                 cards = cards.Where(c => c.Quantity > 1);
+            if (ShowOwnedOnly)
+                cards = cards.Where(c => c.IsOwned);
+            if (ShowMissingOnly)
+                cards = cards.Where(c => !c.IsOwned);
             if (!string.IsNullOrWhiteSpace(SearchText))
             {
                 var q = SearchText.Trim();

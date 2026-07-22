@@ -198,7 +198,7 @@ public partial class MainViewModel : ObservableObject
 
             var favoriteIds = (await _db.FavoriteSets.Select(f => f.SetId).ToListAsync()).ToHashSet();
             ApplyFavorites(favoriteIds);
-            RefreshFavoritesGroup();
+            RefreshSpecialGroups();
 
             await ApplyOwnedCountsAsync();
             _ = LoadSymbolsAsync(Series.SelectMany(s => s.Sets).ToList());
@@ -265,7 +265,7 @@ public partial class MainViewModel : ObservableObject
             _db.FavoriteSets.Remove(entry);
         }
         await _db.SaveChangesAsync();
-        RefreshFavoritesGroup();
+        RefreshSpecialGroups();
     }
 
     private void ApplyFavorites(HashSet<string> favoriteIds)
@@ -275,26 +275,41 @@ public partial class MainViewModel : ObservableObject
                 set.IsFavorite = favoriteIds.Contains(set.SetId);
     }
 
-    private void RefreshFavoritesGroup()
+    private void RefreshSpecialGroups()
     {
-        var favGroup = Series.FirstOrDefault(s => s.IsFavoriteGroup);
-        if (favGroup != null) Series.Remove(favGroup);
+        // Remove existing special groups
+        foreach (var g in Series.Where(s => s.IsFavoriteGroup || s.IsMyCollectionGroup || s.IsAllSetsHeader).ToList())
+            Series.Remove(g);
 
-        var favorites = Series
-            .SelectMany(s => s.Sets)
-            .Where(s => s.IsFavorite)
+        var allSets = Series.SelectMany(s => s.Sets).ToList();
+
+        var favorites = allSets.Where(s => s.IsFavorite).ToList();
+        HomeFavorites.Clear();
+        foreach (var s in favorites) HomeFavorites.Add(s);
+
+        var collected = allSets
+            .Where(s => s.OwnedCount > 0)
+            .OrderBy(s => s.ReleaseDate)
             .ToList();
 
-        HomeFavorites.Clear();
-        foreach (var set in favorites)
-            HomeFavorites.Add(set);
+        int pos = 0;
 
-        if (favorites.Count == 0) return;
+        if (favorites.Count > 0)
+        {
+            var g = new SeriesViewModel("★ Favorites", isFavoriteGroup: true);
+            foreach (var s in favorites) g.Sets.Add(s);
+            Series.Insert(pos++, g);
+        }
 
-        var group = new SeriesViewModel("★ Favorites", isFavoriteGroup: true);
-        foreach (var set in favorites)
-            group.Sets.Add(set);
-        Series.Insert(0, group);
+        if (collected.Count > 0)
+        {
+            var g = new SeriesViewModel("My Collection", isMyCollectionGroup: true);
+            foreach (var s in collected) g.Sets.Add(s);
+            Series.Insert(pos++, g);
+        }
+
+        if (Series.Count > pos)
+            Series.Insert(pos, new SeriesViewModel("All Sets", isAllSetsHeader: true));
     }
 
     private async Task ApplyOwnedCountsAsync()
@@ -585,6 +600,7 @@ public partial class MainViewModel : ObservableObject
 
         await _db.SaveChangesAsync();
         set.NotifyOwnershipChanged();
+        RefreshSpecialGroups();
         StatusText = $"{set.Name} — {set.CompletionText}";
     }
 
@@ -624,6 +640,7 @@ public partial class MainViewModel : ObservableObject
 
             await _db.SaveChangesAsync();
             SelectedSet.NotifyOwnershipChanged();
+            RefreshSpecialGroups();
             StatusText = $"{SelectedSet.Name} — {SelectedSet.CompletionText}";
         }
         finally

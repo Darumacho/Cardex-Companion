@@ -22,6 +22,13 @@ public partial class MainWindow : Window
         await LoadVisibleCardImagesAsync();
     }
 
+    private void RarityFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (e.AddedItems.Count > 0 && e.AddedItems[0] is string rarity
+            && DataContext is MainViewModel vm && vm.SelectedSet is not null)
+            vm.SelectedSet.SelectedRarity = rarity;
+    }
+
     private async Task LoadVisibleCardImagesAsync()
     {
         if (DataContext is not MainViewModel vm || vm.SelectedSet is null) return;
