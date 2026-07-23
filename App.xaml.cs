@@ -48,6 +48,11 @@ public partial class App : Application
             CREATE TABLE IF NOT EXISTS FavoriteSets (
                 SetId TEXT PRIMARY KEY NOT NULL)"); }
         catch { }
+        try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN CmLow REAL"); } catch { }
+        try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN TcgLow REAL"); } catch { }
+        try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN PricesUpdatedAt TEXT"); } catch { }
+        try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN CmUrl TEXT"); } catch { }
+        try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN TcgUrl TEXT"); } catch { }
 
         var settings = AppSettings.Load();
         var tcgService = new PokemonTcgService(settings.ApiKey);

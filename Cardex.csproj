@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0-windows</TargetFramework>
-    <Version>1.1</Version>
+    <Version>1.2</Version>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
@@ -25,6 +25,8 @@
     <EmbeddedResource Include="Name.png"/>
     <EmbeddedResource Include="SeedData\sets.json" LogicalName="Cardex.SeedData.sets.json"/>
     <EmbeddedResource Include="SeedData\cards.json" LogicalName="Cardex.SeedData.cards.json"/>
+    <Resource Include="Assets\cardmarket.png"/>
+    <Resource Include="Assets\tcgplayer.png"/>
   </ItemGroup>
 
   <ItemGroup>

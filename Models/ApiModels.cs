@@ -35,6 +35,30 @@ public record ApiCard
     [JsonPropertyName("set")] public ApiCardSet Set { get; init; } = new();
     [JsonPropertyName("images")] public ApiCardImages Images { get; init; } = new();
     [JsonPropertyName("rarity")] public string? Rarity { get; init; }
+    [JsonPropertyName("tcgplayer")] public ApiTcgPlayer? Tcgplayer { get; init; }
+    [JsonPropertyName("cardmarket")] public ApiCardmarket? Cardmarket { get; init; }
+}
+
+public record ApiTcgPlayer
+{
+    [JsonPropertyName("url")] public string? Url { get; init; }
+    [JsonPropertyName("prices")] public Dictionary<string, ApiTcgPlayerPrices>? Prices { get; init; }
+}
+
+public record ApiTcgPlayerPrices
+{
+    [JsonPropertyName("low")] public decimal? Low { get; init; }
+}
+
+public record ApiCardmarket
+{
+    [JsonPropertyName("url")] public string? Url { get; init; }
+    [JsonPropertyName("prices")] public ApiCardmarketPrices? Prices { get; init; }
+}
+
+public record ApiCardmarketPrices
+{
+    [JsonPropertyName("lowPrice")] public decimal? LowPrice { get; init; }
 }
 
 public record ApiCardSet

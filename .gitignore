@@ -29,3 +29,5 @@ publish/
 *.db-shm
 *.db-wal
 CONTEXT.md
+*.ico
+*.png

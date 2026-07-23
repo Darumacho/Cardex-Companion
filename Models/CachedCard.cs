@@ -11,4 +11,9 @@ public class CachedCard
     public string ImageSmall { get; set; } = "";
     public string? Rarity { get; set; }
     public int SortOrder { get; set; }
+    public decimal? CmLow { get; set; }
+    public decimal? TcgLow { get; set; }
+    public DateTime? PricesUpdatedAt { get; set; }
+    public string? CmUrl { get; set; }
+    public string? TcgUrl { get; set; }
 }

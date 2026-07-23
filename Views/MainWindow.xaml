@@ -62,6 +62,34 @@
                                     <Run Text="·"/>
                                     <Run Text="{Binding Rarity, Mode=OneWay}"/>
                                 </TextBlock>
+                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                    <Image Source="/Assets/cardmarket.png" Width="11" Height="11" Margin="0,0,2,0"
+                                           RenderOptions.BitmapScalingMode="HighQuality"
+                                           Cursor="Hand" ToolTip="{Binding CmTooltip}">
+                                        <Image.InputBindings>
+                                            <MouseBinding MouseAction="LeftClick" Command="{Binding OpenCmLinkCommand}"/>
+                                        </Image.InputBindings>
+                                    </Image>
+                                    <TextBlock Text="{Binding CmLowText}" Foreground="{StaticResource BrushText}" FontSize="9"
+                                               Cursor="Hand" ToolTip="{Binding CmTooltip}">
+                                        <TextBlock.InputBindings>
+                                            <MouseBinding MouseAction="LeftClick" Command="{Binding OpenCmLinkCommand}"/>
+                                        </TextBlock.InputBindings>
+                                    </TextBlock>
+                                    <Image Source="/Assets/tcgplayer.png" Width="11" Height="11" Margin="6,0,2,0"
+                                           RenderOptions.BitmapScalingMode="HighQuality"
+                                           Cursor="Hand" ToolTip="{Binding TcgTooltip}">
+                                        <Image.InputBindings>
+                                            <MouseBinding MouseAction="LeftClick" Command="{Binding OpenTcgLinkCommand}"/>
+                                        </Image.InputBindings>
+                                    </Image>
+                                    <TextBlock Text="{Binding TcgLowText}" Foreground="{StaticResource BrushText}" FontSize="9"
+                                               Cursor="Hand" ToolTip="{Binding TcgTooltip}">
+                                        <TextBlock.InputBindings>
+                                            <MouseBinding MouseAction="LeftClick" Command="{Binding OpenTcgLinkCommand}"/>
+                                        </TextBlock.InputBindings>
+                                    </TextBlock>
+                                </StackPanel>
 
                                 <!-- Checkbox Owned + compteur d'exemplaires -->
                                 <CheckBox Margin="0,4,0,0"

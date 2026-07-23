@@ -20,6 +20,25 @@ public partial class CardViewModel : ObservableObject
     [ObservableProperty] private bool _isLoadingImage;
     [ObservableProperty] private bool _isWanted;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CmLowText))]
+    [NotifyPropertyChangedFor(nameof(CmTooltip))]
+    private decimal? _cmLow;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TcgLowText))]
+    [NotifyPropertyChangedFor(nameof(TcgTooltip))]
+    private decimal? _tcgLow;
+
+    public DateTime? PricesUpdatedAt { get; set; }
+    public string? CmUrl { get; set; }
+    public string? TcgUrl { get; set; }
+
+    public string CmLowText   => CmLow.HasValue  ? $"€{CmLow.Value:F2}"  : "—";
+    public string TcgLowText  => TcgLow.HasValue ? $"${TcgLow.Value:F2}" : "—";
+    public string CmTooltip   => $"Cardmarket : {CmLowText}";
+    public string TcgTooltip  => $"TCGPlayer : {TcgLowText}";
+
     private int _quantity;
     private bool _isOwned;
 
@@ -71,6 +90,20 @@ public partial class CardViewModel : ObservableObject
 
     [RelayCommand]
     private void Decrement() => Quantity--;
+
+    [RelayCommand]
+    private void OpenCmLink()
+    {
+        if (CmUrl is null) return;
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(CmUrl) { UseShellExecute = true });
+    }
+
+    [RelayCommand]
+    private void OpenTcgLink()
+    {
+        if (TcgUrl is null) return;
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(TcgUrl) { UseShellExecute = true });
+    }
 
     public async Task LoadImageAsync()
     {

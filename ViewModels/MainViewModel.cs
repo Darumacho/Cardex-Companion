@@ -365,26 +365,35 @@ public partial class MainViewModel : ObservableObject
             if (cachedCards.Count > 0)
             {
                 BuildCardViewModels(cachedCards.Select(c =>
-                    new CardData(c.CardId, c.Name, c.Number, c.SetId, c.ImageSmall, c.Rarity)),
+                    new CardData(c.CardId, c.Name, c.Number, c.SetId, c.ImageSmall, c.Rarity, c.CmLow, c.TcgLow, c.PricesUpdatedAt, c.CmUrl, c.TcgUrl)),
                     ownedMap, wantedIds, set);
                 StatusText = $"{set.Name} — {set.CompletionText}";
+                _ = RefreshPricesIfNeededAsync(set);
             }
             else
             {
                 try
                 {
                     var apiCards = await _tcgService.GetCardsAsync(set.SetId);
+                    var now = DateTime.UtcNow;
 
                     _db.CachedCards.AddRange(apiCards.Select((c, i) => new CachedCard
                     {
                         CardId = c.Id, SetId = c.Set.Id, Name = c.Name,
                         Number = c.Number, ImageSmall = c.Images.Small,
-                        Rarity = c.Rarity, SortOrder = i
+                        Rarity = c.Rarity, SortOrder = i,
+                        CmLow = c.Cardmarket?.Prices?.LowPrice,
+                        TcgLow = ExtractTcgLow(c),
+                        PricesUpdatedAt = now,
+                        CmUrl = c.Cardmarket?.Url,
+                        TcgUrl = c.Tcgplayer?.Url
                     }));
                     await _db.SaveChangesAsync();
 
                     BuildCardViewModels(apiCards.Select(c =>
-                        new CardData(c.Id, c.Name, c.Number, c.Set.Id, c.Images.Small, c.Rarity)),
+                        new CardData(c.Id, c.Name, c.Number, c.Set.Id, c.Images.Small, c.Rarity,
+                            c.Cardmarket?.Prices?.LowPrice, ExtractTcgLow(c), now,
+                            c.Cardmarket?.Url, c.Tcgplayer?.Url)),
                         ownedMap, wantedIds, set);
                     StatusText = $"{set.Name} — {set.CompletionText}";
                 }
@@ -417,7 +426,14 @@ public partial class MainViewModel : ObservableObject
                 card.ImageSmall, card.Rarity,
                 ownedMap.TryGetValue(card.Id, out var qty) ? qty : 0,
                 wantedIds.Contains(card.Id),
-                _imageCache);
+                _imageCache)
+            {
+                CmLow = card.CmLow,
+                TcgLow = card.TcgLow,
+                PricesUpdatedAt = card.PricesUpdatedAt,
+                CmUrl = card.CmUrl,
+                TcgUrl = card.TcgUrl
+            };
 
             vm.PropertyChanged += async (s, e) =>
             {
@@ -667,6 +683,52 @@ public partial class MainViewModel : ObservableObject
 
     private bool CanInstallUpdate() => !IsUpdating;
 
+    private static decimal? ExtractTcgLow(ApiCard card)
+    {
+        if (card.Tcgplayer?.Prices is null) return null;
+        var lows = card.Tcgplayer.Prices.Values
+            .Where(p => p.Low.HasValue).Select(p => p.Low!.Value);
+        return lows.Any() ? lows.Min() : null;
+    }
+
+    private async Task RefreshPricesIfNeededAsync(SetViewModel set)
+    {
+        try
+        {
+            var sample = await _db.CachedCards.Where(c => c.SetId == set.SetId).FirstOrDefaultAsync();
+            if (sample?.PricesUpdatedAt > DateTime.UtcNow.AddHours(-24)) return;
+
+            var apiCards = await _tcgService.GetCardsAsync(set.SetId);
+            var cardMap = apiCards.ToDictionary(c => c.Id);
+            var now = DateTime.UtcNow;
+
+            var cached = await _db.CachedCards.Where(c => c.SetId == set.SetId).ToListAsync();
+            foreach (var row in cached)
+            {
+                if (!cardMap.TryGetValue(row.CardId, out var api)) continue;
+                row.CmLow = api.Cardmarket?.Prices?.LowPrice;
+                row.TcgLow = ExtractTcgLow(api);
+                row.PricesUpdatedAt = now;
+                row.CmUrl = api.Cardmarket?.Url;
+                row.TcgUrl = api.Tcgplayer?.Url;
+            }
+            await _db.SaveChangesAsync();
+
+            foreach (var vm in set.Cards)
+            {
+                if (!cardMap.TryGetValue(vm.CardId, out var api)) continue;
+                vm.CmLow = api.Cardmarket?.Prices?.LowPrice;
+                vm.TcgLow = ExtractTcgLow(api);
+                vm.PricesUpdatedAt = now;
+                vm.CmUrl = api.Cardmarket?.Url;
+                vm.TcgUrl = api.Tcgplayer?.Url;
+            }
+        }
+        catch { }
+    }
+
     private record SetData(string Id, string Name, int Total, string Series, string ReleaseDate, string LogoUrl, string SymbolUrl);
-    private record CardData(string Id, string Name, string Number, string SetId, string ImageSmall, string? Rarity);
+    private record CardData(string Id, string Name, string Number, string SetId, string ImageSmall, string? Rarity,
+        decimal? CmLow = null, decimal? TcgLow = null, DateTime? PricesUpdatedAt = null,
+        string? CmUrl = null, string? TcgUrl = null);
 }
