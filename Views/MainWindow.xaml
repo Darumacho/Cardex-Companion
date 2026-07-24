@@ -445,8 +445,8 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type vm:SeriesViewModel}">
                                 <StackPanel>
-                                    <!-- Label de section "All Sets" -->
-                                    <Border Padding="10,10,0,2">
+                                    <!-- Label de section "All Sets" avec toggle -->
+                                    <Border Padding="8,10,8,2">
                                         <Border.Style>
                                             <Style TargetType="Border">
                                                 <Setter Property="Visibility" Value="Collapsed"/>
@@ -457,9 +457,28 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </Border.Style>
-                                        <TextBlock Text="ALL SETS"
-                                                   FontSize="9" FontWeight="Bold"
-                                                   Foreground="{StaticResource BrushSubtext}"/>
+                                        <Button Style="{StaticResource SetButtonStyle}"
+                                                Padding="2,0"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Left"
+                                                Command="{Binding DataContext.ToggleAllSeriesCommand,
+                                                          RelativeSource={RelativeSource AncestorType=Window}}">
+                                            <TextBlock FontSize="9" FontWeight="Bold"
+                                                       Foreground="{StaticResource BrushSubtext}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="▾  ALL SETS"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding DataContext.AllSeriesExpanded,
+                                                                         RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                         Value="False">
+                                                                <Setter Property="Text" Value="▸  ALL SETS"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Button>
                                     </Border>
 
                                     <!-- Expander normal (Favorites, My Collection, séries) -->
@@ -617,7 +636,7 @@
                     </ItemsControl>
                 </ScrollViewer>
 
-                <!-- Cartes wanted -->
+                <!-- Duplicates + Wanted Cards -->
                 <ScrollViewer Grid.Row="2"
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled"
@@ -629,7 +648,7 @@
                                 <MultiDataTrigger>
                                     <MultiDataTrigger.Conditions>
                                         <Condition Binding="{Binding GlobalSearch}" Value=""/>
-                                        <Condition Binding="{Binding HasWantedCards}" Value="True"/>
+                                        <Condition Binding="{Binding HasHomeContent}" Value="True"/>
                                     </MultiDataTrigger.Conditions>
                                     <Setter Property="Visibility" Value="Visible"/>
                                 </MultiDataTrigger>
@@ -637,18 +656,57 @@
                         </Style>
                     </ScrollViewer.Style>
                     <StackPanel>
-                        <TextBlock Text="★  Wanted Cards"
-                                   Foreground="#ffd700"
-                                   FontSize="12" FontWeight="Bold"
-                                   Margin="16,12,0,4"/>
-                        <ItemsControl ItemsSource="{Binding WantedCards}"
-                                      ItemTemplate="{StaticResource SearchResultTemplate}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel Orientation="Horizontal" Margin="6"/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
+                        <!-- Doublons -->
+                        <StackPanel>
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasDuplicates}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <TextBlock Text="⊕  Duplicate Cards"
+                                       Foreground="#4ecdc4"
+                                       FontSize="12" FontWeight="Bold"
+                                       Margin="16,12,0,4"/>
+                            <ItemsControl ItemsSource="{Binding DuplicateCards}"
+                                          ItemTemplate="{StaticResource SearchResultTemplate}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" Margin="6"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <!-- Cartes wanted -->
+                        <StackPanel>
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasWantedCards}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <TextBlock Text="★  Wanted Cards"
+                                       Foreground="#ffd700"
+                                       FontSize="12" FontWeight="Bold"
+                                       Margin="16,12,0,4"/>
+                            <ItemsControl ItemsSource="{Binding WantedCards}"
+                                          ItemTemplate="{StaticResource SearchResultTemplate}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" Margin="6"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
 
@@ -662,7 +720,7 @@
                                 <MultiDataTrigger>
                                     <MultiDataTrigger.Conditions>
                                         <Condition Binding="{Binding GlobalSearch}" Value=""/>
-                                        <Condition Binding="{Binding HasWantedCards}" Value="False"/>
+                                        <Condition Binding="{Binding HasHomeContent}" Value="False"/>
                                     </MultiDataTrigger.Conditions>
                                     <Setter Property="Visibility" Value="Visible"/>
                                 </MultiDataTrigger>
@@ -917,13 +975,22 @@
                            Foreground="{StaticResource BrushSubtext}"
                            FontSize="11"
                            VerticalAlignment="Center"/>
-                <Button HorizontalAlignment="Right" VerticalAlignment="Center"
-                        Command="{Binding RefreshSetsCommand}"
-                        ToolTip="Refresh from API (clears cache)"
-                        FontSize="13" Padding="6,2"
-                        Style="{StaticResource SetButtonStyle}">
-                    ↻ Refresh
-                </Button>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button VerticalAlignment="Center"
+                            Command="{Binding ExportCsvCommand}"
+                            ToolTip="Export owned cards to CSV"
+                            FontSize="11" Padding="6,2" Margin="0,0,6,0"
+                            Style="{StaticResource SetButtonStyle}">
+                        ⬇ CSV Export 
+                    </Button>
+                    <Button VerticalAlignment="Center"
+                            Command="{Binding RefreshSetsCommand}"
+                            ToolTip="Refresh from API (clears cache)"
+                            FontSize="13" Padding="6,2"
+                            Style="{StaticResource SetButtonStyle}">
+                        ↻ Refresh
+                    </Button>
+                </StackPanel>
             </Grid>
         </Border>
     </Grid>

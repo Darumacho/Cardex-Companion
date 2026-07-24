@@ -5,6 +5,8 @@ using Cardex.Models;
 using Cardex.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.ObjectModel;
+using System.IO;
+using System.Text;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
@@ -21,7 +23,10 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<SetViewModel> HomeFavorites { get; } = [];
     public ObservableCollection<SearchResultViewModel> SearchResults { get; } = [];
     public ObservableCollection<SearchResultViewModel> WantedCards { get; } = [];
+    public ObservableCollection<SearchResultViewModel> DuplicateCards { get; } = [];
     public bool HasWantedCards => WantedCards.Count > 0;
+    public bool HasDuplicates => DuplicateCards.Count > 0;
+    public bool HasHomeContent => HasWantedCards || HasDuplicates;
 
     [ObservableProperty] private SetViewModel? _selectedSet;
     [ObservableProperty] private string _globalSearch = "";
@@ -33,6 +38,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private UpdateInfo? _pendingUpdate;
     [ObservableProperty] private bool _isUpdating;
     [ObservableProperty] private int _updateProgress;
+    [ObservableProperty] private bool _allSeriesExpanded = true;
 
     public bool HasUpdate => PendingUpdate is not null;
 
@@ -47,7 +53,8 @@ public partial class MainViewModel : ObservableObject
         _tcgService = tcgService;
         _imageCache = imageCache;
         _db = db;
-        WantedCards.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasWantedCards));
+        WantedCards.CollectionChanged += (_, _) => { OnPropertyChanged(nameof(HasWantedCards)); OnPropertyChanged(nameof(HasHomeContent)); };
+        DuplicateCards.CollectionChanged += (_, _) => { OnPropertyChanged(nameof(HasDuplicates)); OnPropertyChanged(nameof(HasHomeContent)); };
     }
 
     public bool IsHomeVisible => SelectedSet is null;
@@ -198,11 +205,11 @@ public partial class MainViewModel : ObservableObject
 
             var favoriteIds = (await _db.FavoriteSets.Select(f => f.SetId).ToListAsync()).ToHashSet();
             ApplyFavorites(favoriteIds);
-            RefreshSpecialGroups();
-
             await ApplyOwnedCountsAsync();
+            RefreshSpecialGroups();
             _ = LoadSymbolsAsync(Series.SelectMany(s => s.Sets).ToList());
             _ = LoadWantedCardsAsync();
+            _ = LoadDuplicateCardsAsync();
 
             _preloadCts?.Cancel();
             _preloadCts = new CancellationTokenSource();
@@ -507,6 +514,47 @@ public partial class MainViewModel : ObservableObject
         }));
     }
 
+    private async Task LoadDuplicateCardsAsync()
+    {
+        var dupes = await _db.OwnedCards.Where(o => o.Quantity > 1).ToListAsync();
+        if (dupes.Count == 0)
+        {
+            DuplicateCards.Clear();
+            return;
+        }
+
+        var cardIds = dupes.Select(o => o.CardId).ToList();
+        var cards = await _db.CachedCards
+            .Where(c => cardIds.Contains(c.CardId))
+            .OrderBy(c => c.SetId).ThenBy(c => c.SortOrder)
+            .ToListAsync();
+
+        var setIds = cards.Select(c => c.SetId).Distinct().ToList();
+        var setNames = await _db.CachedSets
+            .Where(s => setIds.Contains(s.SetId))
+            .ToDictionaryAsync(s => s.SetId, s => s.Name);
+
+        var qtyMap = dupes.ToDictionary(o => o.CardId, o => o.Quantity);
+
+        DuplicateCards.Clear();
+        foreach (var c in cards)
+            DuplicateCards.Add(new SearchResultViewModel(
+                c.CardId, c.Name, c.Number, c.SetId,
+                setNames.GetValueOrDefault(c.SetId, c.SetId),
+                c.ImageSmall, c.Rarity,
+                qtyMap.GetValueOrDefault(c.CardId),
+                _imageCache));
+
+        using var sem = new SemaphoreSlim(8, 8);
+        _ = Task.WhenAll(DuplicateCards.Select(async vm =>
+        {
+            await sem.WaitAsync();
+            try { await vm.LoadImageAsync(); }
+            catch { }
+            finally { sem.Release(); }
+        }));
+    }
+
     private async Task LoadLogoAsync(SetViewModel set)
     {
         var img = await _imageCache.GetImageAsync(set.LogoUrl, $"logo_{set.SetId}");
@@ -617,6 +665,7 @@ public partial class MainViewModel : ObservableObject
         await _db.SaveChangesAsync();
         set.NotifyOwnershipChanged();
         RefreshSpecialGroups();
+        _ = LoadDuplicateCardsAsync();
         StatusText = $"{set.Name} — {set.CompletionText}";
     }
 
@@ -682,6 +731,73 @@ public partial class MainViewModel : ObservableObject
     }
 
     private bool CanInstallUpdate() => !IsUpdating;
+
+    [RelayCommand]
+    private void ToggleAllSeries()
+    {
+        AllSeriesExpanded = !AllSeriesExpanded;
+        foreach (var s in Series.Where(s => !s.IsFavoriteGroup && !s.IsMyCollectionGroup && !s.IsAllSetsHeader))
+            s.IsExpanded = AllSeriesExpanded;
+    }
+
+    [RelayCommand]
+    private async Task ExportCsvAsync()
+    {
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Export collection",
+            Filter = "CSV files (*.csv)|*.csv",
+            FileName = "cardex_collection.csv"
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        var owned = await _db.OwnedCards.ToListAsync();
+        if (owned.Count == 0)
+        {
+            StatusText = "No owned cards to export.";
+            return;
+        }
+
+        var cardIds = owned.Select(o => o.CardId).ToList();
+        var cards = await _db.CachedCards
+            .Where(c => cardIds.Contains(c.CardId))
+            .ToDictionaryAsync(c => c.CardId);
+
+        var setIds = cards.Values.Select(c => c.SetId).Distinct().ToList();
+        var sets = await _db.CachedSets
+            .Where(s => setIds.Contains(s.SetId))
+            .ToDictionaryAsync(s => s.SetId, s => s.Name);
+
+        var ownedMap = owned.ToDictionary(o => o.CardId, o => o.Quantity);
+
+        using var writer = new StreamWriter(dialog.FileName, false, Encoding.UTF8);
+        await writer.WriteLineAsync("Name,Set,Number,Rarity,Quantity,Cardmarket (€),TCGPlayer ($),Cardmarket URL,TCGPlayer URL");
+
+        foreach (var (cardId, card) in cards.OrderBy(kv => kv.Value.SetId).ThenBy(kv => kv.Value.SortOrder))
+        {
+            var qty = ownedMap.GetValueOrDefault(cardId, 0);
+            var setName = sets.GetValueOrDefault(card.SetId, card.SetId);
+            await writer.WriteLineAsync(string.Join(",",
+                CsvEscape(card.Name),
+                CsvEscape(setName),
+                CsvEscape(card.Number),
+                CsvEscape(card.Rarity ?? ""),
+                qty.ToString(),
+                card.CmLow.HasValue ? card.CmLow.Value.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) : "",
+                card.TcgLow.HasValue ? card.TcgLow.Value.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) : "",
+                CsvEscape(card.CmUrl ?? ""),
+                CsvEscape(card.TcgUrl ?? "")));
+        }
+
+        StatusText = $"Collection exported — {cards.Count} card(s)";
+    }
+
+    private static string CsvEscape(string value)
+    {
+        if (value.Contains(',') || value.Contains('"') || value.Contains('\n'))
+            return $"\"{value.Replace("\"", "\"\"")}\"";
+        return value;
+    }
 
     private static decimal? ExtractTcgLow(ApiCard card)
     {
