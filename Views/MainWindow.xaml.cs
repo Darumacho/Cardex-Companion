@@ -1,6 +1,7 @@
 ﻿using Cardex.ViewModels;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 
 namespace Cardex.Views;
 
@@ -20,6 +21,28 @@ public partial class MainWindow : Window
     private async void CardsItemsControl_Loaded(object sender, RoutedEventArgs e)
     {
         await LoadVisibleCardImagesAsync();
+    }
+
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm) return;
+
+        if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            GlobalSearchBox.Focus();
+            GlobalSearchBox.SelectAll();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Escape)
+        {
+            if (!string.IsNullOrEmpty(vm.GlobalSearch))
+                vm.GlobalSearch = "";
+            else if (vm.SelectedSet is not null)
+                vm.GoHomeCommand.Execute(null);
+            e.Handled = true;
+        }
     }
 
     private void RarityFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)

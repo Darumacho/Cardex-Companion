@@ -6,7 +6,14 @@
         Width="1280" Height="800"
         MinWidth="900" MinHeight="600"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource BrushBg}">
+        Background="{StaticResource BrushBg}"
+        PreviewKeyDown="Window_PreviewKeyDown">
+
+    <Window.InputBindings>
+        <KeyBinding Gesture="Ctrl+E" Command="{Binding ExportCsvCommand}"/>
+        <KeyBinding Gesture="Ctrl+B" Command="{Binding BackupCollectionCommand}"/>
+        <KeyBinding Gesture="Ctrl+R" Command="{Binding RestoreCollectionCommand}"/>
+    </Window.InputBindings>
 
     <Window.Resources>
         <!-- Converter bool -> visibilité -->
@@ -286,6 +293,81 @@
             </Button>
         </DataTemplate>
 
+        <!-- Template binder (vue classeur) -->
+        <DataTemplate x:Key="BinderCardTemplate" DataType="{x:Type vm:CardViewModel}">
+            <Border Width="118" Margin="3" CornerRadius="6" BorderThickness="2"
+                    Cursor="Hand"
+                    ToolTip="{Binding Name}">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="BorderBrush" Value="Transparent"/>
+                        <Setter Property="Opacity" Value="0.3"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsOwned}" Value="True">
+                                <Setter Property="BorderBrush" Value="{StaticResource BrushHighlight}"/>
+                                <Setter Property="Opacity" Value="1"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsWanted}" Value="True">
+                                <Setter Property="BorderBrush" Value="#ffd700"/>
+                                <Setter Property="Opacity" Value="0.7"/>
+                            </DataTrigger>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding IsOwned}" Value="True"/>
+                                    <Condition Binding="{Binding IsWanted}" Value="True"/>
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="BorderBrush" Value="#ffd700"/>
+                                <Setter Property="Opacity" Value="1"/>
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Border.InputBindings>
+                    <MouseBinding MouseAction="LeftClick" Command="{Binding ToggleOwnedCommand}"/>
+                </Border.InputBindings>
+                <Grid>
+                    <Border Background="#111122" CornerRadius="4"/>
+                    <TextBlock Text="…" Foreground="{StaticResource BrushSubtext}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="20"
+                               Visibility="{Binding IsLoadingImage, Converter={StaticResource BoolToVis}}"/>
+                    <Image Source="{Binding CardImage}" Stretch="Uniform" Height="162"
+                           RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <!-- Badge quantité (×N si >1) -->
+                    <Border CornerRadius="4" Background="{StaticResource BrushHighlight}"
+                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                            Margin="0,4,4,0" Padding="4,2">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasMultiple}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="{Binding Quantity, StringFormat='×{0}'}"
+                                   Foreground="{StaticResource BrushBg}"
+                                   FontSize="10" FontWeight="Bold"/>
+                    </Border>
+                    <!-- Badge wanted -->
+                    <TextBlock Text="★" Foreground="#ffd700" FontSize="13" FontWeight="Bold"
+                               HorizontalAlignment="Left" VerticalAlignment="Top" Margin="5,4,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsWanted}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
         <!-- Template résultat de recherche globale -->
         <DataTemplate x:Key="SearchResultTemplate" DataType="{x:Type vm:SearchResultViewModel}">
             <Button Style="{StaticResource SetButtonStyle}"
@@ -548,7 +630,8 @@
                 <!-- Barre de recherche globale -->
                 <Border Grid.Row="0" Background="{StaticResource BrushAccent}" Padding="20,14">
                     <Grid>
-                        <TextBox Text="{Binding GlobalSearch, UpdateSourceTrigger=PropertyChanged}"
+                        <TextBox x:Name="GlobalSearchBox"
+                                 Text="{Binding GlobalSearch, UpdateSourceTrigger=PropertyChanged}"
                                  Background="#111122"
                                  Foreground="{StaticResource BrushText}"
                                  CaretBrush="{StaticResource BrushText}"
@@ -841,6 +924,22 @@
                         <!-- Droite : bouton + compteur -->
                         <StackPanel Grid.Column="1" Orientation="Horizontal"
                                     HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <!-- Toggle vue binder / liste -->
+                            <ToggleButton IsChecked="{Binding IsBinderView}"
+                                          FontSize="12" Padding="10,6" Margin="0,0,10,0"
+                                          VerticalAlignment="Center"
+                                          ToolTip="Switch between list and binder view">
+                                <ToggleButton.Style>
+                                    <Style TargetType="ToggleButton" BasedOn="{StaticResource ToggleButtonStyle}">
+                                        <Setter Property="Content" Value="≡ List"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsBinderView}" Value="True">
+                                                <Setter Property="Content" Value="⊞ Binder"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ToggleButton.Style>
+                            </ToggleButton>
                             <!-- Check / Uncheck all -->
                             <Button Content="{Binding SelectedSet.ToggleAllLabel}"
                                     Command="{Binding ToggleAllOwnedCommand}"
@@ -945,13 +1044,23 @@
                            FontSize="16"/>
             </StackPanel>
 
-            <!-- Grille de cartes -->
+            <!-- Vue liste (défaut) -->
             <ScrollViewer Grid.Row="2"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled"
                           Background="{StaticResource BrushBg}"
                           x:Name="CardsScrollViewer"
                           ScrollChanged="CardsScrollViewer_ScrollChanged">
+                <ScrollViewer.Style>
+                    <Style TargetType="ScrollViewer">
+                        <Setter Property="Visibility" Value="Visible"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsBinderView}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ScrollViewer.Style>
                 <ItemsControl ItemsSource="{Binding SelectedSet.FilteredCards}"
                               ItemTemplate="{StaticResource CardTemplate}"
                               x:Name="CardsItemsControl"
@@ -959,6 +1068,31 @@
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <WrapPanel Orientation="Horizontal" Margin="6"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <!-- Vue binder (classeur) -->
+            <ScrollViewer Grid.Row="2"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          Background="{StaticResource BrushBg}">
+                <ScrollViewer.Style>
+                    <Style TargetType="ScrollViewer">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsBinderView}" Value="True">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ScrollViewer.Style>
+                <ItemsControl ItemsSource="{Binding SelectedSet.Cards}"
+                              ItemTemplate="{StaticResource BinderCardTemplate}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" Margin="8"/>
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                 </ItemsControl>
@@ -977,19 +1111,37 @@
                            VerticalAlignment="Center"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button VerticalAlignment="Center"
-                            Command="{Binding ExportCsvCommand}"
-                            ToolTip="Export owned cards to CSV"
+                            Command="{Binding BackupCollectionCommand}"
+                            ToolTip="Backup collection to .cardex file  (Ctrl+B)"
                             FontSize="11" Padding="6,2" Margin="0,0,6,0"
                             Style="{StaticResource SetButtonStyle}">
-                        ⬇ CSV Export 
+                        💾 Backup
+                    </Button>
+                    <Button VerticalAlignment="Center"
+                            Command="{Binding RestoreCollectionCommand}"
+                            ToolTip="Restore collection from .cardex file  (Ctrl+R)"
+                            FontSize="11" Padding="6,2" Margin="0,0,6,0"
+                            Style="{StaticResource SetButtonStyle}">
+                        📂 Restore
+                    </Button>
+                    <Button VerticalAlignment="Center"
+                            Command="{Binding ExportCsvCommand}"
+                            ToolTip="Export owned cards to CSV  (Ctrl+E)"
+                            FontSize="11" Padding="6,2" Margin="0,0,6,0"
+                            Style="{StaticResource SetButtonStyle}">
+                        ⬇ CSV Export
                     </Button>
                     <Button VerticalAlignment="Center"
                             Command="{Binding RefreshSetsCommand}"
                             ToolTip="Refresh from API (clears cache)"
                             FontSize="13" Padding="6,2"
                             Style="{StaticResource SetButtonStyle}">
-                        ↻ Refresh
+                        ↻ Refresh Database
                     </Button>
+                    <TextBlock Text="{Binding AppVersion}"
+                               Foreground="{StaticResource BrushSubtext}"
+                               FontSize="10" VerticalAlignment="Center"
+                               Margin="10,0,0,0" Opacity="0.6"/>
                 </StackPanel>
             </Grid>
         </Border>

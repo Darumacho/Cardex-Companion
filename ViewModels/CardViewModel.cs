@@ -38,6 +38,7 @@ public partial class CardViewModel : ObservableObject
     public string TcgLowText  => TcgLow.HasValue ? $"${TcgLow.Value:F2}" : "—";
     public string CmTooltip   => $"Cardmarket : {CmLowText}";
     public string TcgTooltip  => $"TCGPlayer : {TcgLowText}";
+    public bool HasMultiple   => _quantity > 1;
 
     private int _quantity;
     private bool _isOwned;
@@ -49,6 +50,7 @@ public partial class CardViewModel : ObservableObject
         {
             int clamped = Math.Max(0, value);
             if (!SetProperty(ref _quantity, clamped)) return;
+            OnPropertyChanged(nameof(HasMultiple));
             var shouldBeOwned = _quantity > 0;
             if (_isOwned != shouldBeOwned)
                 SetProperty(ref _isOwned, shouldBeOwned, nameof(IsOwned));
@@ -84,6 +86,9 @@ public partial class CardViewModel : ObservableObject
         _isWanted = isWanted;
         _imageCache = imageCache;
     }
+
+    [RelayCommand]
+    private void ToggleOwned() => IsOwned = !IsOwned;
 
     [RelayCommand]
     private void Increment() => Quantity++;

@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Text;
+using System.Text.Json;
+using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
@@ -39,6 +41,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _isUpdating;
     [ObservableProperty] private int _updateProgress;
     [ObservableProperty] private bool _allSeriesExpanded = true;
+    [ObservableProperty] private bool _isBinderView;
 
     public bool HasUpdate => PendingUpdate is not null;
 
@@ -58,6 +61,15 @@ public partial class MainViewModel : ObservableObject
     }
 
     public bool IsHomeVisible => SelectedSet is null;
+
+    public string AppVersion
+    {
+        get
+        {
+            var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+            return v is null ? "v?" : $"v{v.Major}.{v.Minor}";
+        }
+    }
 
     partial void OnSelectedSetChanged(SetViewModel? value)
         => OnPropertyChanged(nameof(IsHomeVisible));
@@ -741,6 +753,99 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task BackupCollectionAsync()
+    {
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Backup collection",
+            Filter = "Cardex backup (*.cardex)|*.cardex",
+            FileName = $"cardex_backup_{DateTime.Now:yyyy-MM-dd}"
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        var owned    = await _db.OwnedCards.ToListAsync();
+        var wanted   = await _db.WantedCards.ToListAsync();
+        var favorite = await _db.FavoriteSets.ToListAsync();
+
+        var backup = new BackupFile(
+            Version: "1.3",
+            ExportedAt: DateTime.UtcNow,
+            OwnedCards: owned.Select(o => new BackupOwned(o.CardId, o.SetId, o.Quantity)).ToList(),
+            WantedCards: wanted.Select(w => new BackupWanted(w.CardId, w.SetId)).ToList(),
+            FavoriteSets: favorite.Select(f => f.SetId).ToList());
+
+        var json = JsonSerializer.Serialize(backup, new JsonSerializerOptions { WriteIndented = true });
+        await File.WriteAllTextAsync(dialog.FileName, json, Encoding.UTF8);
+
+        StatusText = $"Backup saved — {owned.Count} owned, {wanted.Count} wanted, {favorite.Count} favorite set(s)";
+    }
+
+    [RelayCommand]
+    private async Task RestoreCollectionAsync()
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Restore collection",
+            Filter = "Cardex backup (*.cardex)|*.cardex"
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        var result = MessageBox.Show(
+            "Restoring will replace your current collection, want list and favorites.\n\nContinue?",
+            "Restore collection",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (result != MessageBoxResult.Yes) return;
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(dialog.FileName, Encoding.UTF8);
+            var backup = JsonSerializer.Deserialize<BackupFile>(json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (backup is null) { StatusText = "Restore failed — invalid file."; return; }
+
+            await _db.OwnedCards.ExecuteDeleteAsync();
+            await _db.WantedCards.ExecuteDeleteAsync();
+            await _db.FavoriteSets.ExecuteDeleteAsync();
+
+            if (backup.OwnedCards?.Count > 0)
+                _db.OwnedCards.AddRange(backup.OwnedCards.Select(o =>
+                    new OwnedCard { CardId = o.CardId, SetId = o.SetId, Quantity = o.Quantity }));
+
+            if (backup.WantedCards?.Count > 0)
+                _db.WantedCards.AddRange(backup.WantedCards.Select(w =>
+                    new WantedCard { CardId = w.CardId, SetId = w.SetId }));
+
+            if (backup.FavoriteSets?.Count > 0)
+                _db.FavoriteSets.AddRange(backup.FavoriteSets.Select(s =>
+                    new FavoriteSet { SetId = s }));
+
+            await _db.SaveChangesAsync();
+
+            // Recharger l'UI
+            var favoriteIds = backup.FavoriteSets?.ToHashSet() ?? [];
+            ApplyFavorites(favoriteIds);
+            await ApplyOwnedCountsAsync();
+            RefreshSpecialGroups();
+            await LoadWantedCardsAsync();
+            await LoadDuplicateCardsAsync();
+
+            // Vider le set ouvert pour forcer un rechargement
+            if (SelectedSet is not null)
+            {
+                SelectedSet.Cards.Clear();
+                await SelectSetAsync(SelectedSet);
+            }
+
+            StatusText = $"Collection restored — {backup.OwnedCards?.Count ?? 0} owned, {backup.WantedCards?.Count ?? 0} wanted";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Restore failed — {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
     private async Task ExportCsvAsync()
     {
         var dialog = new Microsoft.Win32.SaveFileDialog
@@ -847,4 +952,9 @@ public partial class MainViewModel : ObservableObject
     private record CardData(string Id, string Name, string Number, string SetId, string ImageSmall, string? Rarity,
         decimal? CmLow = null, decimal? TcgLow = null, DateTime? PricesUpdatedAt = null,
         string? CmUrl = null, string? TcgUrl = null);
+
+    private record BackupFile(string Version, DateTime ExportedAt,
+        List<BackupOwned>? OwnedCards, List<BackupWanted>? WantedCards, List<string>? FavoriteSets);
+    private record BackupOwned(string CardId, string SetId, int Quantity);
+    private record BackupWanted(string CardId, string SetId);
 }

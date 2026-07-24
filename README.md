@@ -38,10 +38,26 @@
 - Star ★ a set in the sidebar to add it to your favorites
 - **★ Favorite Sets** section on the home screen with visual set tiles
 
+### Backup & Restore
+- **💾 Backup** exports your collection to a portable `.cardex` file (JSON)
+- **📂 Restore** reimports a backup, replacing the current collection with a confirmation prompt
+- Only user data is saved: owned cards (with quantities), want list, and favorite sets
+- Cache data (sets, cards, prices) is excluded — it is re-downloaded automatically
+
 ### CSV Export
-- Export your full collection via **⬇ Export CSV** in the status bar
+- Export your full collection via **⬇ CSV Export** in the status bar
 - Columns: `Name`, `Set`, `Number`, `Rarity`, `Quantity`, `Cardmarket (€)`, `TCGPlayer ($)`, `Cardmarket URL`, `TCGPlayer URL`
 - UTF-8 encoded, Excel-compatible
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+F` | Focus the global search bar |
+| `Escape` | Clear search / go back to home |
+| `Ctrl+B` | Backup collection |
+| `Ctrl+R` | Restore collection |
+| `Ctrl+E` | Export CSV |
 
 ### Auto-Updater
 - Checks for new releases on GitHub at startup
