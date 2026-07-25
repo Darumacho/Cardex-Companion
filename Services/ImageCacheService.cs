@@ -39,16 +39,44 @@ public class ImageCacheService
             }
         }
 
-        return await Task.Run(() =>
+        return LoadBitmap(filePath, 200);
+    }
+
+    public async Task<BitmapImage?> GetFullResImageAsync(string url, string cardId)
+    {
+        if (string.IsNullOrEmpty(url)) return null;
+
+        var ext = Path.GetExtension(url).Split('?')[0];
+        if (string.IsNullOrEmpty(ext)) ext = ".png";
+        var safeName = string.Concat(cardId.Split(Path.GetInvalidFileNameChars())) + ext;
+        var filePath = Path.Combine(_cacheDir, safeName);
+
+        if (!File.Exists(filePath))
+        {
+            try
+            {
+                var bytes = await _http.GetByteArrayAsync(url);
+                await File.WriteAllBytesAsync(filePath, bytes);
+            }
+            catch { return null; }
+        }
+
+        return LoadBitmap(filePath, null);
+    }
+
+    private static BitmapImage? LoadBitmap(string filePath, int? decodePixelWidth)
+    {
+        return Task.Run(() =>
         {
             var bmp = new BitmapImage();
             bmp.BeginInit();
             bmp.CacheOption = BitmapCacheOption.OnLoad;
             bmp.UriSource = new Uri(filePath, UriKind.Absolute);
-            bmp.DecodePixelWidth = 200;
+            if (decodePixelWidth.HasValue)
+                bmp.DecodePixelWidth = decodePixelWidth.Value;
             bmp.EndInit();
             bmp.Freeze();
             return bmp;
-        });
+        }).GetAwaiter().GetResult();
     }
 }

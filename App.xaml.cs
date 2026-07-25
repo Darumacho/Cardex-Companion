@@ -53,6 +53,7 @@ public partial class App : Application
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN PricesUpdatedAt TEXT"); } catch { }
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN CmUrl TEXT"); } catch { }
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN TcgUrl TEXT"); } catch { }
+        try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN ImageLarge TEXT"); } catch { }
         try { await db.Database.ExecuteSqlRawAsync(@"
             CREATE TABLE IF NOT EXISTS ExcludedCards (
                 CardId TEXT PRIMARY KEY NOT NULL, SetId TEXT NOT NULL DEFAULT '')"); }
@@ -81,6 +82,8 @@ public partial class App : Application
         using (var stream = asm.GetManifestResourceStream("Cardex.Name.png"))
             if (stream != null)
                 MainVm.AppName = LoadAndCrop(stream);
+
+        Resources["MagnifierCursor"] = CursorHelper.CreateMagnifier();
 
         var window = new MainWindow { DataContext = MainVm };
 

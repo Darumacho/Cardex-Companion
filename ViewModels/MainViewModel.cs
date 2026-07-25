@@ -437,7 +437,7 @@ public partial class MainViewModel : ObservableObject
             if (cachedCards.Count > 0)
             {
                 BuildCardViewModels(cachedCards.Select(c =>
-                    new CardData(c.CardId, c.Name, c.Number, c.SetId, c.ImageSmall, c.Rarity, c.CmLow, c.TcgLow, c.PricesUpdatedAt, c.CmUrl, c.TcgUrl)),
+                    new CardData(c.CardId, c.Name, c.Number, c.SetId, c.ImageSmall, c.ImageLarge, c.Rarity, c.CmLow, c.TcgLow, c.PricesUpdatedAt, c.CmUrl, c.TcgUrl)),
                     ownedMap, wantedIds, excludedIds, set);
                 StatusText = $"{set.Name} — {set.CompletionText}";
                 _ = RefreshPricesIfNeededAsync(set);
@@ -455,6 +455,7 @@ public partial class MainViewModel : ObservableObject
                     {
                         CardId = c.Id, SetId = c.Set.Id, Name = c.Name,
                         Number = c.Number, ImageSmall = c.Images.Small,
+                        ImageLarge = c.Images.Large,
                         Rarity = c.Rarity, SortOrder = i,
                         CmLow = c.Cardmarket?.Prices?.LowPrice,
                         TcgLow = ExtractTcgLow(c),
@@ -465,7 +466,7 @@ public partial class MainViewModel : ObservableObject
                     await _db.SaveChangesAsync();
 
                     BuildCardViewModels(apiCards.Select(c =>
-                        new CardData(c.Id, c.Name, c.Number, c.Set.Id, c.Images.Small, c.Rarity,
+                        new CardData(c.Id, c.Name, c.Number, c.Set.Id, c.Images.Small, c.Images.Large, c.Rarity,
                             c.Cardmarket?.Prices?.LowPrice, ExtractTcgLow(c), now,
                             c.Cardmarket?.Url, c.Tcgplayer?.Url)),
                         ownedMap, wantedIds, excludedIds, set);
@@ -498,7 +499,7 @@ public partial class MainViewModel : ObservableObject
         {
             var vm = new CardViewModel(
                 card.Id, card.Name, card.Number, card.SetId,
-                card.ImageSmall, card.Rarity,
+                card.ImageSmall, card.ImageLarge, card.Rarity,
                 ownedMap.TryGetValue(card.Id, out var qty) ? qty : 0,
                 wantedIds.Contains(card.Id),
                 excludedIds.Contains(card.Id),
@@ -1090,7 +1091,7 @@ public partial class MainViewModel : ObservableObject
     }
 
     private record SetData(string Id, string Name, int Total, string Series, string ReleaseDate, string LogoUrl, string SymbolUrl);
-    private record CardData(string Id, string Name, string Number, string SetId, string ImageSmall, string? Rarity,
+    private record CardData(string Id, string Name, string Number, string SetId, string ImageSmall, string? ImageLarge, string? Rarity,
         decimal? CmLow = null, decimal? TcgLow = null, DateTime? PricesUpdatedAt = null,
         string? CmUrl = null, string? TcgUrl = null);
 

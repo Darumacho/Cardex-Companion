@@ -9,6 +9,7 @@ public class CachedCard
     public string Name { get; set; } = "";
     public string Number { get; set; } = "";
     public string ImageSmall { get; set; } = "";
+    public string? ImageLarge { get; set; }
     public string? Rarity { get; set; }
     public int SortOrder { get; set; }
     public decimal? CmLow { get; set; }

@@ -14,6 +14,7 @@ public partial class CardViewModel : ObservableObject
     public string Number { get; }
     public string SetId { get; }
     public string ImageUrl { get; }
+    public string? ImageLargeUrl { get; }
     public string? Rarity { get; }
 
     [ObservableProperty] private BitmapImage? _cardImage;
@@ -73,7 +74,7 @@ public partial class CardViewModel : ObservableObject
 
     public CardViewModel(
         string cardId, string name, string number, string setId,
-        string imageUrl, string? rarity, int quantity, bool isWanted, bool isExcluded,
+        string imageUrl, string? imageLargeUrl, string? rarity, int quantity, bool isWanted, bool isExcluded,
         ImageCacheService imageCache)
     {
         CardId = cardId;
@@ -81,12 +82,24 @@ public partial class CardViewModel : ObservableObject
         Number = number;
         SetId = setId;
         ImageUrl = imageUrl;
+        ImageLargeUrl = imageLargeUrl;
         Rarity = rarity;
         _quantity = quantity;
         _isOwned = quantity > 0;
         _isWanted = isWanted;
         _isExcluded = isExcluded;
         _imageCache = imageCache;
+    }
+
+    [RelayCommand]
+    private void ShowZoom()
+    {
+        var url = ImageLargeUrl
+            ?? (ImageUrl.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+                ? ImageUrl[..^4] + "_hires.png"
+                : ImageUrl);
+        var win = new Views.CardZoomWindow(Name, Number, Rarity, url, CardId, _imageCache);
+        win.Show();
     }
 
     [RelayCommand]

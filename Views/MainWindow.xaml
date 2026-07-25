@@ -43,14 +43,17 @@
                 <Grid>
                     <StackPanel>
                         <!-- Image carte -->
-                        <Grid Height="230" Background="#111122">
-                            <!-- Placeholder chargement -->
+                        <Grid Height="230" Background="#111122" Cursor="Hand">
                             <TextBlock Text="…" Foreground="{StaticResource BrushSubtext}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                        FontSize="24"
                                        Visibility="{Binding IsLoadingImage, Converter={StaticResource BoolToVis}}"/>
                             <Image Source="{Binding CardImage}" Stretch="Uniform"
                                    RenderOptions.BitmapScalingMode="HighQuality"/>
+                            <Button Command="{Binding ShowZoomCommand}"
+                                    Style="{StaticResource ZoomButtonStyle}"
+                                    Cursor="{DynamicResource MagnifierCursor}"
+                                    ToolTip="View full size"/>
                         </Grid>
 
                         <!-- Infos -->
