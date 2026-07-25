@@ -84,25 +84,60 @@ public partial class SetViewModel : ObservableObject
     }
 
     private int _dbOwnedCount;
+    private int _preloadedExcludedTotal;
+    private int _preloadedExcludedOwned;
 
     public int OwnedCount => Cards.Count > 0 ? Cards.Count(c => c.IsOwned) : _dbOwnedCount;
     public int WantedCount => Cards.Count(c => c.IsWanted);
 
-    public string CompletionText => $"{OwnedCount} / {Total}";
+    public int ExcludedTotal => Cards.Count > 0
+        ? Cards.Count(c => c.IsExcluded)
+        : _preloadedExcludedTotal;
+
+    public int ExcludedOwned => Cards.Count > 0
+        ? Cards.Count(c => c.IsOwned && c.IsExcluded)
+        : _preloadedExcludedOwned;
+
+    public int EffectiveTotal => Total - ExcludedTotal;
+    public int EffectiveOwned => OwnedCount - ExcludedOwned;
+
+    public string CompletionText => $"{EffectiveOwned} / {EffectiveTotal}";
 
     public void SetPreloadedCount(int count)
     {
         _dbOwnedCount = count;
         OnPropertyChanged(nameof(OwnedCount));
+        OnPropertyChanged(nameof(EffectiveOwned));
+        OnPropertyChanged(nameof(CompletionText));
+        OnPropertyChanged(nameof(IsComplete));
+    }
+
+    public void SetPreloadedExclusionCounts(int excludedTotal, int excludedOwned)
+    {
+        _preloadedExcludedTotal = excludedTotal;
+        _preloadedExcludedOwned = excludedOwned;
+        OnPropertyChanged(nameof(ExcludedTotal));
+        OnPropertyChanged(nameof(ExcludedOwned));
+        OnPropertyChanged(nameof(EffectiveTotal));
+        OnPropertyChanged(nameof(EffectiveOwned));
         OnPropertyChanged(nameof(CompletionText));
         OnPropertyChanged(nameof(IsComplete));
     }
 
     public bool AllOwned => Cards.Count > 0 && Cards.All(c => c.IsOwned);
 
-    public bool IsComplete => Cards.Count > 0
-        ? Cards.All(c => c.IsOwned)
-        : _dbOwnedCount > 0 && _dbOwnedCount >= Total;
+    public bool IsComplete
+    {
+        get
+        {
+            if (Cards.Count > 0)
+            {
+                var nonExcluded = Cards.Where(c => !c.IsExcluded).ToList();
+                return nonExcluded.Count > 0 && nonExcluded.All(c => c.IsOwned);
+            }
+            return EffectiveTotal > 0 && EffectiveOwned >= EffectiveTotal;
+        }
+    }
 
     public string ToggleAllLabel => AllOwned ? "Uncheck all" : "Check all";
 
@@ -128,11 +163,24 @@ public partial class SetViewModel : ObservableObject
     public void NotifyOwnershipChanged()
     {
         OnPropertyChanged(nameof(OwnedCount));
+        OnPropertyChanged(nameof(ExcludedOwned));
+        OnPropertyChanged(nameof(EffectiveOwned));
+        OnPropertyChanged(nameof(EffectiveTotal));
         OnPropertyChanged(nameof(CompletionText));
         OnPropertyChanged(nameof(AllOwned));
         OnPropertyChanged(nameof(IsComplete));
         OnPropertyChanged(nameof(ToggleAllLabel));
         OnPropertyChanged(nameof(FilteredCards));
+    }
+
+    public void NotifyExclusionChanged()
+    {
+        OnPropertyChanged(nameof(ExcludedTotal));
+        OnPropertyChanged(nameof(ExcludedOwned));
+        OnPropertyChanged(nameof(EffectiveTotal));
+        OnPropertyChanged(nameof(EffectiveOwned));
+        OnPropertyChanged(nameof(CompletionText));
+        OnPropertyChanged(nameof(IsComplete));
     }
 
     public void NotifyWantsChanged()

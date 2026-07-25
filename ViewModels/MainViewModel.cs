@@ -338,10 +338,26 @@ public partial class MainViewModel : ObservableObject
             .Select(g => new { SetId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(g => g.SetId, g => g.Count);
 
+        var excludedCounts = await _db.ExcludedCards
+            .GroupBy(e => e.SetId)
+            .Select(g => new { SetId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.SetId, g => g.Count);
+
+        var excludedOwnedCounts = await _db.ExcludedCards
+            .Where(e => _db.OwnedCards.Any(o => o.CardId == e.CardId))
+            .GroupBy(e => e.SetId)
+            .Select(g => new { SetId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.SetId, g => g.Count);
+
         foreach (var series in Series)
             foreach (var set in series.Sets)
+            {
                 if (ownedCounts.TryGetValue(set.SetId, out var count))
                     set.SetPreloadedCount(count);
+                excludedCounts.TryGetValue(set.SetId, out var excTotal);
+                excludedOwnedCounts.TryGetValue(set.SetId, out var excOwned);
+                set.SetPreloadedExclusionCounts(excTotal, excOwned);
+            }
     }
 
     [RelayCommand]
@@ -376,6 +392,11 @@ public partial class MainViewModel : ObservableObject
                 .Select(w => w.CardId)
                 .ToListAsync()).ToHashSet();
 
+            var excludedIds = (await _db.ExcludedCards
+                .Where(e => e.SetId == set.SetId)
+                .Select(e => e.CardId)
+                .ToListAsync()).ToHashSet();
+
             var cachedCards = await _db.CachedCards
                 .Where(c => c.SetId == set.SetId)
                 .OrderBy(c => c.SortOrder)
@@ -385,7 +406,7 @@ public partial class MainViewModel : ObservableObject
             {
                 BuildCardViewModels(cachedCards.Select(c =>
                     new CardData(c.CardId, c.Name, c.Number, c.SetId, c.ImageSmall, c.Rarity, c.CmLow, c.TcgLow, c.PricesUpdatedAt, c.CmUrl, c.TcgUrl)),
-                    ownedMap, wantedIds, set);
+                    ownedMap, wantedIds, excludedIds, set);
                 StatusText = $"{set.Name} — {set.CompletionText}";
                 _ = RefreshPricesIfNeededAsync(set);
             }
@@ -413,7 +434,7 @@ public partial class MainViewModel : ObservableObject
                         new CardData(c.Id, c.Name, c.Number, c.Set.Id, c.Images.Small, c.Rarity,
                             c.Cardmarket?.Prices?.LowPrice, ExtractTcgLow(c), now,
                             c.Cardmarket?.Url, c.Tcgplayer?.Url)),
-                        ownedMap, wantedIds, set);
+                        ownedMap, wantedIds, excludedIds, set);
                     StatusText = $"{set.Name} — {set.CompletionText}";
                 }
                 catch (Exception ex)
@@ -436,7 +457,8 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private void BuildCardViewModels(IEnumerable<CardData> cards, Dictionary<string, int> ownedMap, HashSet<string> wantedIds, SetViewModel set)
+    private void BuildCardViewModels(IEnumerable<CardData> cards, Dictionary<string, int> ownedMap,
+        HashSet<string> wantedIds, HashSet<string> excludedIds, SetViewModel set)
     {
         foreach (var card in cards)
         {
@@ -445,6 +467,7 @@ public partial class MainViewModel : ObservableObject
                 card.ImageSmall, card.Rarity,
                 ownedMap.TryGetValue(card.Id, out var qty) ? qty : 0,
                 wantedIds.Contains(card.Id),
+                excludedIds.Contains(card.Id),
                 _imageCache)
             {
                 CmLow = card.CmLow,
@@ -460,6 +483,8 @@ public partial class MainViewModel : ObservableObject
                     await OnCardQuantityChangedAsync(vm, set);
                 else if (e.PropertyName == nameof(CardViewModel.IsWanted))
                     await OnCardWantedChangedAsync(vm, set);
+                else if (e.PropertyName == nameof(CardViewModel.IsExcluded))
+                    await OnCardExcludedChangedAsync(vm, set);
             };
 
             set.Cards.Add(vm);
@@ -743,6 +768,23 @@ public partial class MainViewModel : ObservableObject
     }
 
     private bool CanInstallUpdate() => !IsUpdating;
+
+    private async Task OnCardExcludedChangedAsync(CardViewModel card, SetViewModel set)
+    {
+        var entry = await _db.ExcludedCards.FindAsync(card.CardId);
+        if (card.IsExcluded)
+        {
+            if (entry is null)
+                _db.ExcludedCards.Add(new ExcludedCard { CardId = card.CardId, SetId = card.SetId });
+        }
+        else if (entry is not null)
+        {
+            _db.ExcludedCards.Remove(entry);
+        }
+        await _db.SaveChangesAsync();
+        set.NotifyExclusionChanged();
+        StatusText = $"{set.Name} — {set.CompletionText}";
+    }
 
     [RelayCommand]
     private void ToggleAllSeries()

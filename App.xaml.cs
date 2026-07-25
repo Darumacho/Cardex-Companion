@@ -53,6 +53,10 @@ public partial class App : Application
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN PricesUpdatedAt TEXT"); } catch { }
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN CmUrl TEXT"); } catch { }
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN TcgUrl TEXT"); } catch { }
+        try { await db.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE IF NOT EXISTS ExcludedCards (
+                CardId TEXT PRIMARY KEY NOT NULL, SetId TEXT NOT NULL DEFAULT '')"); }
+        catch { }
 
         var settings = AppSettings.Load();
         var tcgService = new PokemonTcgService(settings.ApiKey);

@@ -19,6 +19,7 @@ public partial class CardViewModel : ObservableObject
     [ObservableProperty] private BitmapImage? _cardImage;
     [ObservableProperty] private bool _isLoadingImage;
     [ObservableProperty] private bool _isWanted;
+    [ObservableProperty] private bool _isExcluded;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CmLowText))]
@@ -72,7 +73,7 @@ public partial class CardViewModel : ObservableObject
 
     public CardViewModel(
         string cardId, string name, string number, string setId,
-        string imageUrl, string? rarity, int quantity, bool isWanted,
+        string imageUrl, string? rarity, int quantity, bool isWanted, bool isExcluded,
         ImageCacheService imageCache)
     {
         CardId = cardId;
@@ -84,11 +85,15 @@ public partial class CardViewModel : ObservableObject
         _quantity = quantity;
         _isOwned = quantity > 0;
         _isWanted = isWanted;
+        _isExcluded = isExcluded;
         _imageCache = imageCache;
     }
 
     [RelayCommand]
     private void ToggleOwned() => IsOwned = !IsOwned;
+
+    [RelayCommand]
+    private void ToggleExcluded() => IsExcluded = !IsExcluded;
 
     [RelayCommand]
     private void Increment() => Quantity++;

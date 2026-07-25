@@ -134,14 +134,17 @@
                                 </StackPanel>
                             </StackPanel>
 
-                            <!-- Étoile Wants -->
-                            <ToggleButton Grid.Column="1"
-                                          IsChecked="{Binding IsWanted}"
-                                          Style="{StaticResource StarButtonStyle}"
-                                          FontSize="18"
-                                          VerticalAlignment="Top"
-                                          Margin="2,2,0,0"
-                                          ToolTip="Mark as wanted"/>
+                            <!-- Étoile Wants + ⊘ Exclude -->
+                            <StackPanel Grid.Column="1" VerticalAlignment="Top" Margin="2,2,0,0">
+                                <ToggleButton IsChecked="{Binding IsWanted}"
+                                              Style="{StaticResource StarButtonStyle}"
+                                              FontSize="18"
+                                              ToolTip="Mark as wanted"/>
+                                <ToggleButton IsChecked="{Binding IsExcluded}"
+                                              Style="{StaticResource ExcludeButtonStyle}"
+                                              FontSize="16"
+                                              ToolTip="Exclude from set completion"/>
+                            </StackPanel>
                         </Grid>
                     </StackPanel>
                 </Grid>
@@ -358,6 +361,20 @@
                                 <Setter Property="Visibility" Value="Collapsed"/>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsWanted}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <!-- Badge excluded -->
+                    <TextBlock Text="⊘" Foreground="#ff8c00" FontSize="14" FontWeight="Bold"
+                               HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,5,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsExcluded}" Value="True">
                                         <Setter Property="Visibility" Value="Visible"/>
                                     </DataTrigger>
                                 </Style.Triggers>

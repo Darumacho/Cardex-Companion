@@ -11,6 +11,7 @@ public class AppDbContext : DbContext
     public DbSet<FavoriteSet> FavoriteSets { get; set; }
     public DbSet<CachedSet> CachedSets { get; set; }
     public DbSet<CachedCard> CachedCards { get; set; }
+    public DbSet<ExcludedCard> ExcludedCards { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder options)
     {
