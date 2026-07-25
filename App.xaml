@@ -17,6 +17,7 @@
         <SolidColorBrush x:Key="BrushHighlight" Color="{StaticResource ColorHighlight}"/>
         <SolidColorBrush x:Key="BrushText" Color="{StaticResource ColorText}"/>
         <SolidColorBrush x:Key="BrushSubtext" Color="{StaticResource ColorSubtext}"/>
+        <SolidColorBrush x:Key="CollectionBorderBrush" Color="#3a7fc1"/>
 
         <!-- Button style : set sidebar -->
         <Style x:Key="SetButtonStyle" TargetType="Button">

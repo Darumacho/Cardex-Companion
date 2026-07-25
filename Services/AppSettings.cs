@@ -6,6 +6,8 @@ namespace Cardex.Services;
 public class AppSettings
 {
     public string? ApiKey { get; set; }
+    public string CollectionBorderColor { get; set; } = "#3a7fc1";
+    public bool ShowMyCollection { get; set; } = true;
 
     private static readonly JsonSerializerOptions _json = new() { WriteIndented = true };
 
@@ -22,5 +24,15 @@ public class AppSettings
         }
         catch { }
         return new();
+    }
+
+    public void Save()
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
+            File.WriteAllText(FilePath, JsonSerializer.Serialize(this, _json));
+        }
+        catch { }
     }
 }

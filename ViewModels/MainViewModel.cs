@@ -20,6 +20,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ImageCacheService _imageCache;
     private readonly AppDbContext _db;
     private readonly UpdateService _updateService = new();
+    private readonly AppSettings _settings;
 
     public ObservableCollection<SeriesViewModel> Series { get; } = [];
     public ObservableCollection<SetViewModel> HomeFavorites { get; } = [];
@@ -42,6 +43,10 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private int _updateProgress;
     [ObservableProperty] private bool _allSeriesExpanded = true;
     [ObservableProperty] private bool _isBinderView;
+    [ObservableProperty] private bool _isSettingsOpen;
+    [ObservableProperty] private bool _showMyCollection = true;
+
+    public string CollectionBorderColor => _settings.CollectionBorderColor;
 
     public bool HasUpdate => PendingUpdate is not null;
 
@@ -51,11 +56,21 @@ public partial class MainViewModel : ObservableObject
     partial void OnIsUpdatingChanged(bool value)
         => InstallUpdateCommand.NotifyCanExecuteChanged();
 
+    partial void OnShowMyCollectionChanged(bool value)
+    {
+        _settings.ShowMyCollection = value;
+        _settings.Save();
+        RefreshSpecialGroups();
+    }
+
     public MainViewModel(PokemonTcgService tcgService, ImageCacheService imageCache, AppDbContext db)
     {
         _tcgService = tcgService;
         _imageCache = imageCache;
         _db = db;
+        _settings = AppSettings.Load();
+        _showMyCollection = _settings.ShowMyCollection;
+        ApplyBorderColor(_settings.CollectionBorderColor);
         WantedCards.CollectionChanged += (_, _) => { OnPropertyChanged(nameof(HasWantedCards)); OnPropertyChanged(nameof(HasHomeContent)); };
         DuplicateCards.CollectionChanged += (_, _) => { OnPropertyChanged(nameof(HasDuplicates)); OnPropertyChanged(nameof(HasHomeContent)); };
     }
@@ -238,6 +253,22 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    public async Task RefreshSelectedSetAsync()
+    {
+        if (SelectedSet is null || IsBusy) return;
+
+        var set = SelectedSet;
+        set.Cards.Clear();
+        set.IsLoading = true;
+
+        await _db.CachedCards
+            .Where(c => c.SetId == set.SetId)
+            .ExecuteDeleteAsync();
+
+        await SelectSetAsync(set);
+    }
+
+    [RelayCommand]
     public async Task RefreshSetsAsync()
     {
         if (IsBusy) return;
@@ -320,7 +351,7 @@ public partial class MainViewModel : ObservableObject
             Series.Insert(pos++, g);
         }
 
-        if (collected.Count > 0)
+        if (collected.Count > 0 && ShowMyCollection)
         {
             var g = new SeriesViewModel("My Collection", isMyCollectionGroup: true);
             foreach (var s in collected) g.Sets.Add(s);
@@ -397,10 +428,11 @@ public partial class MainViewModel : ObservableObject
                 .Select(e => e.CardId)
                 .ToListAsync()).ToHashSet();
 
-            var cachedCards = await _db.CachedCards
+            var cachedCards = (await _db.CachedCards
                 .Where(c => c.SetId == set.SetId)
-                .OrderBy(c => c.SortOrder)
-                .ToListAsync();
+                .ToListAsync())
+                .OrderBy(c => CardNumberSort(c.Number))
+                .ToList();
 
             if (cachedCards.Count > 0)
             {
@@ -414,7 +446,9 @@ public partial class MainViewModel : ObservableObject
             {
                 try
                 {
-                    var apiCards = await _tcgService.GetCardsAsync(set.SetId);
+                    var apiCards = (await _tcgService.GetCardsAsync(set.SetId))
+                        .OrderBy(c => CardNumberSort(c.Number))
+                        .ToList();
                     var now = DateTime.UtcNow;
 
                     _db.CachedCards.AddRange(apiCards.Select((c, i) => new CachedCard
@@ -769,6 +803,29 @@ public partial class MainViewModel : ObservableObject
 
     private bool CanInstallUpdate() => !IsUpdating;
 
+    [RelayCommand]
+    private void ToggleSettings() => IsSettingsOpen = !IsSettingsOpen;
+
+    [RelayCommand]
+    private void SetBorderColor(string hex)
+    {
+        _settings.CollectionBorderColor = hex;
+        _settings.Save();
+        ApplyBorderColor(hex);
+        OnPropertyChanged(nameof(CollectionBorderColor));
+    }
+
+    private static void ApplyBorderColor(string hex)
+    {
+        try
+        {
+            var color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hex);
+            System.Windows.Application.Current.Resources["CollectionBorderBrush"] =
+                new System.Windows.Media.SolidColorBrush(color);
+        }
+        catch { }
+    }
+
     private async Task OnCardExcludedChangedAsync(CardViewModel card, SetViewModel set)
     {
         var entry = await _db.ExcludedCards.FindAsync(card.CardId);
@@ -890,22 +947,57 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task ExportCsvAsync()
     {
-        var dialog = new Microsoft.Win32.SaveFileDialog
+        var exportDlg = new Views.ExportDialog
         {
-            Title = "Export collection",
-            Filter = "CSV files (*.csv)|*.csv",
-            FileName = "cardex_collection.csv"
+            Owner = Application.Current.MainWindow
         };
-        if (dialog.ShowDialog() != true) return;
+        if (exportDlg.ShowDialog() != true) return;
 
-        var owned = await _db.OwnedCards.ToListAsync();
-        if (owned.Count == 0)
+        var mode = exportDlg.SelectedMode;
+
+        string defaultName = mode switch
         {
-            StatusText = "No owned cards to export.";
-            return;
+            Views.ExportMode.Wants      => "cardex_wants.csv",
+            Views.ExportMode.Duplicates => "cardex_duplicates.csv",
+            _                           => "cardex_collection.csv"
+        };
+
+        var saveDlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Export CSV",
+            Filter = "CSV files (*.csv)|*.csv",
+            FileName = defaultName
+        };
+        if (saveDlg.ShowDialog() != true) return;
+
+        List<string> cardIds;
+        Dictionary<string, int> qtyMap;
+
+        if (mode == Views.ExportMode.Wants)
+        {
+            var wanted = await _db.WantedCards.ToListAsync();
+            if (wanted.Count == 0) { StatusText = "No wanted cards to export."; return; }
+            cardIds = wanted.Select(w => w.CardId).ToList();
+            var ownedQty = await _db.OwnedCards
+                .Where(o => cardIds.Contains(o.CardId))
+                .ToDictionaryAsync(o => o.CardId, o => o.Quantity);
+            qtyMap = cardIds.ToDictionary(id => id, id => ownedQty.GetValueOrDefault(id, 0));
+        }
+        else if (mode == Views.ExportMode.Duplicates)
+        {
+            var dupes = await _db.OwnedCards.Where(o => o.Quantity > 1).ToListAsync();
+            if (dupes.Count == 0) { StatusText = "No duplicate cards to export."; return; }
+            cardIds = dupes.Select(o => o.CardId).ToList();
+            qtyMap = dupes.ToDictionary(o => o.CardId, o => o.Quantity);
+        }
+        else
+        {
+            var owned = await _db.OwnedCards.ToListAsync();
+            if (owned.Count == 0) { StatusText = "No owned cards to export."; return; }
+            cardIds = owned.Select(o => o.CardId).ToList();
+            qtyMap = owned.ToDictionary(o => o.CardId, o => o.Quantity);
         }
 
-        var cardIds = owned.Select(o => o.CardId).ToList();
         var cards = await _db.CachedCards
             .Where(c => cardIds.Contains(c.CardId))
             .ToDictionaryAsync(c => c.CardId);
@@ -915,14 +1007,12 @@ public partial class MainViewModel : ObservableObject
             .Where(s => setIds.Contains(s.SetId))
             .ToDictionaryAsync(s => s.SetId, s => s.Name);
 
-        var ownedMap = owned.ToDictionary(o => o.CardId, o => o.Quantity);
-
-        using var writer = new StreamWriter(dialog.FileName, false, Encoding.UTF8);
+        using var writer = new StreamWriter(saveDlg.FileName, false, Encoding.UTF8);
         await writer.WriteLineAsync("Name,Set,Number,Rarity,Quantity,Cardmarket (€),TCGPlayer ($),Cardmarket URL,TCGPlayer URL");
 
         foreach (var (cardId, card) in cards.OrderBy(kv => kv.Value.SetId).ThenBy(kv => kv.Value.SortOrder))
         {
-            var qty = ownedMap.GetValueOrDefault(cardId, 0);
+            var qty = qtyMap.GetValueOrDefault(cardId, 0);
             var setName = sets.GetValueOrDefault(card.SetId, card.SetId);
             await writer.WriteLineAsync(string.Join(",",
                 CsvEscape(card.Name),
@@ -936,7 +1026,16 @@ public partial class MainViewModel : ObservableObject
                 CsvEscape(card.TcgUrl ?? "")));
         }
 
-        StatusText = $"Collection exported — {cards.Count} card(s)";
+        StatusText = $"Exported {cards.Count} card(s) — {mode}";
+    }
+
+    private static (int, string, int) CardNumberSort(string? number)
+    {
+        if (number is null) return (1, "", int.MaxValue);
+        if (int.TryParse(number, out int n)) return (0, "", n);
+        var m = System.Text.RegularExpressions.Regex.Match(number, @"^([A-Za-z]+)(\d+)$");
+        if (m.Success) return (1, m.Groups[1].Value, int.Parse(m.Groups[2].Value));
+        return (1, number, 0);
     }
 
     private static string CsvEscape(string value)

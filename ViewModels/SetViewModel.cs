@@ -98,7 +98,7 @@ public partial class SetViewModel : ObservableObject
         ? Cards.Count(c => c.IsOwned && c.IsExcluded)
         : _preloadedExcludedOwned;
 
-    public int EffectiveTotal => Total - ExcludedTotal;
+    public int EffectiveTotal => (Cards.Count > 0 ? Cards.Count : Total) - ExcludedTotal;
     public int EffectiveOwned => OwnedCount - ExcludedOwned;
 
     public string CompletionText => $"{EffectiveOwned} / {EffectiveTotal}";
@@ -107,6 +107,7 @@ public partial class SetViewModel : ObservableObject
     {
         _dbOwnedCount = count;
         OnPropertyChanged(nameof(OwnedCount));
+        OnPropertyChanged(nameof(HasOwnedCards));
         OnPropertyChanged(nameof(EffectiveOwned));
         OnPropertyChanged(nameof(CompletionText));
         OnPropertyChanged(nameof(IsComplete));
@@ -123,6 +124,8 @@ public partial class SetViewModel : ObservableObject
         OnPropertyChanged(nameof(CompletionText));
         OnPropertyChanged(nameof(IsComplete));
     }
+
+    public bool HasOwnedCards => OwnedCount > 0;
 
     public bool AllOwned => Cards.Count > 0 && Cards.All(c => c.IsOwned);
 
@@ -163,6 +166,7 @@ public partial class SetViewModel : ObservableObject
     public void NotifyOwnershipChanged()
     {
         OnPropertyChanged(nameof(OwnedCount));
+        OnPropertyChanged(nameof(HasOwnedCards));
         OnPropertyChanged(nameof(ExcludedOwned));
         OnPropertyChanged(nameof(EffectiveOwned));
         OnPropertyChanged(nameof(EffectiveTotal));
