@@ -2,33 +2,58 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Export CSV"
-        Width="320" Height="240"
+        Width="320" Height="370"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="#1a1a2e"
         Foreground="#e0e0e0">
 
     <StackPanel Margin="24,20,24,16">
+
+        <!-- Plage de données -->
         <TextBlock Text="What do you want to export?"
                    Foreground="#8888aa" FontSize="12"
-                   Margin="0,0,0,16"/>
+                   Margin="0,0,0,12"/>
 
-        <RadioButton x:Name="RadioCollection"
-                     Content="My Collection"
-                     IsChecked="True"
+        <RadioButton x:Name="RbCollection" Content="My Collection"
+                     GroupName="ContentGroup"
+                     IsChecked="True" Foreground="#e0e0e0" FontSize="12"
+                     Margin="0,0,0,8" Cursor="Hand"/>
+        <RadioButton x:Name="RbWants" Content="Wants"
+                     GroupName="ContentGroup"
                      Foreground="#e0e0e0" FontSize="12"
-                     Margin="0,0,0,10" Cursor="Hand"/>
-
-        <RadioButton x:Name="RadioWants"
-                     Content="Wants"
+                     Margin="0,0,0,8" Cursor="Hand"/>
+        <RadioButton x:Name="RbDuplicates" Content="Duplicates"
+                     GroupName="ContentGroup"
                      Foreground="#e0e0e0" FontSize="12"
-                     Margin="0,0,0,10" Cursor="Hand"/>
+                     Margin="0,0,0,8" Cursor="Hand"/>
+        <RadioButton x:Name="RbMissing" Content="Missing"
+                     GroupName="ContentGroup"
+                     Foreground="#e0e0e0" FontSize="12"
+                     Margin="0,0,0,16" Cursor="Hand"/>
 
-        <RadioButton x:Name="RadioDuplicates"
-                     Content="Duplicates"
+        <!-- Séparateur -->
+        <Rectangle Height="1" Fill="#0f3460" Margin="0,0,0,16"/>
+
+        <!-- Format -->
+        <TextBlock Text="Export format"
+                   Foreground="#8888aa" FontSize="12"
+                   Margin="0,0,0,12"/>
+
+        <RadioButton x:Name="RbNormal" Content="Normal  (full data)"
+                     GroupName="FormatGroup"
+                     IsChecked="True" Foreground="#e0e0e0" FontSize="12"
+                     Margin="0,0,0,8" Cursor="Hand"/>
+        <RadioButton x:Name="RbCardmarket" Content="Cardmarket  (wantlist import)"
+                     GroupName="FormatGroup"
+                     Foreground="#e0e0e0" FontSize="12"
+                     Margin="0,0,0,8" Cursor="Hand"/>
+        <RadioButton x:Name="RbTcgPlayer" Content="TCGPlayer  (wishlist import)"
+                     GroupName="FormatGroup"
                      Foreground="#e0e0e0" FontSize="12"
                      Margin="0,0,0,20" Cursor="Hand"/>
 
+        <!-- Boutons -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="Cancel" Width="80" Height="30"
                     Margin="0,0,8,0" IsCancel="True"

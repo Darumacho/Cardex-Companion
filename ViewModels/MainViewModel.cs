@@ -948,86 +948,124 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task ExportCsvAsync()
     {
-        var exportDlg = new Views.ExportDialog
-        {
-            Owner = Application.Current.MainWindow
-        };
+        var exportDlg = new Views.ExportDialog { Owner = Application.Current.MainWindow };
         if (exportDlg.ShowDialog() != true) return;
 
-        var mode = exportDlg.SelectedMode;
-
-        string defaultName = mode switch
-        {
-            Views.ExportMode.Wants      => "cardex_wants.csv",
-            Views.ExportMode.Duplicates => "cardex_duplicates.csv",
-            _                           => "cardex_collection.csv"
-        };
+        var mode   = exportDlg.SelectedMode;
+        var format = exportDlg.SelectedFormat;
 
         var saveDlg = new Microsoft.Win32.SaveFileDialog
         {
             Title = "Export CSV",
             Filter = "CSV files (*.csv)|*.csv",
-            FileName = defaultName
+            FileName = CsvFileName(mode, format)
         };
         if (saveDlg.ShowDialog() != true) return;
 
+        var count = await WriteCsvAsync(saveDlg.FileName, mode, format);
+        StatusText = $"Exported {count} card(s)";
+    }
+
+    private static string CsvFileName(Views.ExportMode mode, Views.ExportFormat format)
+    {
+        string m = mode switch
+        {
+            Views.ExportMode.Wants      => "wants",
+            Views.ExportMode.Duplicates => "duplicates",
+            Views.ExportMode.Missing    => "missing",
+            _                           => "collection"
+        };
+        string f = format switch { Views.ExportFormat.Cardmarket => "_cardmarket", Views.ExportFormat.TcgPlayer => "_tcgplayer", _ => "" };
+        return $"cardex_{m}{f}.csv";
+    }
+
+    private async Task<int> WriteCsvAsync(string path, Views.ExportMode mode, Views.ExportFormat format)
+    {
         List<string> cardIds;
         Dictionary<string, int> qtyMap;
 
         if (mode == Views.ExportMode.Wants)
         {
             var wanted = await _db.WantedCards.ToListAsync();
-            if (wanted.Count == 0) { StatusText = "No wanted cards to export."; return; }
+            if (wanted.Count == 0) return 0;
             cardIds = wanted.Select(w => w.CardId).ToList();
-            var ownedQty = await _db.OwnedCards
-                .Where(o => cardIds.Contains(o.CardId))
+            var ownedQty = await _db.OwnedCards.Where(o => cardIds.Contains(o.CardId))
                 .ToDictionaryAsync(o => o.CardId, o => o.Quantity);
             qtyMap = cardIds.ToDictionary(id => id, id => ownedQty.GetValueOrDefault(id, 0));
         }
         else if (mode == Views.ExportMode.Duplicates)
         {
             var dupes = await _db.OwnedCards.Where(o => o.Quantity > 1).ToListAsync();
-            if (dupes.Count == 0) { StatusText = "No duplicate cards to export."; return; }
+            if (dupes.Count == 0) return 0;
             cardIds = dupes.Select(o => o.CardId).ToList();
             qtyMap = dupes.ToDictionary(o => o.CardId, o => o.Quantity);
+        }
+        else if (mode == Views.ExportMode.Missing)
+        {
+            var ownedIds = (await _db.OwnedCards.Where(o => o.Quantity > 0).Select(o => o.CardId).ToListAsync()).ToHashSet();
+            var excludedIds = (await _db.ExcludedCards.Select(e => e.CardId).ToListAsync()).ToHashSet();
+            var missing = await _db.CachedCards
+                .Where(c => !ownedIds.Contains(c.CardId) && !excludedIds.Contains(c.CardId))
+                .ToListAsync();
+            if (missing.Count == 0) return 0;
+            cardIds = missing.Select(c => c.CardId).ToList();
+            qtyMap = cardIds.ToDictionary(id => id, _ => 0);
         }
         else
         {
             var owned = await _db.OwnedCards.ToListAsync();
-            if (owned.Count == 0) { StatusText = "No owned cards to export."; return; }
+            if (owned.Count == 0) return 0;
             cardIds = owned.Select(o => o.CardId).ToList();
             qtyMap = owned.ToDictionary(o => o.CardId, o => o.Quantity);
         }
 
-        var cards = await _db.CachedCards
-            .Where(c => cardIds.Contains(c.CardId))
-            .ToDictionaryAsync(c => c.CardId);
-
+        var cards = await _db.CachedCards.Where(c => cardIds.Contains(c.CardId)).ToDictionaryAsync(c => c.CardId);
         var setIds = cards.Values.Select(c => c.SetId).Distinct().ToList();
-        var sets = await _db.CachedSets
-            .Where(s => setIds.Contains(s.SetId))
-            .ToDictionaryAsync(s => s.SetId, s => s.Name);
+        var sets = await _db.CachedSets.Where(s => setIds.Contains(s.SetId)).ToDictionaryAsync(s => s.SetId, s => s.Name);
+        var ordered = cards.OrderBy(kv => kv.Value.SetId).ThenBy(kv => kv.Value.SortOrder).ToList();
 
-        using var writer = new StreamWriter(saveDlg.FileName, false, Encoding.UTF8);
-        await writer.WriteLineAsync("Name,Set,Number,Rarity,Quantity,Cardmarket (€),TCGPlayer ($),Cardmarket URL,TCGPlayer URL");
+        using var writer = new StreamWriter(path, false, Encoding.UTF8);
 
-        foreach (var (cardId, card) in cards.OrderBy(kv => kv.Value.SetId).ThenBy(kv => kv.Value.SortOrder))
+        if (format == Views.ExportFormat.Cardmarket)
         {
-            var qty = qtyMap.GetValueOrDefault(cardId, 0);
-            var setName = sets.GetValueOrDefault(card.SetId, card.SetId);
-            await writer.WriteLineAsync(string.Join(",",
-                CsvEscape(card.Name),
-                CsvEscape(setName),
-                CsvEscape(card.Number),
-                CsvEscape(card.Rarity ?? ""),
-                qty.ToString(),
-                card.CmLow.HasValue ? card.CmLow.Value.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) : "",
-                card.TcgLow.HasValue ? card.TcgLow.Value.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) : "",
-                CsvEscape(card.CmUrl ?? ""),
-                CsvEscape(card.TcgUrl ?? "")));
+            await writer.WriteLineAsync("Name;Edition;Quantity");
+            foreach (var (cardId, card) in ordered)
+                await writer.WriteLineAsync(string.Join(";",
+                    CsvEscapeSemicolon(card.Name),
+                    CsvEscapeSemicolon(sets.GetValueOrDefault(card.SetId, card.SetId)),
+                    qtyMap.GetValueOrDefault(cardId, 0)));
+        }
+        else if (format == Views.ExportFormat.TcgPlayer)
+        {
+            await writer.WriteLineAsync("Quantity,Name,Set Name,Number,Condition,Language");
+            foreach (var (cardId, card) in ordered)
+                await writer.WriteLineAsync(string.Join(",",
+                    qtyMap.GetValueOrDefault(cardId, 0),
+                    CsvEscape(card.Name),
+                    CsvEscape(sets.GetValueOrDefault(card.SetId, card.SetId)),
+                    CsvEscape(card.Number),
+                    "Near Mint", "English"));
+        }
+        else
+        {
+            await writer.WriteLineAsync("Name,Set,Number,Rarity,Quantity,Cardmarket (€),TCGPlayer ($),Cardmarket URL,TCGPlayer URL");
+            foreach (var (cardId, card) in ordered)
+            {
+                var qty = qtyMap.GetValueOrDefault(cardId, 0);
+                await writer.WriteLineAsync(string.Join(",",
+                    CsvEscape(card.Name),
+                    CsvEscape(sets.GetValueOrDefault(card.SetId, card.SetId)),
+                    CsvEscape(card.Number),
+                    CsvEscape(card.Rarity ?? ""),
+                    qty,
+                    card.CmLow.HasValue ? card.CmLow.Value.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) : "",
+                    card.TcgLow.HasValue ? card.TcgLow.Value.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) : "",
+                    CsvEscape(card.CmUrl ?? ""),
+                    CsvEscape(card.TcgUrl ?? "")));
+            }
         }
 
-        StatusText = $"Exported {cards.Count} card(s) — {mode}";
+        return cards.Count;
     }
 
     private static (int, string, int) CardNumberSort(string? number)
@@ -1042,6 +1080,13 @@ public partial class MainViewModel : ObservableObject
     private static string CsvEscape(string value)
     {
         if (value.Contains(',') || value.Contains('"') || value.Contains('\n'))
+            return $"\"{value.Replace("\"", "\"\"")}\"";
+        return value;
+    }
+
+    private static string CsvEscapeSemicolon(string value)
+    {
+        if (value.Contains(';') || value.Contains('"') || value.Contains('\n'))
             return $"\"{value.Replace("\"", "\"\"")}\"";
         return value;
     }
