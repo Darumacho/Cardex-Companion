@@ -23,14 +23,28 @@ public partial class MainWindow : Window
         await LoadVisibleCardImagesAsync();
     }
 
+    public void FocusSearch()
+    {
+        Activate();
+        if (DataContext is MainViewModel vm && vm.SelectedSet is not null)
+        {
+            SetSearchBox.Focus();
+            SetSearchBox.SelectAll();
+        }
+        else
+        {
+            GlobalSearchBox.Focus();
+            GlobalSearchBox.SelectAll();
+        }
+    }
+
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
 
         if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
         {
-            GlobalSearchBox.Focus();
-            GlobalSearchBox.SelectAll();
+            FocusSearch();
             e.Handled = true;
             return;
         }

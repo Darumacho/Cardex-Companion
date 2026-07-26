@@ -14,6 +14,7 @@
         <KeyBinding Gesture="Ctrl+E" Command="{Binding ExportCsvCommand}"/>
         <KeyBinding Gesture="Ctrl+B" Command="{Binding BackupCollectionCommand}"/>
         <KeyBinding Gesture="Ctrl+R" Command="{Binding RestoreCollectionCommand}"/>
+        <KeyBinding Gesture="Ctrl+A" Command="{Binding ToggleAllOwnedCommand}"/>
     </Window.InputBindings>
 
     <Window.Resources>
@@ -335,6 +336,11 @@
                 </Border.Style>
                 <Border.InputBindings>
                     <MouseBinding MouseAction="LeftClick" Command="{Binding ToggleOwnedCommand}"/>
+                    <MouseBinding Command="{Binding ToggleExcludedCommand}">
+                        <MouseBinding.Gesture>
+                            <MouseGesture MouseAction="LeftClick" Modifiers="Control"/>
+                        </MouseBinding.Gesture>
+                    </MouseBinding>
                 </Border.InputBindings>
                 <Grid>
                     <Border Background="#111122" CornerRadius="4"/>
@@ -376,8 +382,9 @@
                         </TextBlock.Style>
                     </TextBlock>
                     <!-- Badge excluded -->
-                    <TextBlock Text="⊘" Foreground="#ff8c00" FontSize="14" FontWeight="Bold"
-                               HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,5,0">
+                    <TextBlock Text="⊘" Foreground="#cc0000" FontSize="64" FontWeight="Bold"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Opacity="0.85">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Visibility" Value="Collapsed"/>
@@ -1049,7 +1056,8 @@
 
                     <!-- Champ texte libre avec placeholder -->
                     <Grid Grid.Column="0">
-                        <TextBox Text="{Binding SelectedSet.SearchText, UpdateSourceTrigger=PropertyChanged}"
+                        <TextBox x:Name="SetSearchBox"
+                                 Text="{Binding SelectedSet.SearchText, UpdateSourceTrigger=PropertyChanged}"
                                  Background="#111122"
                                  Foreground="{StaticResource BrushText}"
                                  CaretBrush="{StaticResource BrushText}"
@@ -1154,12 +1162,9 @@
             </Grid><!-- fin Vue set -->
         </Grid>
 
-        <!-- ===== PANNEAU PARAMÈTRES ===== -->
+        <!-- ===== PANNEAU PARAMÈTRES (remplacé par SettingsWindow) ===== -->
         <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
-                Background="{StaticResource BrushPanel}"
-                BorderBrush="{StaticResource BrushAccent}"
-                BorderThickness="0,1,0,0"
-                Padding="14,10">
+                Visibility="Collapsed">
             <Border.Style>
                 <Style TargetType="Border">
                     <Setter Property="Visibility" Value="Collapsed"/>

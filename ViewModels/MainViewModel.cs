@@ -805,7 +805,11 @@ public partial class MainViewModel : ObservableObject
     private bool CanInstallUpdate() => !IsUpdating;
 
     [RelayCommand]
-    private void ToggleSettings() => IsSettingsOpen = !IsSettingsOpen;
+    private void ToggleSettings()
+    {
+        var win = new Views.SettingsWindow { DataContext = this };
+        win.Show();
+    }
 
     [RelayCommand]
     private void SetBorderColor(string hex)
