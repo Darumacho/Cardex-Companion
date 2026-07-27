@@ -15,9 +15,18 @@
 
 ### Collection Management
 - Mark cards as **Owned** and track **quantity** per card (−/+)
-- Global **Mark all as owned / unowned** toggle on the active set
+- Mark cards as **Excluded** to remove them from completion tracking
+- Global **Check all / Uncheck all** toggle on the active set
 - **My Collection** sidebar section grouping all sets with at least one owned card
 - **⊕ Duplicate Cards** section on the home screen listing every card owned more than once
+- **Per-set ↻ Refresh** button to re-sync a set from the API without clearing the database
+
+### Views
+- **List view** — card grid with full details (price, rarity, owned/wanted badges)
+- **Binder view** — compact card binder showing all cards as thumbnails
+  - Click a card to toggle owned
+  - `Ctrl+Click` to toggle excluded — excluded cards show a **⊘** overlay
+- **Card zoom** — click the 🔍 button on any card image to open a full HD view
 
 ### Want List
 - Star ★ any card to add it to your **Want List**
@@ -45,19 +54,30 @@
 - Cache data (sets, cards, prices) is excluded — it is re-downloaded automatically
 
 ### CSV Export
-- Export your full collection via **⬇ CSV Export** in the status bar
-- Columns: `Name`, `Set`, `Number`, `Rarity`, `Quantity`, `Cardmarket (€)`, `TCGPlayer ($)`, `Cardmarket URL`, `TCGPlayer URL`
+- Choose a **data range**: Collection, Wants, Duplicates, or Missing
+- Choose an **export format**:
+  - **Normal** — full data: `Name, Set, Number, Rarity, Quantity, Cardmarket (€), TCGPlayer ($), URLs`
+  - **Cardmarket** — wantlist import: `Name;Edition;Quantity`
+  - **TCGPlayer** — wishlist import: `Quantity, Name, Set Name, Number, Condition, Language`
 - UTF-8 encoded, Excel-compatible
+
+### Settings
+- Accessible via the ⚙ button — opens a dedicated window with two tabs:
+  - **Options**: collection border color picker, Show My Collection toggle
+  - **Shortcuts**: reference list of all keyboard shortcuts
 
 ### Keyboard Shortcuts
 
 | Shortcut | Action |
 |---|---|
-| `Ctrl+F` | Focus the global search bar |
+| `Ctrl+F` | Focus the search bar (global or per-set depending on context) |
 | `Escape` | Clear search / go back to home |
+| `Ctrl+A` | Check all / Uncheck all cards in the active set |
 | `Ctrl+B` | Backup collection |
 | `Ctrl+R` | Restore collection |
 | `Ctrl+E` | Export CSV |
+| `Left click` *(binder)* | Toggle owned |
+| `Ctrl+Left click` *(binder)* | Toggle excluded |
 
 ### Auto-Updater
 - Checks for new releases on GitHub at startup
@@ -110,22 +130,26 @@ A free API key from [pokemontcg.io](https://pokemontcg.io) raises rate limits. T
 ```
 Cardex/
 ├── Assets/              # Cardmarket and TCGPlayer icons
+├── Converters/          # XAML value converters
 ├── Data/                # EF Core DbContext
 ├── Models/              # Database entities and API models
 ├── SeedData/            # Embedded seed data (sets + cards)
 ├── Services/
 │   ├── PokemonTcgService    # pokemontcg.io API client
-│   ├── ImageCacheService    # Local image cache
+│   ├── ImageCacheService    # Local image cache (thumbnails + full-res)
 │   ├── UpdateService        # Update check and installation
 │   └── AppSettings          # Configuration loader
 ├── ViewModels/
 │   ├── MainViewModel        # Root view model
 │   ├── SetViewModel         # A set with its filters and cards
-│   ├── CardViewModel        # A card (owned, wanted, prices, links)
+│   ├── CardViewModel        # A card (owned, wanted, excluded, prices, links)
 │   ├── SeriesViewModel      # A sidebar series group
 │   └── SearchResultViewModel
 └── Views/
-    └── MainWindow.xaml
+    ├── MainWindow.xaml      # Main application window
+    ├── SettingsWindow.xaml  # Settings (options + shortcuts)
+    ├── CardZoomWindow.xaml  # Full-res card viewer
+    └── ExportDialog.xaml    # CSV export options
 ```
 
 ---
@@ -141,6 +165,7 @@ The SQLite database is stored in `%AppData%\Cardex\cardex.db` and contains:
 | `OwnedCards` | Personal collection with quantities |
 | `WantedCards` | Want list |
 | `FavoriteSets` | Starred sets |
+| `ExcludedCards` | Cards excluded from completion tracking |
 
 ---
 
@@ -151,6 +176,6 @@ The SQLite database is stored in `%AppData%\Cardex\cardex.db` and contains:
 dotnet run
 
 # Publish as single-file exe
-dotnet publish -c Release
-# → bin/Release/net9.0-windows/win-x64/publish/Cardex.exe
+dotnet publish -c Release -o publish
+# → publish/Cardex.exe
 ```
