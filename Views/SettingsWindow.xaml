@@ -273,7 +273,7 @@
                             <TextBlock Text="+" Foreground="#8888aa" FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0"/>
                             <Border Style="{StaticResource ShortcutKeyStyle}"><TextBlock Text="A" Foreground="#e0e0e0" FontSize="11"/></Border>
                         </StackPanel>
-                        <TextBlock Grid.Column="1" Text="Check / Uncheck all (set view)" Foreground="#e0e0e0" FontSize="12" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="Check / Uncheck all" Foreground="#e0e0e0" FontSize="12" VerticalAlignment="Center"/>
                     </Grid>
 
                     <TextBlock Text="Binder view" Foreground="#8888aa" FontSize="11"

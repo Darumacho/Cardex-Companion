@@ -14,14 +14,16 @@ public partial class MainWindow : Window
 
     // Charge les images au fur et à mesure que les cartes deviennent visibles
     private async void CardsScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
-    {
-        await LoadVisibleCardImagesAsync();
-    }
+        => await LoadVisibleCardImagesAsync(20);
 
     private async void CardsItemsControl_Loaded(object sender, RoutedEventArgs e)
-    {
-        await LoadVisibleCardImagesAsync();
-    }
+        => await LoadVisibleCardImagesAsync(20);
+
+    private async void BinderScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        => await LoadVisibleCardImagesAsync(60);
+
+    private async void BinderItemsControl_Loaded(object sender, RoutedEventArgs e)
+        => await LoadVisibleCardImagesAsync(60);
 
     public void FocusSearch()
     {
@@ -66,12 +68,12 @@ public partial class MainWindow : Window
             vm.SelectedSet.SelectedRarity = rarity;
     }
 
-    private async Task LoadVisibleCardImagesAsync()
+    private async Task LoadVisibleCardImagesAsync(int batch)
     {
         if (DataContext is not MainViewModel vm || vm.SelectedSet is null) return;
         var tasks = vm.SelectedSet.Cards
             .Where(c => c.CardImage is null && !c.IsLoadingImage)
-            .Take(20)
+            .Take(batch)
             .Select(c => c.LoadImageAsync());
         await Task.WhenAll(tasks);
     }

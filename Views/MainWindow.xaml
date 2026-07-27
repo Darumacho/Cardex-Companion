@@ -1137,9 +1137,11 @@
 
             <!-- Vue binder (classeur) -->
             <ScrollViewer Grid.Row="2"
+                          x:Name="BinderScrollViewer"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled"
-                          Background="{StaticResource BrushBg}">
+                          Background="{StaticResource BrushBg}"
+                          ScrollChanged="BinderScrollViewer_ScrollChanged">
                 <ScrollViewer.Style>
                     <Style TargetType="ScrollViewer">
                         <Setter Property="Visibility" Value="Collapsed"/>
@@ -1151,7 +1153,8 @@
                     </Style>
                 </ScrollViewer.Style>
                 <ItemsControl ItemsSource="{Binding SelectedSet.Cards}"
-                              ItemTemplate="{StaticResource BinderCardTemplate}">
+                              ItemTemplate="{StaticResource BinderCardTemplate}"
+                              Loaded="BinderItemsControl_Loaded">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <WrapPanel Orientation="Horizontal" Margin="8"/>
