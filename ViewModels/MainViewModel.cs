@@ -546,6 +546,9 @@ public partial class MainViewModel : ObservableObject
         HomeCollection.Clear();
         foreach (var s in collected) HomeCollection.Add(s);
 
+        IsFavoritesSectionExpanded    = favorites.Count <= 12;
+        IsMyCollectionSectionExpanded = collected.Count <= 12;
+
         TotalOwnedCards = allSets.Sum(s => s.OwnedCount);
 
         int pos = 0;

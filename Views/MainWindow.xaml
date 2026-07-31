@@ -675,9 +675,9 @@
         <Grid Grid.Row="1" Grid.Column="1">
 
             <!-- Écran d'accueil -->
-            <Grid>
-                <Grid.Style>
-                    <Style TargetType="Grid">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ScrollViewer.Style>
+                    <Style TargetType="ScrollViewer">
                         <Setter Property="Visibility" Value="Collapsed"/>
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsHomeVisible}" Value="True">
@@ -685,12 +685,13 @@
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
-                </Grid.Style>
+                </ScrollViewer.Style>
+                <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <!-- Barre de recherche globale -->
@@ -840,12 +841,9 @@
                 </Border>
 
                 <!-- Résultats de recherche globale -->
-                <ScrollViewer Grid.Row="3"
-                              VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled"
-                              Background="{StaticResource BrushBg}">
-                    <ScrollViewer.Style>
-                        <Style TargetType="ScrollViewer">
+                <Border Grid.Row="3" Background="{StaticResource BrushBg}">
+                    <Border.Style>
+                        <Style TargetType="Border">
                             <Setter Property="Visibility" Value="Visible"/>
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding GlobalSearch}" Value="">
@@ -853,7 +851,7 @@
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
-                    </ScrollViewer.Style>
+                    </Border.Style>
                     <ItemsControl ItemsSource="{Binding SearchResults}"
                                   ItemTemplate="{StaticResource SearchResultTemplate}">
                         <ItemsControl.ItemsPanel>
@@ -862,15 +860,12 @@
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>
-                </ScrollViewer>
+                </Border>
 
                 <!-- Duplicates + Wanted Cards -->
-                <ScrollViewer Grid.Row="3"
-                              VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled"
-                              Background="{StaticResource BrushBg}">
-                    <ScrollViewer.Style>
-                        <Style TargetType="ScrollViewer">
+                <Border Grid.Row="3" Background="{StaticResource BrushBg}">
+                    <Border.Style>
+                        <Style TargetType="Border">
                             <Setter Property="Visibility" Value="Collapsed"/>
                             <Style.Triggers>
                                 <MultiDataTrigger>
@@ -882,7 +877,7 @@
                                 </MultiDataTrigger>
                             </Style.Triggers>
                         </Style>
-                    </ScrollViewer.Style>
+                    </Border.Style>
                     <StackPanel>
                         <!-- Doublons -->
                         <Border>
@@ -1037,7 +1032,7 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </StackPanel>
-                </ScrollViewer>
+                </Border>
 
                 <!-- Message de bienvenue -->
                 <StackPanel Grid.Row="3"
@@ -1064,6 +1059,7 @@
                                HorizontalAlignment="Center" Margin="0,4,0,0"/>
                 </StackPanel>
             </Grid>
+            </ScrollViewer>
 
             <!-- Vue set -->
             <Grid>
