@@ -8,11 +8,10 @@ public class AppSettings
     public string? ApiKey { get; set; }
     public string CollectionBorderColor { get; set; } = "#3a7fc1";
     public bool ShowMyCollection { get; set; } = true;
-    public string AchievementSound { get; set; } = "xbox";
 
     private static readonly JsonSerializerOptions _json = new() { WriteIndented = true };
 
-    private static string FilePath => Path.Combine(
+    public static string FilePath { get; set; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "Cardex", "settings.json");
 

@@ -2,8 +2,9 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:conv="clr-namespace:Cardex.Converters"
+        xmlns:vm="clr-namespace:Cardex.ViewModels"
         Title="Settings"
-        Width="520" Height="400"
+        Width="520" Height="480"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="#1a1a2e"
@@ -200,7 +201,437 @@
                           Content="Show My Collection tab"
                           Foreground="#e0e0e0" FontSize="12" Cursor="Hand"/>
 
+                <Rectangle Height="1" Fill="#0f3460" Margin="0,16,0,16"/>
+
+                <TextBlock Text="Achievement sound"
+                           Foreground="#8888aa" FontSize="12" Margin="0,0,0,10"/>
+
+                <StackPanel Orientation="Horizontal">
+                    <Button Command="{Binding SetAchievementSoundCommand}" CommandParameter="xbox"
+                            Style="{StaticResource SwatchBtnStyle}" Margin="0,0,8,0">
+                        <Border Padding="12,6" CornerRadius="4" BorderThickness="2">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="#111122"/>
+                                    <Setter Property="BorderBrush" Value="#0f3460"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Value="True" Binding="{Binding AchievementSound, Converter={StaticResource StrEq}, ConverterParameter=xbox}">
+                                            <Setter Property="BorderBrush" Value="#ffd700"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="🎮 Xbox" Foreground="#e0e0e0" FontSize="12"/>
+                        </Border>
+                    </Button>
+                    <Button Command="{Binding SetAchievementSoundCommand}" CommandParameter="ps4"
+                            Style="{StaticResource SwatchBtnStyle}" Margin="0,0,8,0">
+                        <Border Padding="12,6" CornerRadius="4" BorderThickness="2">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="#111122"/>
+                                    <Setter Property="BorderBrush" Value="#0f3460"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Value="True" Binding="{Binding AchievementSound, Converter={StaticResource StrEq}, ConverterParameter=ps4}">
+                                            <Setter Property="BorderBrush" Value="#ffd700"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="🎮 PS4" Foreground="#e0e0e0" FontSize="12"/>
+                        </Border>
+                    </Button>
+                    <Button Command="{Binding SetAchievementSoundCommand}" CommandParameter="none"
+                            Style="{StaticResource SwatchBtnStyle}">
+                        <Border Padding="12,6" CornerRadius="4" BorderThickness="2">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="#111122"/>
+                                    <Setter Property="BorderBrush" Value="#0f3460"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Value="True" Binding="{Binding AchievementSound, Converter={StaticResource StrEq}, ConverterParameter=none}">
+                                            <Setter Property="BorderBrush" Value="#ffd700"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="🔇 None" Foreground="#e0e0e0" FontSize="12"/>
+                        </Border>
+                    </Button>
+                </StackPanel>
+
             </StackPanel>
+        </TabItem>
+
+        <!-- ===== ONGLET MY TAGS ===== -->
+        <TabItem Header="My Tags" Style="{StaticResource TabItemStyle}">
+            <Grid Margin="24,20,24,16">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Création d'un nouveau tag -->
+                <StackPanel Grid.Row="0">
+                    <TextBlock Text="New tag" Foreground="#8888aa" FontSize="12" Margin="0,0,0,10"/>
+
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="24"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding NewTagName, UpdateSourceTrigger=PropertyChanged}"
+                                 Background="#111122" Foreground="#e0e0e0"
+                                 CaretBrush="#e0e0e0" BorderBrush="#0f3460"
+                                 Padding="8,5" FontSize="12">
+                            <TextBox.Resources>
+                                <Style TargetType="{x:Type Border}">
+                                    <Setter Property="CornerRadius" Value="4"/>
+                                </Style>
+                            </TextBox.Resources>
+                        </TextBox>
+                        <!-- Pastille couleur sélectionnée -->
+                        <Border Grid.Column="2" Width="20" Height="20" CornerRadius="4"
+                                Background="{Binding PendingTagBrush}"
+                                VerticalAlignment="Center"/>
+                        <Button Grid.Column="4"
+                                Command="{Binding AddTagCommand}"
+                                Content="Add"
+                                Background="#16213e" Foreground="#e0e0e0"
+                                BorderBrush="#0f3460" Padding="14,5"
+                                FontSize="12" Cursor="Hand"/>
+                    </Grid>
+
+                    <!-- Palette de couleurs -->
+                    <WrapPanel Orientation="Horizontal" Margin="0,0,0,16">
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#3a7fc1" Style="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Width="22" Height="22" CornerRadius="4" Background="#3a7fc1" BorderThickness="2" ToolTip="Sky Blue">
+                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#3a7fc1}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                </Style></Border.Style>
+                            </Border>
+                        </Button>
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#1565c0" Style="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Width="22" Height="22" CornerRadius="4" Background="#1565c0" BorderThickness="2" ToolTip="Navy Blue">
+                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#1565c0}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                </Style></Border.Style>
+                            </Border>
+                        </Button>
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#4ecdc4" Style="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Width="22" Height="22" CornerRadius="4" Background="#4ecdc4" BorderThickness="2" ToolTip="Teal">
+                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#4ecdc4}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                </Style></Border.Style>
+                            </Border>
+                        </Button>
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#27ae60" Style="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Width="22" Height="22" CornerRadius="4" Background="#27ae60" BorderThickness="2" ToolTip="Green">
+                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#27ae60}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                </Style></Border.Style>
+                            </Border>
+                        </Button>
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#8bc34a" Style="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Width="22" Height="22" CornerRadius="4" Background="#8bc34a" BorderThickness="2" ToolTip="Lime">
+                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#8bc34a}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                </Style></Border.Style>
+                            </Border>
+                        </Button>
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#f1c40f" Style="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Width="22" Height="22" CornerRadius="4" Background="#f1c40f" BorderThickness="2" ToolTip="Yellow">
+                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#f1c40f}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                </Style></Border.Style>
+                            </Border>
+                        </Button>
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#e67e22" Style="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Width="22" Height="22" CornerRadius="4" Background="#e67e22" BorderThickness="2" ToolTip="Orange">
+                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#e67e22}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                </Style></Border.Style>
+                            </Border>
+                        </Button>
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#e74c3c" Style="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Width="22" Height="22" CornerRadius="4" Background="#e74c3c" BorderThickness="2" ToolTip="Red">
+                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#e74c3c}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                </Style></Border.Style>
+                            </Border>
+                        </Button>
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#e91e8c" Style="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Width="22" Height="22" CornerRadius="4" Background="#e91e8c" BorderThickness="2" ToolTip="Pink">
+                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#e91e8c}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                </Style></Border.Style>
+                            </Border>
+                        </Button>
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#8e44ad" Style="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Width="22" Height="22" CornerRadius="4" Background="#8e44ad" BorderThickness="2" ToolTip="Purple">
+                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#8e44ad}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                </Style></Border.Style>
+                            </Border>
+                        </Button>
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#95a5a6" Style="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Width="22" Height="22" CornerRadius="4" Background="#95a5a6" BorderThickness="2" ToolTip="Gray">
+                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#95a5a6}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                </Style></Border.Style>
+                            </Border>
+                        </Button>
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#ecf0f1" Style="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Width="22" Height="22" CornerRadius="4" Background="#ecf0f1" BorderThickness="2" ToolTip="White">
+                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#ecf0f1}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                </Style></Border.Style>
+                            </Border>
+                        </Button>
+                    </WrapPanel>
+
+                    <Rectangle Height="1" Fill="#0f3460" Margin="0,0,0,12"/>
+                </StackPanel>
+
+                <!-- Liste des tags existants -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Tags}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:TagViewModel}">
+                                <StackPanel Margin="0,4,0,8">
+                                    <!-- Nom + boutons -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="20"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Width="14" Height="14" CornerRadius="3"
+                                                Background="{Binding Brush}"
+                                                VerticalAlignment="Center"/>
+                                        <TextBox Grid.Column="1"
+                                                 Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                                                 Background="#111122" Foreground="#e0e0e0"
+                                                 CaretBrush="#e0e0e0" BorderBrush="#0f3460"
+                                                 Padding="6,3" FontSize="12" Margin="8,0,6,0">
+                                            <TextBox.Resources>
+                                                <Style TargetType="{x:Type Border}">
+                                                    <Setter Property="CornerRadius" Value="3"/>
+                                                </Style>
+                                            </TextBox.Resources>
+                                        </TextBox>
+                                        <Button Grid.Column="2"
+                                                Command="{Binding DataContext.UpdateTagCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}"
+                                                Content="✓" ToolTip="Save"
+                                                Background="Transparent" BorderThickness="0"
+                                                Foreground="#27ae60" FontSize="14"
+                                                Padding="4,2" Cursor="Hand"/>
+                                        <Button Grid.Column="3"
+                                                Command="{Binding DataContext.DeleteTagCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}"
+                                                Content="✕" ToolTip="Delete"
+                                                Background="Transparent" BorderThickness="0"
+                                                Foreground="#8888aa" FontSize="12"
+                                                Padding="6,2" Cursor="Hand"/>
+                                    </Grid>
+                                    <!-- Palette couleur -->
+                                    <WrapPanel Orientation="Horizontal" Margin="20,5,0,0">
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#3a7fc1" Style="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Width="16" Height="16" CornerRadius="3" Background="#3a7fc1" BorderThickness="2">
+                                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#3a7fc1}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                                </Style></Border.Style>
+                                            </Border>
+                                        </Button>
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#1565c0" Style="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Width="16" Height="16" CornerRadius="3" Background="#1565c0" BorderThickness="2">
+                                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#1565c0}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                                </Style></Border.Style>
+                                            </Border>
+                                        </Button>
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#4ecdc4" Style="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Width="16" Height="16" CornerRadius="3" Background="#4ecdc4" BorderThickness="2">
+                                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#4ecdc4}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                                </Style></Border.Style>
+                                            </Border>
+                                        </Button>
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#27ae60" Style="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Width="16" Height="16" CornerRadius="3" Background="#27ae60" BorderThickness="2">
+                                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#27ae60}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                                </Style></Border.Style>
+                                            </Border>
+                                        </Button>
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#8bc34a" Style="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Width="16" Height="16" CornerRadius="3" Background="#8bc34a" BorderThickness="2">
+                                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#8bc34a}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                                </Style></Border.Style>
+                                            </Border>
+                                        </Button>
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#f1c40f" Style="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Width="16" Height="16" CornerRadius="3" Background="#f1c40f" BorderThickness="2">
+                                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#f1c40f}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                                </Style></Border.Style>
+                                            </Border>
+                                        </Button>
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#e67e22" Style="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Width="16" Height="16" CornerRadius="3" Background="#e67e22" BorderThickness="2">
+                                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#e67e22}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                                </Style></Border.Style>
+                                            </Border>
+                                        </Button>
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#e74c3c" Style="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Width="16" Height="16" CornerRadius="3" Background="#e74c3c" BorderThickness="2">
+                                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#e74c3c}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                                </Style></Border.Style>
+                                            </Border>
+                                        </Button>
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#e91e8c" Style="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Width="16" Height="16" CornerRadius="3" Background="#e91e8c" BorderThickness="2">
+                                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#e91e8c}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                                </Style></Border.Style>
+                                            </Border>
+                                        </Button>
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#8e44ad" Style="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Width="16" Height="16" CornerRadius="3" Background="#8e44ad" BorderThickness="2">
+                                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#8e44ad}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                                </Style></Border.Style>
+                                            </Border>
+                                        </Button>
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#95a5a6" Style="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Width="16" Height="16" CornerRadius="3" Background="#95a5a6" BorderThickness="2">
+                                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#95a5a6}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                                </Style></Border.Style>
+                                            </Border>
+                                        </Button>
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#ecf0f1" Style="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Width="16" Height="16" CornerRadius="3" Background="#ecf0f1" BorderThickness="2">
+                                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="Transparent"/>
+                                                    <Style.Triggers><DataTrigger Value="True" Binding="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#ecf0f1}"><Setter Property="BorderBrush" Value="White"/></DataTrigger></Style.Triggers>
+                                                </Style></Border.Style>
+                                            </Border>
+                                        </Button>
+                                    </WrapPanel>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+            </Grid>
+        </TabItem>
+
+        <!-- ===== ONGLET ACHIEVEMENTS ===== -->
+        <TabItem Header="Achievements" Style="{StaticResource TabItemStyle}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="24,20,24,16">
+                <ItemsControl ItemsSource="{Binding Achievements}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:AchievementViewModel}">
+                            <Border Margin="0,0,0,8" CornerRadius="6" Padding="12,10">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="#111122"/>
+                                        <Setter Property="Opacity" Value="0.45"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsUnlocked}" Value="True">
+                                                <Setter Property="Background" Value="#1a1a3a"/>
+                                                <Setter Property="Opacity" Value="1"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="40"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <!-- Emoji ou icône personnalisée -->
+                                    <Grid Grid.Column="0" Width="40" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                        <TextBlock Text="{Binding Emoji}"
+                                                   FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasIcon}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <Image Source="{Binding IconImage}" Width="32" Height="32"
+                                               RenderOptions.BitmapScalingMode="HighQuality">
+                                            <Image.Style>
+                                                <Style TargetType="Image">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasIcon}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Image.Style>
+                                        </Image>
+                                    </Grid>
+                                    <!-- Nom + description -->
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">
+                                        <TextBlock Text="{Binding Name}"
+                                                   Foreground="#e0e0e0" FontSize="12" FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding DisplayDescription}"
+                                                   Foreground="#8888aa" FontSize="10" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                    <!-- Date ou cadenas -->
+                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                        <TextBlock Text="{Binding UnlockedAtText}"
+                                                   Foreground="#ffd700" FontSize="9"
+                                                   HorizontalAlignment="Right">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsUnlocked}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Text="🔒" FontSize="14" HorizontalAlignment="Right">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsUnlocked}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
         </TabItem>
 
         <!-- ===== ONGLET RACCOURCIS ===== -->
@@ -288,6 +719,19 @@
                             <Border Style="{StaticResource ShortcutKeyStyle}"><TextBlock Text="Left click" Foreground="#e0e0e0" FontSize="11"/></Border>
                         </StackPanel>
                         <TextBlock Grid.Column="1" Text="Toggle owned" Foreground="#e0e0e0" FontSize="12" VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="160"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <Border Style="{StaticResource ShortcutKeyStyle}"><TextBlock Text="Shift" Foreground="#e0e0e0" FontSize="11"/></Border>
+                            <TextBlock Text="+" Foreground="#8888aa" FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <Border Style="{StaticResource ShortcutKeyStyle}"><TextBlock Text="Left click" Foreground="#e0e0e0" FontSize="11"/></Border>
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="Toggle wanted" Foreground="#e0e0e0" FontSize="12" VerticalAlignment="Center"/>
                     </Grid>
 
                     <Grid Margin="0,0,0,8">

@@ -138,6 +138,23 @@
                                             Width="22" Height="22" FontSize="14" Padding="0"
                                             Content="+"/>
                                 </StackPanel>
+
+                                <!-- Tag selector -->
+                                <ComboBox ItemsSource="{Binding DataContext.TagsWithNone, RelativeSource={RelativeSource AncestorType=Window}}"
+                                          SelectedItem="{Binding SelectedTag}"
+                                          Style="{StaticResource DarkComboBoxStyle}"
+                                          Margin="0,5,0,0" FontSize="10" Padding="6,3"
+                                          Visibility="{Binding DataContext.HasTags, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:TagViewModel}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Border Width="9" Height="9" CornerRadius="2" Margin="0,0,5,0"
+                                                        Background="{Binding Brush}" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Name}" FontSize="10" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
                             </StackPanel>
 
                             <!-- Étoile Wants + ⊘ Exclude -->
@@ -336,6 +353,11 @@
                 </Border.Style>
                 <Border.InputBindings>
                     <MouseBinding MouseAction="LeftClick" Command="{Binding ToggleOwnedCommand}"/>
+                    <MouseBinding Command="{Binding ToggleWantedCommand}">
+                        <MouseBinding.Gesture>
+                            <MouseGesture MouseAction="LeftClick" Modifiers="Shift"/>
+                        </MouseBinding.Gesture>
+                    </MouseBinding>
                     <MouseBinding Command="{Binding ToggleExcludedCommand}">
                         <MouseBinding.Gesture>
                             <MouseGesture MouseAction="LeftClick" Modifiers="Control"/>
@@ -667,6 +689,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
@@ -709,8 +732,7 @@
                 <!-- Sets favoris -->
                 <Border Grid.Row="1"
                         Background="{StaticResource BrushPanel}"
-                        BorderBrush="{StaticResource BrushAccent}" BorderThickness="0,0,0,1"
-                        Padding="12,10">
+                        BorderBrush="{StaticResource BrushAccent}" BorderThickness="0,0,0,1">
                     <Border.Style>
                         <Style TargetType="Border">
                             <Setter Property="Visibility" Value="Visible"/>
@@ -722,12 +744,92 @@
                         </Style>
                     </Border.Style>
                     <StackPanel>
-                        <TextBlock Text="★  Favorite Sets"
-                                   Foreground="#ffd700"
-                                   FontSize="12" FontWeight="Bold"
-                                   Margin="0,0,0,8"/>
+                        <Button Command="{Binding ToggleFavoritesSectionCommand}"
+                                Background="Transparent" BorderThickness="0"
+                                Padding="12,10,12,10" HorizontalContentAlignment="Stretch"
+                                Cursor="Hand">
+                            <Grid>
+                                <TextBlock Text="★  Favorite Sets"
+                                           Foreground="#ffd700"
+                                           FontSize="12" FontWeight="Bold"
+                                           HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
+                                           Foreground="{StaticResource BrushSubtext}" FontSize="11">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="▼"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsFavoritesSectionExpanded}" Value="False">
+                                                    <Setter Property="Text" Value="►"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                        </Button>
                         <ItemsControl ItemsSource="{Binding HomeFavorites}"
-                                      ItemTemplate="{StaticResource HomeFavoriteTileTemplate}">
+                                      ItemTemplate="{StaticResource HomeFavoriteTileTemplate}"
+                                      Visibility="{Binding IsFavoritesSectionExpanded, Converter={StaticResource BoolToVis}}"
+                                      Margin="12,0,12,10">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Ma Collection -->
+                <Border Grid.Row="2"
+                        Background="{StaticResource BrushPanel}"
+                        BorderBrush="{StaticResource BrushAccent}" BorderThickness="0,0,0,1">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HomeCollection.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel>
+                        <Button Command="{Binding ToggleMyCollectionSectionCommand}"
+                                Background="Transparent" BorderThickness="0"
+                                Padding="12,10,12,10" HorizontalContentAlignment="Stretch"
+                                Cursor="Hand">
+                            <Grid>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                    <TextBlock Text="📦  My Collection"
+                                               Foreground="#4ecdc4"
+                                               FontSize="12" FontWeight="Bold"/>
+                                    <TextBlock Foreground="{StaticResource BrushSubtext}" FontSize="11" Margin="8,0,0,0"
+                                               VerticalAlignment="Center">
+                                        <Run Text="{Binding TotalOwnedCards, Mode=OneWay}"/>
+                                        <Run Text="cards"/>
+                                    </TextBlock>
+                                </StackPanel>
+                                <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
+                                           Foreground="{StaticResource BrushSubtext}" FontSize="11">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="▼"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsMyCollectionSectionExpanded}" Value="False">
+                                                    <Setter Property="Text" Value="►"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                        </Button>
+                        <ItemsControl ItemsSource="{Binding HomeCollection}"
+                                      ItemTemplate="{StaticResource HomeFavoriteTileTemplate}"
+                                      Visibility="{Binding IsMyCollectionSectionExpanded, Converter={StaticResource BoolToVis}}"
+                                      Margin="12,0,12,10">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <WrapPanel Orientation="Horizontal"/>
@@ -738,7 +840,7 @@
                 </Border>
 
                 <!-- Résultats de recherche globale -->
-                <ScrollViewer Grid.Row="2"
+                <ScrollViewer Grid.Row="3"
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled"
                               Background="{StaticResource BrushBg}">
@@ -763,7 +865,7 @@
                 </ScrollViewer>
 
                 <!-- Duplicates + Wanted Cards -->
-                <ScrollViewer Grid.Row="2"
+                <ScrollViewer Grid.Row="3"
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled"
                               Background="{StaticResource BrushBg}">
@@ -783,9 +885,9 @@
                     </ScrollViewer.Style>
                     <StackPanel>
                         <!-- Doublons -->
-                        <StackPanel>
-                            <StackPanel.Style>
-                                <Style TargetType="StackPanel">
+                        <Border>
+                            <Border.Style>
+                                <Style TargetType="Border">
                                     <Setter Property="Visibility" Value="Collapsed"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding HasDuplicates}" Value="True">
@@ -793,25 +895,48 @@
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
-                            </StackPanel.Style>
-                            <TextBlock Text="⊕  Duplicate Cards"
-                                       Foreground="#4ecdc4"
-                                       FontSize="12" FontWeight="Bold"
-                                       Margin="16,12,0,4"/>
-                            <ItemsControl ItemsSource="{Binding DuplicateCards}"
-                                          ItemTemplate="{StaticResource SearchResultTemplate}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel Orientation="Horizontal" Margin="6"/>
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                            </ItemsControl>
-                        </StackPanel>
+                            </Border.Style>
+                            <StackPanel>
+                                <Button Command="{Binding ToggleDuplicatesSectionCommand}"
+                                        Background="Transparent" BorderThickness="0"
+                                        Padding="16,10,16,6" HorizontalContentAlignment="Stretch"
+                                        Cursor="Hand">
+                                    <Grid>
+                                        <TextBlock Text="⊕  Duplicate Cards"
+                                                   Foreground="#4ecdc4"
+                                                   FontSize="12" FontWeight="Bold"
+                                                   HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                   Foreground="{StaticResource BrushSubtext}" FontSize="11">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="▼"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsDuplicatesSectionExpanded}" Value="False">
+                                                            <Setter Property="Text" Value="►"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
+                                </Button>
+                                <ItemsControl ItemsSource="{Binding DuplicateCards}"
+                                              ItemTemplate="{StaticResource SearchResultTemplate}"
+                                              Visibility="{Binding IsDuplicatesSectionExpanded, Converter={StaticResource BoolToVis}}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal" Margin="6"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
 
                         <!-- Cartes wanted -->
-                        <StackPanel>
-                            <StackPanel.Style>
-                                <Style TargetType="StackPanel">
+                        <Border>
+                            <Border.Style>
+                                <Style TargetType="Border">
                                     <Setter Property="Visibility" Value="Collapsed"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding HasWantedCards}" Value="True">
@@ -819,25 +944,103 @@
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
-                            </StackPanel.Style>
-                            <TextBlock Text="★  Wanted Cards"
-                                       Foreground="#ffd700"
-                                       FontSize="12" FontWeight="Bold"
-                                       Margin="16,12,0,4"/>
-                            <ItemsControl ItemsSource="{Binding WantedCards}"
-                                          ItemTemplate="{StaticResource SearchResultTemplate}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel Orientation="Horizontal" Margin="6"/>
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                            </ItemsControl>
-                        </StackPanel>
+                            </Border.Style>
+                            <StackPanel>
+                                <Button Command="{Binding ToggleWantedSectionCommand}"
+                                        Background="Transparent" BorderThickness="0"
+                                        Padding="16,10,16,6" HorizontalContentAlignment="Stretch"
+                                        Cursor="Hand">
+                                    <Grid>
+                                        <TextBlock Text="★  Wanted Cards"
+                                                   Foreground="#ffd700"
+                                                   FontSize="12" FontWeight="Bold"
+                                                   HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                   Foreground="{StaticResource BrushSubtext}" FontSize="11">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="▼"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsWantedSectionExpanded}" Value="False">
+                                                            <Setter Property="Text" Value="►"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
+                                </Button>
+                                <ItemsControl ItemsSource="{Binding WantedCards}"
+                                              ItemTemplate="{StaticResource SearchResultTemplate}"
+                                              Visibility="{Binding IsWantedSectionExpanded, Converter={StaticResource BoolToVis}}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal" Margin="6"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                        <!-- Sections tags dynamiques -->
+                        <ItemsControl ItemsSource="{Binding TagSections}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:TagSectionViewModel}">
+                                    <StackPanel>
+                                        <Button Command="{Binding ToggleExpandedCommand}"
+                                                Background="Transparent" BorderThickness="0"
+                                                Padding="16,10,16,6" HorizontalContentAlignment="Stretch"
+                                                Cursor="Hand">
+                                            <Grid>
+                                                <StackPanel Orientation="Horizontal"
+                                                            HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                    <Border Width="10" Height="10" CornerRadius="2"
+                                                            Background="{Binding Tag.Brush}"
+                                                            Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Tag.Name}"
+                                                               Foreground="{StaticResource BrushText}"
+                                                               FontSize="12" FontWeight="Bold"
+                                                               VerticalAlignment="Center"/>
+                                                    <TextBlock Foreground="{StaticResource BrushSubtext}"
+                                                               FontSize="11" Margin="8,0,0,0"
+                                                               VerticalAlignment="Center">
+                                                        <Run Text="("/>
+                                                        <Run Text="{Binding Cards.Count, Mode=OneWay}"/>
+                                                        <Run Text=")"/>
+                                                    </TextBlock>
+                                                </StackPanel>
+                                                <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                           Foreground="{StaticResource BrushSubtext}" FontSize="11">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Text" Value="▼"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsExpanded}" Value="False">
+                                                                    <Setter Property="Text" Value="►"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Grid>
+                                        </Button>
+                                        <ItemsControl ItemsSource="{Binding Cards}"
+                                                      ItemTemplate="{StaticResource SearchResultTemplate}"
+                                                      Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel Orientation="Horizontal" Margin="6"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
                 </ScrollViewer>
 
                 <!-- Message de bienvenue -->
-                <StackPanel Grid.Row="2"
+                <StackPanel Grid.Row="3"
                             HorizontalAlignment="Center" VerticalAlignment="Center">
                     <StackPanel.Style>
                         <Style TargetType="StackPanel">
@@ -1381,5 +1584,40 @@
                 </StackPanel>
             </Grid>
         </Border>
+        <!-- ===== TOAST ACHIEVEMENT ===== -->
+        <Grid Grid.Row="0" Grid.RowSpan="4" Grid.Column="0" Grid.ColumnSpan="2"
+              IsHitTestVisible="False">
+            <MediaElement x:Name="ToastSound" LoadedBehavior="Manual" Volume="1" Width="0" Height="0" MediaOpened="ToastSound_MediaOpened"/>
+            <Border x:Name="AchievementToast"
+                    Background="#1e1e3a" BorderBrush="#ffd700" BorderThickness="2"
+                    CornerRadius="10" Padding="18,14"
+                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                    Margin="0,0,24,50" Width="240">
+                <Border.RenderTransform>
+                    <TranslateTransform x:Name="ToastTranslate" X="320"/>
+                </Border.RenderTransform>
+                <StackPanel>
+                    <Grid HorizontalAlignment="Center" Margin="0,0,0,6">
+                        <TextBlock x:Name="ToastEmoji"
+                                   FontSize="30" HorizontalAlignment="Center"/>
+                        <Image x:Name="ToastIcon"
+                               Width="40" Height="40"
+                               RenderOptions.BitmapScalingMode="HighQuality"
+                               Visibility="Collapsed"/>
+                    </Grid>
+                    <TextBlock Text="Achievement Unlocked!"
+                               Foreground="#ffd700" FontSize="10" FontWeight="Bold"
+                               HorizontalAlignment="Center" Margin="0,0,0,4"
+                               TextAlignment="Center"/>
+                    <TextBlock x:Name="ToastName"
+                               Foreground="#e0e0e0" FontSize="13" FontWeight="SemiBold"
+                               HorizontalAlignment="Center" TextAlignment="Center"/>
+                    <TextBlock x:Name="ToastDesc"
+                               Foreground="#8888aa" FontSize="10"
+                               HorizontalAlignment="Center" TextAlignment="Center"
+                               Margin="0,3,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

@@ -24,12 +24,21 @@ public partial class MainViewModel : ObservableObject
 
     public ObservableCollection<SeriesViewModel> Series { get; } = [];
     public ObservableCollection<SetViewModel> HomeFavorites { get; } = [];
+    public ObservableCollection<SetViewModel> HomeCollection { get; } = [];
     public ObservableCollection<SearchResultViewModel> SearchResults { get; } = [];
     public ObservableCollection<SearchResultViewModel> WantedCards { get; } = [];
     public ObservableCollection<SearchResultViewModel> DuplicateCards { get; } = [];
+    public ObservableCollection<TagViewModel> Tags { get; } = [];
+    public ObservableCollection<TagSectionViewModel> TagSections { get; } = [];
+    public ObservableCollection<AchievementViewModel> Achievements { get; } = [];
+
+    private List<TagViewModel> _tagsWithNone = [TagViewModel.NoTag];
+    public IReadOnlyList<TagViewModel> TagsWithNone => _tagsWithNone;
+
     public bool HasWantedCards => WantedCards.Count > 0;
-    public bool HasDuplicates => DuplicateCards.Count > 0;
-    public bool HasHomeContent => HasWantedCards || HasDuplicates;
+    public bool HasDuplicates  => DuplicateCards.Count > 0;
+    public bool HasTags        => Tags.Count > 0;
+    public bool HasHomeContent => HasWantedCards || HasDuplicates || TagSections.Count > 0;
 
     [ObservableProperty] private SetViewModel? _selectedSet;
     [ObservableProperty] private string _globalSearch = "";
@@ -45,8 +54,37 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _isBinderView;
     [ObservableProperty] private bool _isSettingsOpen;
     [ObservableProperty] private bool _showMyCollection = true;
+    [ObservableProperty] private int  _totalOwnedCards;
+    [ObservableProperty] private bool _isFavoritesSectionExpanded    = true;
+    [ObservableProperty] private bool _isMyCollectionSectionExpanded = true;
+    [ObservableProperty] private bool _isDuplicatesSectionExpanded   = true;
+    [ObservableProperty] private bool _isWantedSectionExpanded       = true;
+    [ObservableProperty] private string _newTagName    = "";
+    [ObservableProperty] private string _pendingTagColor = "#3a7fc1";
+
+    public System.Windows.Media.SolidColorBrush PendingTagBrush =>
+        new((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(PendingTagColor));
+
+    partial void OnPendingTagColorChanged(string value) => OnPropertyChanged(nameof(PendingTagBrush));
 
     public string CollectionBorderColor => _settings.CollectionBorderColor;
+    public string AchievementSound     => _settings.AchievementSound;
+
+    [RelayCommand]
+    private async Task UnlockKonamiCodeAsync()
+        => await AchievementService.CheckAsync("konami_code", _db);
+
+    [RelayCommand]
+    private async Task UnlockBriggsAsync()
+        => await AchievementService.CheckAsync("briggs", _db);
+
+    [RelayCommand]
+    private void SetAchievementSound(string value)
+    {
+        _settings.AchievementSound = value;
+        _settings.Save();
+        OnPropertyChanged(nameof(AchievementSound));
+    }
 
     public bool HasUpdate => PendingUpdate is not null;
 
@@ -63,6 +101,139 @@ public partial class MainViewModel : ObservableObject
         RefreshSpecialGroups();
     }
 
+    [RelayCommand] private void ToggleFavoritesSection()    => IsFavoritesSectionExpanded    = !IsFavoritesSectionExpanded;
+    [RelayCommand] private void ToggleMyCollectionSection() => IsMyCollectionSectionExpanded = !IsMyCollectionSectionExpanded;
+    [RelayCommand] private void ToggleDuplicatesSection()   => IsDuplicatesSectionExpanded   = !IsDuplicatesSectionExpanded;
+    [RelayCommand] private void ToggleWantedSection()       => IsWantedSectionExpanded       = !IsWantedSectionExpanded;
+
+    [RelayCommand] private void SelectNewTagColor(string color) => PendingTagColor = color;
+
+    [RelayCommand]
+    private async Task AddTagAsync()
+    {
+        if (string.IsNullOrWhiteSpace(NewTagName)) return;
+        var tag = new Models.Tag { Name = NewTagName.Trim(), Color = PendingTagColor };
+        _db.Tags.Add(tag);
+        await _db.SaveChangesAsync();
+        Tags.Add(new TagViewModel { Id = tag.Id, Name = tag.Name, Color = tag.Color });
+        NewTagName = "";
+        await AchievementService.CheckAsync("first_tag", _db);
+    }
+
+    [RelayCommand]
+    private async Task DeleteTagAsync(TagViewModel tagVm)
+    {
+        var cardTags = await _db.CardTags.Where(ct => ct.TagId == tagVm.Id).ToListAsync();
+        _db.CardTags.RemoveRange(cardTags);
+        var tag = await _db.Tags.FindAsync(tagVm.Id);
+        if (tag is not null) _db.Tags.Remove(tag);
+        await _db.SaveChangesAsync();
+
+        // Reset cards that had this tag (suppress callback to avoid double-write)
+        foreach (var series in Series)
+            foreach (var set in series.Sets)
+                foreach (var card in set.Cards.Where(c => c.SelectedTag?.Id == tagVm.Id).ToList())
+                {
+                    var cb = card.OnTagChanged;
+                    card.OnTagChanged = null;
+                    card.SelectedTag = TagViewModel.NoTag;
+                    card.OnTagChanged = cb;
+                }
+
+        Tags.Remove(tagVm);
+        await RefreshTagSectionsAsync();
+    }
+
+    [RelayCommand]
+    private async Task UpdateTagAsync(TagViewModel tagVm)
+    {
+        var tag = await _db.Tags.FindAsync(tagVm.Id);
+        if (tag is null) return;
+        tag.Name = tagVm.Name;
+        tag.Color = tagVm.Color;
+        await _db.SaveChangesAsync();
+        await RefreshTagSectionsAsync();
+    }
+
+    private async Task LoadTagsAsync()
+    {
+        var tags = await _db.Tags.OrderBy(t => t.Id).ToListAsync();
+        Tags.Clear();
+        foreach (var t in tags)
+            Tags.Add(new TagViewModel { Id = t.Id, Name = t.Name, Color = t.Color });
+        _tagsWithNone = Tags.Prepend(TagViewModel.NoTag).ToList();
+        OnPropertyChanged(nameof(TagsWithNone));
+        OnPropertyChanged(nameof(HasTags));
+        await RefreshTagSectionsAsync();
+    }
+
+    private async Task RefreshTagSectionsAsync()
+    {
+        var taggedCards = await _db.CardTags.ToListAsync();
+        TagSections.Clear();
+        if (taggedCards.Count == 0) return;
+
+        var cardIds = taggedCards.Select(ct => ct.CardId).ToList();
+        var cards = await _db.CachedCards
+            .Where(c => cardIds.Contains(c.CardId))
+            .OrderBy(c => c.SetId).ThenBy(c => c.SortOrder)
+            .ToListAsync();
+
+        var setIds = cards.Select(c => c.SetId).Distinct().ToList();
+        var setNames = await _db.CachedSets
+            .Where(s => setIds.Contains(s.SetId))
+            .ToDictionaryAsync(s => s.SetId, s => s.Name);
+
+        var ownedQty = await _db.OwnedCards
+            .Where(o => cardIds.Contains(o.CardId))
+            .ToDictionaryAsync(o => o.CardId, o => o.Quantity);
+
+        foreach (var tag in Tags)
+        {
+            var tagCardIds = taggedCards
+                .Where(ct => ct.TagId == tag.Id)
+                .Select(ct => ct.CardId)
+                .ToHashSet();
+            if (tagCardIds.Count == 0) continue;
+
+            var section = new TagSectionViewModel(tag);
+            foreach (var c in cards.Where(c => tagCardIds.Contains(c.CardId)))
+                section.Cards.Add(new SearchResultViewModel(
+                    c.CardId, c.Name, c.Number, c.SetId,
+                    setNames.GetValueOrDefault(c.SetId, c.SetId),
+                    c.ImageSmall, c.Rarity,
+                    ownedQty.GetValueOrDefault(c.CardId),
+                    _imageCache));
+
+            TagSections.Add(section);
+
+            using var sem = new SemaphoreSlim(8, 8);
+            _ = Task.WhenAll(section.Cards.Select(async vm =>
+            {
+                await sem.WaitAsync();
+                try { await vm.LoadImageAsync(); }
+                catch { }
+                finally { sem.Release(); }
+            }));
+        }
+    }
+
+    private async Task OnCardTagChangedAsync(CardViewModel card, TagViewModel? tag)
+    {
+        var entry = await _db.CardTags.FindAsync(card.CardId);
+        if (tag is not null)
+        {
+            if (entry is null) _db.CardTags.Add(new Models.CardTag { CardId = card.CardId, TagId = tag.Id });
+            else entry.TagId = tag.Id;
+        }
+        else if (entry is not null)
+        {
+            _db.CardTags.Remove(entry);
+        }
+        await _db.SaveChangesAsync();
+        await RefreshTagSectionsAsync();
+    }
+
     public MainViewModel(PokemonTcgService tcgService, ImageCacheService imageCache, AppDbContext db)
     {
         _tcgService = tcgService;
@@ -71,8 +242,35 @@ public partial class MainViewModel : ObservableObject
         _settings = AppSettings.Load();
         _showMyCollection = _settings.ShowMyCollection;
         ApplyBorderColor(_settings.CollectionBorderColor);
-        WantedCards.CollectionChanged += (_, _) => { OnPropertyChanged(nameof(HasWantedCards)); OnPropertyChanged(nameof(HasHomeContent)); };
-        DuplicateCards.CollectionChanged += (_, _) => { OnPropertyChanged(nameof(HasDuplicates)); OnPropertyChanged(nameof(HasHomeContent)); };
+        WantedCards.CollectionChanged    += (_, _) => { OnPropertyChanged(nameof(HasWantedCards)); OnPropertyChanged(nameof(HasHomeContent)); };
+        DuplicateCards.CollectionChanged += (_, _) => { OnPropertyChanged(nameof(HasDuplicates));  OnPropertyChanged(nameof(HasHomeContent)); };
+        TagSections.CollectionChanged    += (_, _) => OnPropertyChanged(nameof(HasHomeContent));
+        Tags.CollectionChanged           += (_, _) =>
+        {
+            _tagsWithNone = Tags.Prepend(TagViewModel.NoTag).ToList();
+            OnPropertyChanged(nameof(TagsWithNone));
+            OnPropertyChanged(nameof(HasTags));
+        };
+
+        AchievementService.Unlocked += def =>
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                var idx = Achievements.IndexOf(Achievements.FirstOrDefault(a => a.Id == def.Id)!);
+                if (idx >= 0)
+                    Achievements[idx] = new AchievementViewModel(def,
+                        new UnlockedAchievement { Id = def.Id, UnlockedAt = DateTime.UtcNow });
+            });
+        };
+    }
+
+    public async Task LoadAchievementsAsync()
+    {
+        var unlocked = await _db.UnlockedAchievements.ToListAsync();
+        var map = unlocked.ToDictionary(u => u.Id);
+        Achievements.Clear();
+        foreach (var def in AchievementService.All)
+            Achievements.Add(new AchievementViewModel(def, map.GetValueOrDefault(def.Id)));
     }
 
     public bool IsHomeVisible => SelectedSet is null;
@@ -237,6 +435,8 @@ public partial class MainViewModel : ObservableObject
             _ = LoadSymbolsAsync(Series.SelectMany(s => s.Sets).ToList());
             _ = LoadWantedCardsAsync();
             _ = LoadDuplicateCardsAsync();
+            _ = LoadTagsAsync();
+            _ = LoadAchievementsAsync();
 
             _preloadCts?.Cancel();
             _preloadCts = new CancellationTokenSource();
@@ -265,6 +465,7 @@ public partial class MainViewModel : ObservableObject
             .Where(c => c.SetId == set.SetId)
             .ExecuteDeleteAsync();
 
+        await AchievementService.CheckAsync("refresh_set", _db);
         await SelectSetAsync(set);
     }
 
@@ -342,6 +543,11 @@ public partial class MainViewModel : ObservableObject
             .OrderBy(s => s.ReleaseDate)
             .ToList();
 
+        HomeCollection.Clear();
+        foreach (var s in collected) HomeCollection.Add(s);
+
+        TotalOwnedCards = allSets.Sum(s => s.OwnedCount);
+
         int pos = 0;
 
         if (favorites.Count > 0)
@@ -353,7 +559,7 @@ public partial class MainViewModel : ObservableObject
 
         if (collected.Count > 0 && ShowMyCollection)
         {
-            var g = new SeriesViewModel("My Collection", isMyCollectionGroup: true);
+            var g = new SeriesViewModel($"My Collection  ({TotalOwnedCards})", isMyCollectionGroup: true);
             foreach (var s in collected) g.Sets.Add(s);
             Series.Insert(pos++, g);
         }
@@ -436,9 +642,14 @@ public partial class MainViewModel : ObservableObject
 
             if (cachedCards.Count > 0)
             {
+                var setCardIds = cachedCards.Select(c => c.CardId).ToList();
+                var cardTagMap = await _db.CardTags
+                    .Where(ct => setCardIds.Contains(ct.CardId))
+                    .ToDictionaryAsync(ct => ct.CardId, ct => ct.TagId);
+
                 BuildCardViewModels(cachedCards.Select(c =>
                     new CardData(c.CardId, c.Name, c.Number, c.SetId, c.ImageSmall, c.ImageLarge, c.Rarity, c.CmLow, c.TcgLow, c.PricesUpdatedAt, c.CmUrl, c.TcgUrl)),
-                    ownedMap, wantedIds, excludedIds, set);
+                    ownedMap, wantedIds, excludedIds, set, cardTagMap);
                 StatusText = $"{set.Name} — {set.CompletionText}";
                 _ = RefreshPricesIfNeededAsync(set);
             }
@@ -493,7 +704,8 @@ public partial class MainViewModel : ObservableObject
     }
 
     private void BuildCardViewModels(IEnumerable<CardData> cards, Dictionary<string, int> ownedMap,
-        HashSet<string> wantedIds, HashSet<string> excludedIds, SetViewModel set)
+        HashSet<string> wantedIds, HashSet<string> excludedIds, SetViewModel set,
+        Dictionary<string, int>? cardTagMap = null)
     {
         foreach (var card in cards)
         {
@@ -512,6 +724,12 @@ public partial class MainViewModel : ObservableObject
                 TcgUrl = card.TcgUrl
             };
 
+            // Set initial tag before wiring OnTagChanged to avoid DB write during init
+            if (cardTagMap is not null && cardTagMap.TryGetValue(card.Id, out var tagId))
+                vm.SelectedTag = Tags.FirstOrDefault(t => t.Id == tagId) ?? TagViewModel.NoTag;
+            else
+                vm.SelectedTag = TagViewModel.NoTag;
+
             vm.PropertyChanged += async (s, e) =>
             {
                 if (e.PropertyName == nameof(CardViewModel.Quantity))
@@ -521,6 +739,7 @@ public partial class MainViewModel : ObservableObject
                 else if (e.PropertyName == nameof(CardViewModel.IsExcluded))
                     await OnCardExcludedChangedAsync(vm, set);
             };
+            vm.OnTagChanged = OnCardTagChangedAsync;
 
             set.Cards.Add(vm);
         }
@@ -542,6 +761,12 @@ public partial class MainViewModel : ObservableObject
         await _db.SaveChangesAsync();
         set.NotifyWantsChanged();
         await LoadWantedCardsAsync();
+
+        if (card.IsWanted)
+        {
+            var wantedCount = await _db.WantedCards.CountAsync();
+            if (wantedCount >= 10) await AchievementService.CheckAsync("wanted_10", _db);
+        }
     }
 
     private async Task LoadWantedCardsAsync()
@@ -739,6 +964,96 @@ public partial class MainViewModel : ObservableObject
         RefreshSpecialGroups();
         _ = LoadDuplicateCardsAsync();
         StatusText = $"{set.Name} — {set.CompletionText}";
+
+        if (card.Quantity > 0)
+        {
+            if (card.Quantity >= 5)  await AchievementService.CheckAsync("duplicate_5", _db);
+            if (card.Quantity >= 20) await AchievementService.CheckAsync("duplicate_20", _db);
+
+            var total = await _db.OwnedCards.SumAsync(o => (int?)o.Quantity) ?? 0;
+            if (total >= 1000) await AchievementService.CheckAsync("collector_1000", _db);
+            if (total >= 2500) await AchievementService.CheckAsync("hoarder_2500", _db);
+
+            if (card.Name.Contains("Darmanitan", StringComparison.OrdinalIgnoreCase))
+            {
+                var darmanitanIds = await _db.CachedCards
+                    .Where(c => EF.Functions.Like(c.Name, "%Darmanitan%"))
+                    .Select(c => c.CardId).ToListAsync();
+                var darmanitanTotal = await _db.OwnedCards
+                    .Where(o => darmanitanIds.Contains(o.CardId) && o.Quantity > 0)
+                    .CountAsync();
+                if (darmanitanTotal >= 5)
+                    await AchievementService.CheckAsync("darmanitan_5", _db);
+            }
+
+            if (card.Name.Contains("Garchomp", StringComparison.OrdinalIgnoreCase))
+            {
+                var garcompIds = await _db.CachedCards
+                    .Where(c => EF.Functions.Like(c.Name, "%Garchomp%"))
+                    .Select(c => c.CardId).ToListAsync();
+                var garcompCount = await _db.OwnedCards
+                    .Where(o => garcompIds.Contains(o.CardId) && o.Quantity > 0)
+                    .CountAsync();
+                if (garcompCount >= 8)
+                    await AchievementService.CheckAsync("garchomp_8", _db);
+            }
+
+            if (card.Rarity == "Rare Holo Star")
+            {
+                var holoStarIds = await _db.CachedCards
+                    .Where(c => c.Rarity == "Rare Holo Star")
+                    .Select(c => c.CardId).ToListAsync();
+                var holoStarCount = await _db.OwnedCards
+                    .Where(o => holoStarIds.Contains(o.CardId) && o.Quantity > 0)
+                    .CountAsync();
+                if (holoStarCount >= 5)
+                    await AchievementService.CheckAsync("rare_holo_star_5", _db);
+            }
+
+            if (card.Name.Contains("Wimpod", StringComparison.OrdinalIgnoreCase) ||
+                card.Name.Contains("Golisopod", StringComparison.OrdinalIgnoreCase))
+            {
+                var wimpodIds = await _db.CachedCards
+                    .Where(c => EF.Functions.Like(c.Name, "%Wimpod%") || EF.Functions.Like(c.Name, "%Golisopod%"))
+                    .Select(c => c.CardId).ToListAsync();
+                var wimpodTotal = await _db.OwnedCards
+                    .Where(o => wimpodIds.Contains(o.CardId) && o.Quantity > 0)
+                    .CountAsync();
+                if (wimpodTotal >= 6)
+                    await AchievementService.CheckAsync("wimpod_6", _db);
+            }
+
+            string[] regiNames    = ["Regice", "Registeel", "Regirock", "Regigigas", "Regieleki", "Regidrago"];
+            string[] cynthiaNames = ["Spiritomb", "Roselia", "Gastrodon", "Lucario", "Milotic", "Garchomp"];
+
+            if (regiNames.Any(n => card.Name.Contains(n, StringComparison.OrdinalIgnoreCase)))
+                if (await OwnsAtLeastOneOfEachAsync(regiNames))
+                    await AchievementService.CheckAsync("regis", _db);
+
+            if (cynthiaNames.Any(n => card.Name.Contains(n, StringComparison.OrdinalIgnoreCase)))
+                if (await OwnsAtLeastOneOfEachAsync(cynthiaNames))
+                    await AchievementService.CheckAsync("cynthia_wannabe", _db);
+        }
+        if (set.IsComplete)
+        {
+            await AchievementService.CheckAsync("first_set", _db);
+            var completedCount = Series.SelectMany(s => s.Sets).Count(s => s.IsComplete);
+            if (completedCount >= 3) await AchievementService.CheckAsync("triple_threat", _db);
+            if (set.Name.Contains("McDonald", StringComparison.OrdinalIgnoreCase))
+                await AchievementService.CheckAsync("mcdonalds", _db);
+            if (set.SetId == "pop5")
+                await AchievementService.CheckAsync("pop5", _db);
+            if (set.Series is "Base" or "Gym")
+                await AchievementService.CheckAsync("genwunner", _db);
+            if (set.Series is "Neo" or "E-Card")
+                await AchievementService.CheckAsync("golden_gen", _db);
+            if (set.Series == "EX")
+                await AchievementService.CheckAsync("too_much_water", _db);
+            if (set.Series is "Diamond & Pearl" or "Platinum" or "HeartGold & SoulSilver")
+                await AchievementService.CheckAsync("gen4_win", _db);
+            if (set.Total > 250)
+                await AchievementService.CheckAsync("big_set", _db);
+        }
     }
 
     [RelayCommand]
@@ -804,11 +1119,33 @@ public partial class MainViewModel : ObservableObject
 
     private bool CanInstallUpdate() => !IsUpdating;
 
+    private async Task<bool> OwnsAtLeastOneOfEachAsync(string[] names)
+    {
+        foreach (var name in names)
+        {
+            var ids = await _db.CachedCards
+                .Where(c => EF.Functions.Like(c.Name, $"%{name}%"))
+                .Select(c => c.CardId)
+                .ToListAsync();
+            if (ids.Count == 0 || !await _db.OwnedCards.AnyAsync(o => ids.Contains(o.CardId) && o.Quantity > 0))
+                return false;
+        }
+        return true;
+    }
+
+    private Views.SettingsWindow? _settingsWindow;
+
     [RelayCommand]
     private void ToggleSettings()
     {
-        var win = new Views.SettingsWindow { DataContext = this };
-        win.Show();
+        if (_settingsWindow is not null)
+        {
+            _settingsWindow.Close();
+            return;
+        }
+        _settingsWindow = new Views.SettingsWindow { DataContext = this };
+        _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+        _settingsWindow.Show();
     }
 
     [RelayCommand]
@@ -846,6 +1183,12 @@ public partial class MainViewModel : ObservableObject
         await _db.SaveChangesAsync();
         set.NotifyExclusionChanged();
         StatusText = $"{set.Name} — {set.CompletionText}";
+
+        if (card.IsExcluded)
+        {
+            var excludedCount = await _db.ExcludedCards.CountAsync();
+            if (excludedCount >= 10) await AchievementService.CheckAsync("excluded_10", _db);
+        }
     }
 
     [RelayCommand]
@@ -882,6 +1225,7 @@ public partial class MainViewModel : ObservableObject
         await File.WriteAllTextAsync(dialog.FileName, json, Encoding.UTF8);
 
         StatusText = $"Backup saved — {owned.Count} owned, {wanted.Count} wanted, {favorite.Count} favorite set(s)";
+        await AchievementService.CheckAsync("backup_used", _db);
     }
 
     [RelayCommand]

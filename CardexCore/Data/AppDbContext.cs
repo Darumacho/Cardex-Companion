@@ -12,16 +12,16 @@ public class AppDbContext : DbContext
     public DbSet<CachedSet> CachedSets { get; set; }
     public DbSet<CachedCard> CachedCards { get; set; }
     public DbSet<ExcludedCard> ExcludedCards { get; set; }
-    public DbSet<Tag> Tags { get; set; }
-    public DbSet<CardTag> CardTags { get; set; }
-    public DbSet<UnlockedAchievement> UnlockedAchievements { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder options)
+        => options.UseSqlite($"Data Source={GetDatabasePath()}");
+
+    protected virtual string GetDatabasePath()
     {
         var folder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "Cardex");
         Directory.CreateDirectory(folder);
-        options.UseSqlite($"Data Source={Path.Combine(folder, "collection.db")}");
+        return Path.Combine(folder, "collection.db");
     }
 }

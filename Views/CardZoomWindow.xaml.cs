@@ -21,6 +21,7 @@ public partial class CardZoomWindow : Window
         CardDetails.Text = $"N° {number}" + (rarity is not null ? $"  ·  {rarity}" : "");
 
         Owner = Application.Current.MainWindow;
+        MaxHeight = SystemParameters.WorkArea.Height - 20;
         Loaded += async (_, _) => await LoadImageAsync();
     }
 
@@ -31,7 +32,15 @@ public partial class CardZoomWindow : Window
         {
             CardImage.Source = bmp;
             LoadingText.Visibility = Visibility.Collapsed;
+            _ = Dispatcher.BeginInvoke(EnsureOnScreen, System.Windows.Threading.DispatcherPriority.Loaded);
         }
+    }
+
+    private void EnsureOnScreen()
+    {
+        var workArea = SystemParameters.WorkArea;
+        if (Top + ActualHeight > workArea.Bottom)
+            Top = Math.Max(workArea.Top + 8, workArea.Bottom - ActualHeight - 8);
     }
 
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) => Close();

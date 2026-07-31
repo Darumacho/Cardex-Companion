@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0-windows</TargetFramework>
-    <Version>1.7.1</Version>
+    <Version>1.8</Version>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
@@ -18,6 +18,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="CardexCore\**" />
+    <Compile Remove="Tools\**" />
+    <None Remove="Tools\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="Logo.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -27,6 +33,11 @@
     <EmbeddedResource Include="SeedData\cards.json" LogicalName="Cardex.SeedData.cards.json"/>
     <Resource Include="Assets\cardmarket.png"/>
     <Resource Include="Assets\tcgplayer.png"/>
+    <Resource Include="Assets\AchievementIcons\**\*" Condition="Exists('Assets\AchievementIcons')"/>
+    <Resource Include="Assets\AchievementXbox.mp3"/>
+    <Resource Include="Assets\AchievementPS4.mp3"/>
+    <Resource Include="Assets\Outstanding.mp3"/>
+    <Resource Include="Assets\Briggs.mp3"/>
   </ItemGroup>
 
   <ItemGroup>

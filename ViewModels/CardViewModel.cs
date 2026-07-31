@@ -23,6 +23,21 @@ public partial class CardViewModel : ObservableObject
     [ObservableProperty] private bool _isExcluded;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TagBrush))]
+    private TagViewModel? _selectedTag;
+
+    public System.Windows.Media.SolidColorBrush? TagBrush =>
+        SelectedTag?.Id > 0 ? SelectedTag.Brush : null;
+
+    public Func<CardViewModel, TagViewModel?, Task>? OnTagChanged { get; set; }
+
+    partial void OnSelectedTagChanged(TagViewModel? value)
+    {
+        if (OnTagChanged is not null)
+            _ = OnTagChanged(this, value?.Id > 0 ? value : null);
+    }
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CmLowText))]
     [NotifyPropertyChangedFor(nameof(CmTooltip))]
     private decimal? _cmLow;
@@ -104,6 +119,9 @@ public partial class CardViewModel : ObservableObject
 
     [RelayCommand]
     private void ToggleOwned() => IsOwned = !IsOwned;
+
+    [RelayCommand]
+    private void ToggleWanted() => IsWanted = !IsWanted;
 
     [RelayCommand]
     private void ToggleExcluded() => IsExcluded = !IsExcluded;

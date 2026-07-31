@@ -37,17 +37,8 @@ public class PokemonTcgService
         while (true)
         {
             var url = $"cards?q=set.id:{setId}&page={page}&pageSize=250&orderBy=number";
-            ApiResponse<ApiCard>? result;
-            try
-            {
-                var response = await _http.GetStringAsync(url);
-                result = JsonSerializer.Deserialize<ApiResponse<ApiCard>>(response, _json);
-            }
-            catch
-            {
-                if (page == 1) throw; // page 1 : laisser RetryAsync réessayer
-                break;                // pages suivantes : retourner ce qu'on a
-            }
+            var response = await _http.GetStringAsync(url);
+            var result = JsonSerializer.Deserialize<ApiResponse<ApiCard>>(response, _json);
             if (result is null || result.Data.Count == 0) break;
             all.AddRange(result.Data);
             progress?.Report(all.Count);

@@ -58,6 +58,22 @@ public partial class App : Application
             CREATE TABLE IF NOT EXISTS ExcludedCards (
                 CardId TEXT PRIMARY KEY NOT NULL, SetId TEXT NOT NULL DEFAULT '')"); }
         catch { }
+        try { await db.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE IF NOT EXISTS Tags (
+                Id    INTEGER PRIMARY KEY AUTOINCREMENT,
+                Name  TEXT NOT NULL,
+                Color TEXT NOT NULL DEFAULT '#8888aa')"); }
+        catch { }
+        try { await db.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE IF NOT EXISTS CardTags (
+                CardId TEXT NOT NULL PRIMARY KEY,
+                TagId  INTEGER NOT NULL)"); }
+        catch { }
+        try { await db.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE IF NOT EXISTS UnlockedAchievements (
+                Id          TEXT NOT NULL PRIMARY KEY,
+                UnlockedAt  TEXT NOT NULL DEFAULT '')"); }
+        catch { }
 
         var settings = AppSettings.Load();
         var tcgService = new PokemonTcgService(settings.ApiKey);
