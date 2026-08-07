@@ -12,4 +12,6 @@ public class CachedSet
     public string LogoUrl { get; set; } = "";
     public string SymbolUrl { get; set; } = "";
     public DateTime CachedAt { get; set; }
+    public string? PtcgoCode { get; set; }
+    public string? ShortCode { get; set; }
 }

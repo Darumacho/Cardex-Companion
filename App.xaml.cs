@@ -54,6 +54,8 @@ public partial class App : Application
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN CmUrl TEXT"); } catch { }
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN TcgUrl TEXT"); } catch { }
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN ImageLarge TEXT"); } catch { }
+        try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedSets ADD COLUMN PtcgoCode TEXT"); } catch { }
+        try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedSets ADD COLUMN ShortCode TEXT"); } catch { }
         try { await db.Database.ExecuteSqlRawAsync(@"
             CREATE TABLE IF NOT EXISTS ExcludedCards (
                 CardId TEXT PRIMARY KEY NOT NULL, SetId TEXT NOT NULL DEFAULT '')"); }
@@ -112,9 +114,22 @@ public partial class App : Application
 
         window.Show();
 
+        await BackfillShortCodesAsync(db);
         await SeedDbFromEmbeddedAsync(db);
         await MainVm.LoadSetsAsync();
         _ = MainVm.CheckForUpdateAsync();
+    }
+
+    private static async Task BackfillShortCodesAsync(AppDbContext db)
+    {
+        var sets = await db.CachedSets.ToListAsync();
+        bool changed = false;
+        foreach (var s in sets)
+        {
+            var expected = SetShortCodes.BySetId.TryGetValue(s.SetId, out var code) ? code : null;
+            if (s.ShortCode != expected) { s.ShortCode = expected; changed = true; }
+        }
+        if (changed) await db.SaveChangesAsync();
     }
 
     private static async Task SeedDbFromEmbeddedAsync(AppDbContext db)
@@ -139,7 +154,8 @@ public partial class App : Application
             {
                 SetId = s.Id, Name = s.Name, Series = s.Series, Total = s.Total,
                 ReleaseDate = s.ReleaseDate, LogoUrl = s.LogoUrl, SymbolUrl = s.SymbolUrl,
-                CachedAt = DateTime.UtcNow
+                CachedAt = DateTime.UtcNow,
+                ShortCode = SetShortCodes.BySetId.TryGetValue(s.Id, out var sc) ? sc : null
             }));
             await db.SaveChangesAsync();
             db.ChangeTracker.Clear();

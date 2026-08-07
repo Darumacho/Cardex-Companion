@@ -1560,6 +1560,20 @@
                         📂 Restore
                     </Button>
                     <Button VerticalAlignment="Center"
+                            Command="{Binding ImportCollectionCommand}"
+                            ToolTip="Import cards from a text file (CODE-NUMBER format)"
+                            FontSize="11" Padding="6,2" Margin="0,0,4,0"
+                            Style="{StaticResource SetButtonStyle}">
+                        ⬆ Import
+                    </Button>
+                    <Border Width="15" Height="15" CornerRadius="8"
+                            Background="#0f3460" VerticalAlignment="Center"
+                            Margin="0,0,6,0" Cursor="Help"
+                            ToolTip="Import templates (set keys, format examples) are available in Settings → Templates">
+                        <TextBlock Text="i" Foreground="#8888aa" FontSize="9" FontWeight="Bold"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <Button VerticalAlignment="Center"
                             Command="{Binding ExportCsvCommand}"
                             ToolTip="Export owned cards to CSV  (Ctrl+E)"
                             FontSize="11" Padding="6,2" Margin="0,0,6,0"

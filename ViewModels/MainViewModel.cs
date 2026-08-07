@@ -51,6 +51,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _isUpdating;
     [ObservableProperty] private int _updateProgress;
     [ObservableProperty] private bool _allSeriesExpanded = true;
+    [ObservableProperty] private List<TemplateSetEntry> _templateSets = [];
     [ObservableProperty] private bool _isBinderView;
     [ObservableProperty] private bool _isSettingsOpen;
     [ObservableProperty] private bool _showMyCollection = true;
@@ -399,7 +400,9 @@ public partial class MainViewModel : ObservableObject
                     {
                         SetId = s.Id, Name = s.Name, Series = s.Series, Total = s.Total,
                         ReleaseDate = s.ReleaseDate, LogoUrl = s.Images.Logo,
-                        SymbolUrl = s.Images.Symbol, CachedAt = DateTime.UtcNow
+                        SymbolUrl = s.Images.Symbol, CachedAt = DateTime.UtcNow,
+                        PtcgoCode = s.PtcgoCode,
+                        ShortCode = SetShortCodes.BySetId.TryGetValue(s.Id, out var sc) ? sc : null
                     }));
                     await _db.SaveChangesAsync();
                 }
@@ -421,6 +424,10 @@ public partial class MainViewModel : ObservableObject
 
             BuildSeries(allCached.Select(s =>
                 new SetData(s.SetId, s.Name, s.Total, s.Series, s.ReleaseDate, s.LogoUrl, s.SymbolUrl)));
+
+            TemplateSets = allCached
+                .Select(s => new TemplateSetEntry(s.ShortCode ?? "", s.PtcgoCode ?? s.SetId, s.Name, s.Series))
+                .ToList();
 
             StatusText = apiError is not null
                 ? $"{allCached.Count} sets loaded from cache (API error: {apiError})"
@@ -1297,6 +1304,163 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task ImportCollectionAsync()
+    {
+        var openDlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Import collection",
+            Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*"
+        };
+        if (openDlg.ShowDialog() != true) return;
+
+        StatusText = "Importing…";
+
+        var lines = await File.ReadAllLinesAsync(openDlg.FileName, Encoding.UTF8);
+
+        var allSets      = await _db.CachedSets.ToListAsync();
+        var setByShort   = allSets
+            .Where(s => s.ShortCode != null)
+            .ToDictionary(s => s.ShortCode!.ToUpperInvariant());
+        var setByPtcgo   = allSets
+            .Where(s => s.PtcgoCode != null)
+            .ToDictionary(s => s.PtcgoCode!.ToUpperInvariant());
+        var setById      = allSets.ToDictionary(s => s.SetId.ToUpperInvariant());
+        var setByName    = allSets.ToDictionary(s => s.Name.ToUpperInvariant());
+
+        var ownedDict  = (await _db.OwnedCards.ToListAsync()).ToDictionary(o => o.CardId);
+        var cardIdCache = new Dictionary<string, HashSet<string>>();
+        var qtyPattern  = new System.Text.RegularExpressions.Regex(@"\s+x(\d+)\s*$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        int importCount = 0;
+        var errors = new List<string>();
+
+        foreach (var rawLine in lines)
+        {
+            var line = rawLine.Trim();
+            if (string.IsNullOrEmpty(line) || line.StartsWith('#')) continue;
+
+            int qty = 1;
+            var qtyMatch = qtyPattern.Match(line);
+            if (qtyMatch.Success)
+            {
+                qty  = int.Parse(qtyMatch.Groups[1].Value);
+                line = line[..qtyMatch.Index].Trim();
+            }
+
+            var dashIdx = line.IndexOf('-');
+            if (dashIdx < 1) { errors.Add(rawLine.Trim()); continue; }
+
+            var code   = line[..dashIdx].ToUpperInvariant();
+            var number = line[(dashIdx + 1)..].Trim();
+            if (string.IsNullOrEmpty(number)) { errors.Add(rawLine.Trim()); continue; }
+
+            if (!setByShort.TryGetValue(code, out var set) && !setByPtcgo.TryGetValue(code, out set) && !setById.TryGetValue(code, out set) && !setByName.TryGetValue(code, out set))
+                { errors.Add(rawLine.Trim()); continue; }
+
+            if (!cardIdCache.TryGetValue(set.SetId, out var cardIds))
+            {
+                cardIds = (await _db.CachedCards
+                    .Where(c => c.SetId == set.SetId)
+                    .Select(c => c.CardId)
+                    .ToListAsync()).ToHashSet();
+                cardIdCache[set.SetId] = cardIds;
+            }
+
+            var cardId = $"{set.SetId}-{number}";
+            if (!cardIds.Contains(cardId)) { errors.Add(rawLine.Trim()); continue; }
+
+            if (ownedDict.TryGetValue(cardId, out var existing))
+                existing.Quantity += qty;
+            else
+            {
+                var newOwned = new OwnedCard { CardId = cardId, SetId = set.SetId, Quantity = qty, OwnedAt = DateTime.UtcNow };
+                _db.OwnedCards.Add(newOwned);
+                ownedDict[cardId] = newOwned;
+            }
+
+            importCount++;
+        }
+
+        await _db.SaveChangesAsync();
+        await ApplyOwnedCountsAsync();
+        RefreshSpecialGroups();
+
+        if (SelectedSet is not null)
+        {
+            SelectedSet.Cards.Clear();
+            await SelectSetAsync(SelectedSet);
+        }
+
+        if (errors.Count > 0)
+        {
+            var saveDlg = new Microsoft.Win32.SaveFileDialog
+            {
+                Title = "Save error report",
+                Filter = "Text files (*.txt)|*.txt",
+                FileName = "import_errors.txt"
+            };
+            if (saveDlg.ShowDialog() == true)
+                await File.WriteAllLinesAsync(saveDlg.FileName, errors, Encoding.UTF8);
+        }
+
+        StatusText = importCount > 0
+            ? $"{importCount} card(s) imported" + (errors.Count > 0 ? $", {errors.Count} line(s) failed" : "")
+            : errors.Count > 0 ? $"Import failed — {errors.Count} unrecognized line(s)" : "Nothing to import";
+    }
+
+    [RelayCommand]
+    private async Task GenerateImportTemplateAsync()
+    {
+        var saveDlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Save import template",
+            Filter = "Text files (*.txt)|*.txt",
+            FileName = "cardex_import_template.txt"
+        };
+        if (saveDlg.ShowDialog() != true) return;
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("# ============================================================");
+        sb.AppendLine("# Cardex — Collection Import Template");
+        sb.AppendLine("# ============================================================");
+        sb.AppendLine("#");
+        sb.AppendLine("# FORMAT: CODE-NUMBER [xQUANTITY]");
+        sb.AppendLine("#");
+        sb.AppendLine("# Examples:");
+        sb.AppendLine("#   PRE-1                  SHORT code  — 1 copy of card #1 from Prismatic Evolutions");
+        sb.AppendLine("#   BS-4 x2                SHORT code  — 2 copies of card #4 from Base");
+        sb.AppendLine("#   NEOG-7                 SHORT code  — 1 copy of card #7 from Neo Genesis");
+        sb.AppendLine("#   sv8pt5-1               Raw set ID  — same card as PRE-1");
+        sb.AppendLine("#   Prismatic Evolutions-1 Full name   — same card as PRE-1");
+        sb.AppendLine("#");
+        sb.AppendLine("# Notes:");
+        sb.AppendLine("#   - Lines starting with # are comments and are ignored");
+        sb.AppendLine("#   - Empty lines are ignored");
+        sb.AppendLine("#   - The quantity suffix x{n} is optional (defaults to 1)");
+        sb.AppendLine("#   - Importing the same file twice adds quantities, it does not replace them");
+        sb.AppendLine("#   - SHORT codes (2-4 chars) are the simplest key — listed first in table below");
+        sb.AppendLine("#   - Also accepted: official PTCGO key, raw set ID, or full set name");
+        sb.AppendLine("#");
+        sb.AppendLine("# ============================================================");
+        sb.AppendLine("# AVAILABLE SET KEYS");
+        sb.AppendLine("# ============================================================");
+        sb.AppendLine("#");
+        sb.AppendLine($"# {"SHORT",-6} {"KEY",-14} {"SET NAME",-42} SERIES");
+        sb.AppendLine($"# {new string('-', 82)}");
+        foreach (var s in TemplateSets)
+            sb.AppendLine($"# {s.ShortCode,-6} {s.Key,-14} {s.Name,-42} {s.Series}");
+        sb.AppendLine("#");
+        sb.AppendLine("# ============================================================");
+        sb.AppendLine("# ADD YOUR CARDS BELOW THIS LINE");
+        sb.AppendLine("# ============================================================");
+        sb.AppendLine();
+
+        await File.WriteAllTextAsync(saveDlg.FileName, sb.ToString(), Encoding.UTF8);
+        StatusText = "Import template saved";
+    }
+
+    [RelayCommand]
     private async Task ExportCsvAsync()
     {
         var exportDlg = new Views.ExportDialog { Owner = Application.Current.MainWindow };
@@ -1496,3 +1660,5 @@ public partial class MainViewModel : ObservableObject
     private record BackupOwned(string CardId, string SetId, int Quantity);
     private record BackupWanted(string CardId, string SetId);
 }
+
+public record TemplateSetEntry(string ShortCode, string Key, string Name, string Series);

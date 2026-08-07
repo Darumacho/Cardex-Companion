@@ -634,6 +634,99 @@
             </ScrollViewer>
         </TabItem>
 
+        <!-- ===== ONGLET TEMPLATES ===== -->
+        <TabItem Header="Templates" Style="{StaticResource TabItemStyle}">
+            <Grid Margin="24,20,24,16">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Description -->
+                <StackPanel Grid.Row="0" Margin="0,0,0,14">
+                    <TextBlock Text="Import template" Foreground="#8888aa" FontSize="12" Margin="0,0,0,10"/>
+                    <TextBlock Foreground="#e0e0e0" FontSize="11" TextWrapping="Wrap" LineHeight="18">
+                        <Run Text="Format: "/>
+                        <Run Text="CODE-NUMBER" FontFamily="Consolas" Foreground="#ffd700"/>
+                        <Run Text=" or "/>
+                        <Run Text="CODE-NUMBER x3" FontFamily="Consolas" Foreground="#ffd700"/>
+                        <Run Text=" for a quantity. "/>
+                        <Run Text="Examples: " Foreground="#8888aa"/>
+                        <Run Text="PRE-1" FontFamily="Consolas" Foreground="#ffd700"/>
+                        <Run Text=",  " Foreground="#8888aa"/>
+                        <Run Text="BS-4 x2" FontFamily="Consolas" Foreground="#ffd700"/>
+                        <Run Text=",  " Foreground="#8888aa"/>
+                        <Run Text="NEOG-7" FontFamily="Consolas" Foreground="#ffd700"/>
+                    </TextBlock>
+                    <TextBlock Foreground="#8888aa" FontSize="10" TextWrapping="Wrap" Margin="0,6,0,0" LineHeight="16">
+                        <Run Text="CODE can be the SHORT code (2–4 chars, see table below), the official PTCGO key, the raw set ID, or the full set name. Lines starting with # are ignored. Importing twice adds quantities."/>
+                    </TextBlock>
+                </StackPanel>
+
+                <!-- En-tête colonne -->
+                <Grid Grid.Row="1" Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="56"/>
+                        <ColumnDefinition Width="110"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="130"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="SHORT" Foreground="#ffd700" FontSize="10" FontWeight="Bold"/>
+                    <TextBlock Grid.Column="1" Text="KEY" Foreground="#8888aa" FontSize="10" FontWeight="Bold"/>
+                    <TextBlock Grid.Column="2" Text="SET NAME" Foreground="#8888aa" FontSize="10" FontWeight="Bold"/>
+                    <TextBlock Grid.Column="3" Text="SERIES" Foreground="#8888aa" FontSize="10" FontWeight="Bold"/>
+                </Grid>
+
+                <Rectangle Grid.Row="1" Height="1" Fill="#0f3460" VerticalAlignment="Bottom"/>
+
+                <!-- Liste des sets -->
+                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Margin="0,4,0,8">
+                    <ItemsControl ItemsSource="{Binding TemplateSets}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,2,0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="56"/>
+                                        <ColumnDefinition Width="110"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="130"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding ShortCode}"
+                                               Foreground="#ffd700" FontSize="11"
+                                               FontFamily="Consolas" FontWeight="Bold"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Key}"
+                                               Foreground="#8888aa" FontSize="11"
+                                               FontFamily="Consolas"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding Name}"
+                                               Foreground="#e0e0e0" FontSize="11"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="3"
+                                               Text="{Binding Series}"
+                                               Foreground="#8888aa" FontSize="10"
+                                               TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- Bouton -->
+                <Button Grid.Row="3"
+                        Command="{Binding GenerateImportTemplateCommand}"
+                        Content="💾  Save template file"
+                        HorizontalAlignment="Left"
+                        Background="#16213e" Foreground="#e0e0e0"
+                        BorderBrush="#0f3460" Padding="14,7"
+                        FontSize="12" Cursor="Hand"/>
+            </Grid>
+        </TabItem>
+
         <!-- ===== ONGLET RACCOURCIS ===== -->
         <TabItem Header="Shortcuts" Style="{StaticResource TabItemStyle}">
             <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="24,20,24,16">

@@ -19,6 +19,7 @@ public record ApiSet
     [JsonPropertyName("total")] public int Total { get; init; }
     [JsonPropertyName("releaseDate")] public string ReleaseDate { get; init; } = "";
     [JsonPropertyName("images")] public ApiSetImages Images { get; init; } = new();
+    [JsonPropertyName("ptcgoCode")] public string? PtcgoCode { get; init; }
 }
 
 public record ApiSetImages
