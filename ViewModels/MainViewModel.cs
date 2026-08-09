@@ -54,6 +54,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private List<TemplateSetEntry> _templateSets = [];
     [ObservableProperty] private bool _isBinderView;
     [ObservableProperty] private bool _isSettingsOpen;
+    [ObservableProperty] private bool _isDeckBuilderOpen;
+
+    public DeckBuilderViewModel DeckBuilder { get; }
     [ObservableProperty] private bool _showMyCollection = true;
     [ObservableProperty] private int  _totalOwnedCards;
     [ObservableProperty] private bool _isFavoritesSectionExpanded    = true;
@@ -241,6 +244,7 @@ public partial class MainViewModel : ObservableObject
         _imageCache = imageCache;
         _db = db;
         _settings = AppSettings.Load();
+        DeckBuilder = new DeckBuilderViewModel(db, imageCache);
         _showMyCollection = _settings.ShowMyCollection;
         ApplyBorderColor(_settings.CollectionBorderColor);
         WantedCards.CollectionChanged    += (_, _) => { OnPropertyChanged(nameof(HasWantedCards)); OnPropertyChanged(nameof(HasHomeContent)); };
@@ -274,7 +278,8 @@ public partial class MainViewModel : ObservableObject
             Achievements.Add(new AchievementViewModel(def, map.GetValueOrDefault(def.Id)));
     }
 
-    public bool IsHomeVisible => SelectedSet is null;
+    public bool IsHomeVisible    => SelectedSet is null && !IsDeckBuilderOpen;
+    public bool IsSetViewVisible => SelectedSet is not null && !IsDeckBuilderOpen;
 
     public string AppVersion
     {
@@ -286,7 +291,21 @@ public partial class MainViewModel : ObservableObject
     }
 
     partial void OnSelectedSetChanged(SetViewModel? value)
-        => OnPropertyChanged(nameof(IsHomeVisible));
+    {
+        OnPropertyChanged(nameof(IsHomeVisible));
+        OnPropertyChanged(nameof(IsSetViewVisible));
+    }
+
+    partial void OnIsDeckBuilderOpenChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsHomeVisible));
+        OnPropertyChanged(nameof(IsSetViewVisible));
+        if (value && SelectedSet is not null)
+        {
+            SelectedSet.IsSelected = false;
+            SelectedSet = null;
+        }
+    }
 
     private CancellationTokenSource? _searchCts;
 
@@ -372,8 +391,21 @@ public partial class MainViewModel : ObservableObject
         if (SelectedSet is not null)
             SelectedSet.IsSelected = false;
         SelectedSet = null;
+        IsDeckBuilderOpen = false;
         GlobalSearch = "";
         SearchResults.Clear();
+    }
+
+    [RelayCommand]
+    private async Task OpenDeckBuilderAsync()
+    {
+        if (SelectedSet is not null)
+            SelectedSet.IsSelected = false;
+        SelectedSet = null;
+        GlobalSearch = "";
+        SearchResults.Clear();
+        IsDeckBuilderOpen = true;
+        await DeckBuilder.InitializeAsync();
     }
 
     [RelayCommand]
@@ -682,7 +714,10 @@ public partial class MainViewModel : ObservableObject
                         TcgLow = ExtractTcgLow(c),
                         PricesUpdatedAt = now,
                         CmUrl = c.Cardmarket?.Url,
-                        TcgUrl = c.Tcgplayer?.Url
+                        TcgUrl = c.Tcgplayer?.Url,
+                        Supertype = c.Supertype,
+                        Subtypes = c.Subtypes is { Count: > 0 } ? string.Join(", ", c.Subtypes) : null,
+                        Types    = c.Types    is { Count: > 0 } ? string.Join(", ", c.Types)    : null,
                     }));
                     await _db.SaveChangesAsync();
 
@@ -935,7 +970,10 @@ public partial class MainViewModel : ObservableObject
                     {
                         CardId = c.Id, SetId = c.Set.Id, Name = c.Name,
                         Number = c.Number, ImageSmall = c.Images.Small,
-                        Rarity = c.Rarity, SortOrder = i
+                        Rarity = c.Rarity, SortOrder = i,
+                        Supertype = c.Supertype,
+                        Subtypes = c.Subtypes is { Count: > 0 } ? string.Join(", ", c.Subtypes) : null,
+                        Types    = c.Types    is { Count: > 0 } ? string.Join(", ", c.Types)    : null,
                     }));
                     await db.SaveChangesAsync(token);
                 }
@@ -1634,6 +1672,12 @@ public partial class MainViewModel : ObservableObject
                 row.PricesUpdatedAt = now;
                 row.CmUrl = api.Cardmarket?.Url;
                 row.TcgUrl = api.Tcgplayer?.Url;
+                if (row.Supertype is null)
+                {
+                    row.Supertype = api.Supertype;
+                    row.Subtypes  = api.Subtypes is { Count: > 0 } ? string.Join(", ", api.Subtypes) : null;
+                    row.Types     = api.Types    is { Count: > 0 } ? string.Join(", ", api.Types)    : null;
+                }
             }
             await _db.SaveChangesAsync();
 

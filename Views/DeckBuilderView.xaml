@@ -1,0 +1,763 @@
+<UserControl x:Class="Cardex.Views.DeckBuilderView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Cardex.ViewModels"
+             Background="{StaticResource BrushBg}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+        <!-- Compact dark button -->
+        <Style x:Key="DkBtn" TargetType="Button">
+            <Setter Property="Background"      Value="#0f3460"/>
+            <Setter Property="Foreground"      Value="#e0e0e0"/>
+            <Setter Property="BorderBrush"     Value="#1a4a80"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding"         Value="10,4"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="FontSize"        Value="11"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#1a4a80"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Mini +/- button -->
+        <Style x:Key="QtyBtn" TargetType="Button" BasedOn="{StaticResource DkBtn}">
+            <Setter Property="Width"    Value="22"/>
+            <Setter Property="Height"   Value="22"/>
+            <Setter Property="Padding"  Value="0"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="380"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- ══════════════════════════════════════════════════════════════════ -->
+        <!-- LEFT PANEL : card browser                                         -->
+        <!-- ══════════════════════════════════════════════════════════════════ -->
+        <Grid Grid.Column="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <Border Grid.Row="0" Background="{StaticResource BrushAccent}" Padding="16,10">
+                <TextBlock Text="🃏  Deck Builder — Card Browser"
+                           Foreground="{StaticResource BrushText}"
+                           FontSize="14" FontWeight="SemiBold"/>
+            </Border>
+
+            <!-- Search bar + filters -->
+            <Border Grid.Row="1" Background="#0d1225" Padding="12,10">
+                <StackPanel>
+                    <!-- Search by name -->
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding CardSearch, UpdateSourceTrigger=PropertyChanged}"
+                                 Background="#111122" Foreground="{StaticResource BrushText}"
+                                 CaretBrush="{StaticResource BrushText}"
+                                 BorderBrush="{StaticResource BrushAccent}" BorderThickness="1"
+                                 Padding="8,6" FontSize="12"
+                                 VerticalContentAlignment="Center">
+                            <TextBox.Resources>
+                                <Style TargetType="{x:Type Border}">
+                                    <Setter Property="CornerRadius" Value="4 0 0 4"/>
+                                </Style>
+                            </TextBox.Resources>
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Return" Command="{Binding SearchCardsCommand}"/>
+                            </TextBox.InputBindings>
+                        </TextBox>
+                        <Button Grid.Column="1" Command="{Binding SearchCardsCommand}"
+                                Style="{StaticResource DkBtn}"
+                                Padding="12,6" FontSize="12">
+                            🔍 Search
+                        </Button>
+                    </Grid>
+
+                    <!-- Row 1 : Supertype / Type / Stage / Owned -->
+                    <Grid Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0" Text="Category"
+                                   Foreground="{StaticResource BrushSubtext}"
+                                   FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{x:Static vm:DeckBuilderViewModel.SupertypeOptions}"
+                                  SelectedItem="{Binding SupertypeFilter}"
+                                  Style="{StaticResource DarkComboBoxStyle}" Margin="0,0,12,0"/>
+
+                        <TextBlock Grid.Column="2" Text="Type"
+                                   Foreground="{StaticResource BrushSubtext}"
+                                   FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <ComboBox Grid.Column="3"
+                                  ItemsSource="{x:Static vm:DeckBuilderViewModel.TypeOptions}"
+                                  SelectedItem="{Binding TypeFilter}"
+                                  Style="{StaticResource DarkComboBoxStyle}" Margin="0,0,12,0"/>
+
+                        <TextBlock Grid.Column="4" Text="Stage"
+                                   Foreground="{StaticResource BrushSubtext}"
+                                   FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <ComboBox Grid.Column="5"
+                                  ItemsSource="{x:Static vm:DeckBuilderViewModel.SubtypeOptions}"
+                                  SelectedItem="{Binding SubtypeFilter}"
+                                  Style="{StaticResource DarkComboBoxStyle}" Margin="0,0,12,0"/>
+
+                        <CheckBox Grid.Column="6"
+                                  IsChecked="{Binding OnlyOwned}"
+                                  Content="Owned" Foreground="{StaticResource BrushSubtext}"
+                                  FontSize="10" VerticalAlignment="Center" Cursor="Hand"/>
+                    </Grid>
+
+                    <!-- Row 2 : Set filter -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Set"
+                                   Foreground="{StaticResource BrushSubtext}"
+                                   FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding SetOptions}"
+                                  SelectedValuePath="Value"
+                                  SelectedValue="{Binding SetFilter}"
+                                  Style="{StaticResource DarkComboBoxStyle}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:SetFilterItem}">
+                                    <TextBlock>
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text"       Value="{Binding Display}"/>
+                                                <Setter Property="Foreground" Value="{StaticResource BrushText}"/>
+                                                <Setter Property="FontSize"   Value="11"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsHeader}" Value="True">
+                                                        <Setter Property="Foreground" Value="#6688cc"/>
+                                                        <Setter Property="FontSize"   Value="9"/>
+                                                        <Setter Property="FontWeight" Value="Bold"/>
+                                                        <Setter Property="Margin"     Value="0,4,0,1"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                            <ComboBox.ItemContainerStyle>
+                                <Style TargetType="ComboBoxItem">
+                                    <Setter Property="Padding"    Value="8,3"/>
+                                    <Setter Property="Foreground" Value="{StaticResource BrushText}"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsHeader}" Value="True">
+                                            <Setter Property="IsEnabled"  Value="False"/>
+                                            <Setter Property="Background" Value="#0a0e1a"/>
+                                            <Setter Property="Padding"    Value="8,6,8,2"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ComboBox.ItemContainerStyle>
+                        </ComboBox>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Search status -->
+            <Border Grid.Row="2" Padding="12,4" Background="#0a0e1a">
+                <Grid>
+                    <TextBlock Text="{Binding BrowserStatus}"
+                               Foreground="{StaticResource BrushSubtext}" FontSize="10"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Text="⏳ Searching…"
+                               Foreground="{StaticResource BrushSubtext}" FontSize="10"
+                               HorizontalAlignment="Right" VerticalAlignment="Center"
+                               Visibility="{Binding IsSearching, Converter={StaticResource BoolToVis}}"/>
+                </Grid>
+            </Border>
+
+            <!-- Card list -->
+            <ListView Grid.Row="3"
+                      ItemsSource="{Binding BrowserCards}"
+                      Background="{StaticResource BrushBg}"
+                      BorderThickness="0"
+                      VirtualizingPanel.IsVirtualizing="True"
+                      VirtualizingPanel.VirtualizationMode="Recycling"
+                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <Setter Property="Padding"          Value="0"/>
+                        <Setter Property="Background"       Value="Transparent"/>
+                        <Setter Property="BorderThickness"  Value="0"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#0f1629"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListView.ItemContainerStyle>
+                <ListView.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:DeckBrowserCardVm}">
+                        <Border BorderThickness="0,0,0,1" BorderBrush="#111830" Padding="8,6">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="48"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Thumbnail -->
+                                <Border Grid.Column="0" Width="44" Height="60"
+                                        Background="#0a0e1a" CornerRadius="3" Margin="0,0,8,0">
+                                    <Grid>
+                                        <TextBlock Text="…" Foreground="{StaticResource BrushSubtext}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   Visibility="{Binding IsLoadingImage, Converter={StaticResource BoolToVis}}"/>
+                                        <Image Source="{Binding CardImage}" Stretch="Uniform"
+                                               RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Card info -->
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   Text="{Binding Name}"
+                                                   Foreground="{StaticResource BrushText}"
+                                                   FontSize="12" FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Column="1"
+                                                   Foreground="#5aaa66" FontSize="10"
+                                                   VerticalAlignment="Center" Margin="6,0,0,0">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsOwned}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                            <Setter Property="Text" Value="✓ Owned"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
+
+                                    <TextBlock Foreground="{StaticResource BrushSubtext}" FontSize="10" Margin="0,1,0,0">
+                                        <Run Text="{Binding SetName, Mode=OneWay}"/>
+                                        <Run Text=" · N°"/>
+                                        <Run Text="{Binding Number, Mode=OneWay}"/>
+                                    </TextBlock>
+
+                                    <TextBlock Text="{Binding TypeBadge}"
+                                               Foreground="#7a9abf" FontSize="10" Margin="0,1,0,0"
+                                               TextTrimming="CharacterEllipsis"/>
+
+                                    <!-- Prices with logos -->
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,8,0">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding CmLow}" Value="{x:Null}">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                            <Image Source="pack://application:,,,/Assets/cardmarket.png"
+                                                   Width="12" Height="12" Margin="0,0,3,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding CmLow, StringFormat={}{0:F2}€}"
+                                                       Foreground="#aaaacc" FontSize="10" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding TcgLow}" Value="{x:Null}">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                            <Image Source="pack://application:,,,/Assets/tcgplayer.png"
+                                                   Width="12" Height="12" Margin="0,0,3,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding TcgLow, StringFormat=${}{0:F2}}"
+                                                       Foreground="#aaaacc" FontSize="10" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- Add button + deck qty badge -->
+                                <StackPanel Grid.Column="2" VerticalAlignment="Center"
+                                            HorizontalAlignment="Right" Margin="8,0,0,0">
+                                    <Button Command="{Binding DataContext.AddCardToDeckCommand,
+                                                    RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
+                                            Style="{StaticResource DkBtn}" Padding="10,4" FontSize="11">
+                                        + Add
+                                    </Button>
+                                    <Border Margin="0,4,0,0" CornerRadius="3"
+                                            Background="#0f3460" Padding="6,2"
+                                            HorizontalAlignment="Center">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DeckQuantity}" Value="0">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <TextBlock Foreground="#ffd700" FontSize="10">
+                                            <Run Text="{Binding DeckQuantity, Mode=OneWay}"/>
+                                            <Run Text=" in deck"/>
+                                        </TextBlock>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </Grid>
+
+        <!-- Vertical separator -->
+        <Border Grid.Column="0" Width="1" HorizontalAlignment="Right"
+                Background="{StaticResource BrushAccent}"/>
+
+        <!-- ══════════════════════════════════════════════════════════════════ -->
+        <!-- RIGHT PANEL : current deck + saved decks                          -->
+        <!-- ══════════════════════════════════════════════════════════════════ -->
+        <Grid Grid.Column="1" Background="#0d1225">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Deck name + actions -->
+            <Border Grid.Row="0" Background="{StaticResource BrushAccent}" Padding="12,10">
+                <StackPanel>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding DeckName, UpdateSourceTrigger=PropertyChanged}"
+                                 Background="#111122" Foreground="{StaticResource BrushText}"
+                                 CaretBrush="{StaticResource BrushText}"
+                                 BorderBrush="#0f3460" BorderThickness="1"
+                                 Padding="8,5" FontSize="13" FontWeight="SemiBold"
+                                 VerticalContentAlignment="Center"/>
+                        <Button Grid.Column="1" Command="{Binding SaveDeckCommand}"
+                                Margin="6,0,0,0" ToolTip="Save deck">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource DkBtn}">
+                                    <Setter Property="Content" Value="💾 Save"/>
+                                    <Setter Property="IsEnabled" Value="True"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsSaving}" Value="True">
+                                            <Setter Property="Content"   Value="⏳ Saving…"/>
+                                            <Setter Property="IsEnabled" Value="False"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <Button Grid.Column="2" Command="{Binding NewDeckCommand}"
+                                Style="{StaticResource DkBtn}" Margin="4,0,0,0"
+                                ToolTip="New empty deck">
+                            🆕
+                        </Button>
+                    </Grid>
+
+                    <!-- Progress bar + stats -->
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Bar -->
+                        <Grid Grid.Row="0" Height="8" Margin="0,0,0,6">
+                            <Border Background="#1a1a2e" CornerRadius="4"/>
+                            <Border CornerRadius="4" HorizontalAlignment="Left">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="{StaticResource BrushHighlight}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsValidDeck}" Value="True">
+                                                <Setter Property="Background" Value="#5aaa66"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Border.Width>
+                                    <MultiBinding>
+                                        <MultiBinding.Converter>
+                                            <local:RatioWidthConverter xmlns:local="clr-namespace:Cardex.Converters"/>
+                                        </MultiBinding.Converter>
+                                        <Binding Path="TotalCards"/>
+                                        <Binding RelativeSource="{RelativeSource AncestorType=Grid}" Path="ActualWidth"/>
+                                    </MultiBinding>
+                                </Border.Width>
+                            </Border>
+                        </Grid>
+
+                        <!-- Counters -->
+                        <Grid Grid.Row="1" Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                <TextBlock Foreground="#7a9abf" FontSize="10">
+                                    <Run Text="🔵 Pk "/><Run Text="{Binding PokemonCount, Mode=OneWay}" FontWeight="Bold"/>
+                                </TextBlock>
+                                <TextBlock Foreground="#8888aa" FontSize="10" Margin="8,0">·</TextBlock>
+                                <TextBlock Foreground="#c49a3a" FontSize="10">
+                                    <Run Text="🟡 Tr "/><Run Text="{Binding TrainerCount, Mode=OneWay}" FontWeight="Bold"/>
+                                </TextBlock>
+                                <TextBlock Foreground="#8888aa" FontSize="10" Margin="8,0">·</TextBlock>
+                                <TextBlock Foreground="#aa5555" FontSize="10">
+                                    <Run Text="⚡ En "/><Run Text="{Binding EnergyCount, Mode=OneWay}" FontWeight="Bold"/>
+                                </TextBlock>
+                                <TextBlock Foreground="#8888aa" FontSize="10" Margin="8,0"
+                                           Visibility="{Binding HasUnknown, Converter={StaticResource BoolToVis}}">·</TextBlock>
+                                <TextBlock Foreground="#666688" FontSize="10"
+                                           Visibility="{Binding HasUnknown, Converter={StaticResource BoolToVis}}">
+                                    <Run Text="? "/><Run Text="{Binding UnknownCount, Mode=OneWay}" FontWeight="Bold"/>
+                                </TextBlock>
+                            </StackPanel>
+                            <TextBlock Grid.Column="1" FontSize="12" FontWeight="Bold">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource BrushSubtext}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsValidDeck}" Value="True">
+                                                <Setter Property="Foreground" Value="#5aaa66"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                                <Run Text="{Binding DeckStatus, Mode=OneWay}"/>
+                            </TextBlock>
+                        </Grid>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Warning: type data only available for browsed sets -->
+            <Border Grid.Row="1" Padding="10,5" Background="#1a1020">
+                <TextBlock Foreground="#8844aa" FontSize="9" TextWrapping="Wrap">
+                    ⚠ Type/stage filters only work for sets already browsed. Refresh a set to get complete data.
+                </TextBlock>
+            </Border>
+
+            <!-- Deck card list -->
+            <ListView Grid.Row="2"
+                      ItemsSource="{Binding DeckEntries}"
+                      Background="Transparent"
+                      BorderThickness="0"
+                      VirtualizingPanel.IsVirtualizing="True"
+                      VirtualizingPanel.VirtualizationMode="Recycling"
+                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <Setter Property="Padding"         Value="0"/>
+                        <Setter Property="Background"      Value="Transparent"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#111830"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListView.ItemContainerStyle>
+                <ListView.GroupStyle>
+                    <GroupStyle>
+                        <GroupStyle.HeaderTemplate>
+                            <DataTemplate>
+                                <Border Background="#0f3460" Padding="10,4">
+                                    <TextBlock Text="{Binding Name}"
+                                               Foreground="#8888cc" FontSize="10" FontWeight="Bold"/>
+                                </Border>
+                            </DataTemplate>
+                        </GroupStyle.HeaderTemplate>
+                    </GroupStyle>
+                </ListView.GroupStyle>
+                <ListView.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:DeckEntryVm}">
+                        <Border BorderThickness="0,0,0,1" BorderBrush="#0f1629" Padding="8,5">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="36"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Thumbnail -->
+                                <Border Grid.Column="0" Width="32" Height="44"
+                                        Background="#0a0e1a" CornerRadius="2" Margin="0,0,6,0">
+                                    <Image Stretch="Uniform"
+                                           RenderOptions.BitmapScalingMode="HighQuality">
+                                        <Image.Source>
+                                            <BitmapImage UriSource="{Binding ImageUrl}"
+                                                         CreateOptions="IgnoreImageCache"
+                                                         DecodePixelWidth="64"/>
+                                        </Image.Source>
+                                    </Image>
+                                </Border>
+
+                                <!-- Info -->
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Name}"
+                                               Foreground="{StaticResource BrushText}"
+                                               FontSize="11" FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Foreground="{StaticResource BrushSubtext}" FontSize="9">
+                                        <Run Text="{Binding SetName, Mode=OneWay}"/>
+                                        <Run Text=" ·"/>
+                                        <Run Text="{Binding Number, Mode=OneWay}"/>
+                                    </TextBlock>
+                                    <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,6,0">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding LineCmPrice}" Value="{x:Null}">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                            <Image Source="pack://application:,,,/Assets/cardmarket.png"
+                                                   Width="10" Height="10" Margin="0,0,2,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding LineCmPrice, StringFormat={}{0:F2}€, Mode=OneWay}"
+                                                       Foreground="#aaaacc" FontSize="9" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding LineTcgPrice}" Value="{x:Null}">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                            <Image Source="pack://application:,,,/Assets/tcgplayer.png"
+                                                   Width="10" Height="10" Margin="0,0,2,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding LineTcgPrice, StringFormat=${}{0:F2}, Mode=OneWay}"
+                                                       Foreground="#aaaacc" FontSize="9" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- Qty + buttons -->
+                                <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                            VerticalAlignment="Center">
+                                    <Button Command="{Binding DataContext.DecreaseDeckEntryCommand,
+                                                    RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
+                                            Style="{StaticResource QtyBtn}">−</Button>
+                                    <Border Width="26" Background="#0a0e1a" CornerRadius="3" Margin="3,0">
+                                        <TextBlock Text="{Binding Quantity}"
+                                                   Foreground="#ffd700"
+                                                   FontWeight="Bold" FontSize="11"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
+                                    </Border>
+                                    <Button Command="{Binding DataContext.IncreaseDeckEntryCommand,
+                                                    RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
+                                            Style="{StaticResource QtyBtn}">+</Button>
+                                    <Button Command="{Binding DataContext.RemoveFromDeckCommand,
+                                                    RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
+                                            Style="{StaticResource QtyBtn}"
+                                            Foreground="#aa4444" Margin="4,0,0,0"
+                                            ToolTip="Remove from deck">✕</Button>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <!-- Price estimate + Export -->
+            <Border Grid.Row="3" Background="{StaticResource BrushAccent}" Padding="12,8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock Text="Price estimate" Foreground="{StaticResource BrushSubtext}"
+                                   FontSize="9" Margin="0,0,0,3"/>
+                        <StackPanel Orientation="Horizontal">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding TotalCmPrice}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <Image Source="pack://application:,,,/Assets/cardmarket.png"
+                                       Width="14" Height="14" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding TotalCmPrice, StringFormat=~{}{0:F2}€}"
+                                           Foreground="#ffd700" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding TotalTcgPrice}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <Image Source="pack://application:,,,/Assets/tcgplayer.png"
+                                       Width="14" Height="14" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding TotalTcgPrice, StringFormat=~${}{0:F2}}"
+                                           Foreground="#ffd700" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock Text="Prices not available"
+                                       Foreground="{StaticResource BrushSubtext}" FontSize="11" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding PriceSummary}" Value="Prices not available">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                    </StackPanel>
+                    <Button Grid.Column="1" Command="{Binding ExportDeckAsPtcgoCommand}"
+                            Style="{StaticResource DkBtn}" ToolTip="Export to PTCGO Live format">
+                        📤 Export PTCGO
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- Saved decks -->
+            <Border Grid.Row="4" Background="#0a0e1a" MaxHeight="200">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="#0f1629" Padding="10,6">
+                        <TextBlock Text="Saved Decks"
+                                   Foreground="{StaticResource BrushSubtext}"
+                                   FontSize="10" FontWeight="Bold"/>
+                    </Border>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" MaxHeight="160">
+                        <ItemsControl ItemsSource="{Binding SavedDecks}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:DeckSummaryVm}">
+                                    <Border BorderThickness="0,0,0,1" BorderBrush="#111830" Padding="10,6">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}"
+                                                           Foreground="{StaticResource BrushText}"
+                                                           FontSize="11"/>
+                                                <TextBlock Text="{Binding UpdatedAt, StringFormat={}{0:MM/dd/yyyy}}"
+                                                           Foreground="{StaticResource BrushSubtext}"
+                                                           FontSize="9"/>
+                                            </StackPanel>
+                                            <Button Grid.Column="1"
+                                                    Command="{Binding DataContext.LoadDeckCommand,
+                                                            RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{StaticResource DkBtn}" Margin="4,0">
+                                                📂 Load
+                                            </Button>
+                                            <Button Grid.Column="2"
+                                                    Command="{Binding DataContext.DeleteDeckCommand,
+                                                            RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{StaticResource DkBtn}"
+                                                    Foreground="#aa4444">
+                                                ✕
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

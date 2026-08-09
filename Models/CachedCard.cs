@@ -17,4 +17,7 @@ public class CachedCard
     public DateTime? PricesUpdatedAt { get; set; }
     public string? CmUrl { get; set; }
     public string? TcgUrl { get; set; }
+    public string? Supertype { get; set; }
+    public string? Subtypes { get; set; }
+    public string? Types { get; set; }
 }

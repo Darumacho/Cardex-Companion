@@ -36,6 +36,9 @@ public record ApiCard
     [JsonPropertyName("set")] public ApiCardSet Set { get; init; } = new();
     [JsonPropertyName("images")] public ApiCardImages Images { get; init; } = new();
     [JsonPropertyName("rarity")] public string? Rarity { get; init; }
+    [JsonPropertyName("supertype")] public string? Supertype { get; init; }
+    [JsonPropertyName("subtypes")] public List<string>? Subtypes { get; init; }
+    [JsonPropertyName("types")] public List<string>? Types { get; init; }
     [JsonPropertyName("tcgplayer")] public ApiTcgPlayer? Tcgplayer { get; init; }
     [JsonPropertyName("cardmarket")] public ApiCardmarket? Cardmarket { get; init; }
 }

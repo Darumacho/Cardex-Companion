@@ -15,6 +15,13 @@ public class AppDbContext : DbContext
     public DbSet<Tag> Tags { get; set; }
     public DbSet<CardTag> CardTags { get; set; }
     public DbSet<UnlockedAchievement> UnlockedAchievements { get; set; }
+    public DbSet<Deck> Decks { get; set; }
+    public DbSet<DeckCard> DeckCards { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<DeckCard>().HasKey(dc => new { dc.DeckId, dc.CardId });
+    }
 
     protected override void OnConfiguring(DbContextOptionsBuilder options)
     {

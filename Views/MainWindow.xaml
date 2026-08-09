@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:Cardex.ViewModels"
         xmlns:conv="clr-namespace:Cardex.Converters"
+        xmlns:views="clr-namespace:Cardex.Views"
         Title="Cardex — Pokémon TCG Collection Companion"
         Width="1280" Height="800"
         MinWidth="900" MinHeight="600"
@@ -573,6 +574,13 @@
                                     Style="{StaticResource SetButtonStyle}">
                                 ⚙
                             </Button>
+                            <Button Command="{Binding OpenDeckBuilderCommand}"
+                                    ToolTip="Deck Builder"
+                                    FontSize="16" Padding="6,4" Margin="0,0,2,0"
+                                    VerticalContentAlignment="Center"
+                                    Style="{StaticResource SetButtonStyle}">
+                                🃏
+                            </Button>
                             <Button Command="{Binding GoHomeCommand}"
                                     ToolTip="Home"
                                     FontSize="20" Padding="6,4"
@@ -1061,14 +1069,28 @@
             </Grid>
             </ScrollViewer>
 
+            <!-- Vue deck builder -->
+            <views:DeckBuilderView DataContext="{Binding DeckBuilder}">
+                <views:DeckBuilderView.Style>
+                    <Style TargetType="views:DeckBuilderView">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding DataContext.IsDeckBuilderOpen, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </views:DeckBuilderView.Style>
+            </views:DeckBuilderView>
+
             <!-- Vue set -->
             <Grid>
                 <Grid.Style>
                     <Style TargetType="Grid">
-                        <Setter Property="Visibility" Value="Visible"/>
+                        <Setter Property="Visibility" Value="Collapsed"/>
                         <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsHomeVisible}" Value="True">
-                                <Setter Property="Visibility" Value="Collapsed"/>
+                            <DataTrigger Binding="{Binding IsSetViewVisible}" Value="True">
+                                <Setter Property="Visibility" Value="Visible"/>
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>

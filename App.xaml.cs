@@ -76,6 +76,23 @@ public partial class App : Application
                 Id          TEXT NOT NULL PRIMARY KEY,
                 UnlockedAt  TEXT NOT NULL DEFAULT '')"); }
         catch { }
+        try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN Supertype TEXT"); } catch { }
+        try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN Subtypes TEXT"); } catch { }
+        try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN Types TEXT"); } catch { }
+        try { await db.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE IF NOT EXISTS Decks (
+                Id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                Name      TEXT NOT NULL DEFAULT 'New Deck',
+                CreatedAt TEXT NOT NULL DEFAULT '',
+                UpdatedAt TEXT NOT NULL DEFAULT '')"); }
+        catch { }
+        try { await db.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE IF NOT EXISTS DeckCards (
+                DeckId   INTEGER NOT NULL,
+                CardId   TEXT NOT NULL,
+                Quantity INTEGER NOT NULL DEFAULT 1,
+                PRIMARY KEY (DeckId, CardId))"); }
+        catch { }
 
         var settings = AppSettings.Load();
         var tcgService = new PokemonTcgService(settings.ApiKey);
@@ -116,8 +133,69 @@ public partial class App : Application
 
         await BackfillShortCodesAsync(db);
         await SeedDbFromEmbeddedAsync(db);
+        await BackfillSupertypesAsync(db);
         await MainVm.LoadSetsAsync();
         _ = MainVm.CheckForUpdateAsync();
+    }
+
+    private static async Task BackfillSupertypesAsync(AppDbContext db)
+    {
+        try
+        {
+            // Skip entirely if all cards already have supertype data
+            if (!await db.CachedCards.AnyAsync(c => c.Supertype == null)) return;
+
+            var asm = Assembly.GetExecutingAssembly();
+            using var stream = asm.GetManifestResourceStream("Cardex.SeedData.supertypes.json");
+            if (stream is null) return;
+
+            var json = await new StreamReader(stream, detectEncodingFromByteOrderMarks: true).ReadToEndAsync();
+            var map = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+            if (map is null || map.Count == 0) return;
+
+            static string Expand(string code) => code switch
+            {
+                "T" => "Trainer",
+                "E" => "Energy",
+                _   => "Pokémon"
+            };
+
+            // Only fetch cards that are missing supertype and exist in the map
+            var nullIds = await db.CachedCards
+                .Where(c => c.Supertype == null)
+                .Select(c => c.CardId)
+                .ToListAsync();
+
+            var toUpdate = nullIds
+                .Where(id => map.ContainsKey(id))
+                .Select(id => (Id: id, Supertype: Expand(map[id])))
+                .ToList();
+
+            if (toUpdate.Count == 0) return;
+
+            // Batch updates in groups of 500 to avoid SQL parameter limits
+            db.ChangeTracker.AutoDetectChangesEnabled = false;
+            foreach (var batch in toUpdate.Chunk(500))
+            {
+                var ids = batch.Select(x => x.Id).ToList();
+                var cards = await db.CachedCards.Where(c => ids.Contains(c.CardId)).ToListAsync();
+                foreach (var card in cards)
+                {
+                    var st = batch.First(x => x.Id == card.CardId).Supertype;
+                    card.Supertype = st;
+                }
+                await db.SaveChangesAsync();
+                db.ChangeTracker.Clear();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"BackfillSupertypes failed: {ex}");
+        }
+        finally
+        {
+            db.ChangeTracker.AutoDetectChangesEnabled = true;
+        }
     }
 
     private static async Task BackfillShortCodesAsync(AppDbContext db)
