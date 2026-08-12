@@ -54,10 +54,28 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private List<TemplateSetEntry> _templateSets = [];
     [ObservableProperty] private bool _isBinderView;
     [ObservableProperty] private bool _isSettingsOpen;
-    [ObservableProperty] private bool _isDeckBuilderOpen;
+
+    private int _selectedTab;
+    public int SelectedTab
+    {
+        get => _selectedTab;
+        set
+        {
+            if (!SetProperty(ref _selectedTab, value)) return;
+            OnPropertyChanged(nameof(IsCollectionTabActive));
+            OnPropertyChanged(nameof(IsDeckBuilderTabActive));
+            OnPropertyChanged(nameof(IsHomeVisible));
+            OnPropertyChanged(nameof(IsSetViewVisible));
+            if (value == 1 && SelectedSet is not null) { SelectedSet.IsSelected = false; SelectedSet = null; }
+        }
+    }
+
+    public bool IsCollectionTabActive  => _selectedTab == 0;
+    public bool IsDeckBuilderTabActive => _selectedTab == 1;
 
     public DeckBuilderViewModel DeckBuilder { get; }
     [ObservableProperty] private bool _showMyCollection = true;
+    [ObservableProperty] private bool _showLegalityCheck = true;
     [ObservableProperty] private int  _totalOwnedCards;
     [ObservableProperty] private bool _isFavoritesSectionExpanded    = true;
     [ObservableProperty] private bool _isMyCollectionSectionExpanded = true;
@@ -105,10 +123,40 @@ public partial class MainViewModel : ObservableObject
         RefreshSpecialGroups();
     }
 
+    partial void OnShowLegalityCheckChanged(bool value)
+    {
+        _settings.ShowLegalityCheck = value;
+        _settings.Save();
+    }
+
     [RelayCommand] private void ToggleFavoritesSection()    => IsFavoritesSectionExpanded    = !IsFavoritesSectionExpanded;
     [RelayCommand] private void ToggleMyCollectionSection() => IsMyCollectionSectionExpanded = !IsMyCollectionSectionExpanded;
     [RelayCommand] private void ToggleDuplicatesSection()   => IsDuplicatesSectionExpanded   = !IsDuplicatesSectionExpanded;
     [RelayCommand] private void ToggleWantedSection()       => IsWantedSectionExpanded       = !IsWantedSectionExpanded;
+
+    partial void OnIsFavoritesSectionExpandedChanged(bool value)
+    {
+        _settings.HomeFavoritesExpanded = value;
+        _settings.Save();
+    }
+
+    partial void OnIsMyCollectionSectionExpandedChanged(bool value)
+    {
+        _settings.HomeMyCollectionExpanded = value;
+        _settings.Save();
+    }
+
+    partial void OnIsDuplicatesSectionExpandedChanged(bool value)
+    {
+        _settings.HomeDuplicatesExpanded = value;
+        _settings.Save();
+    }
+
+    partial void OnIsWantedSectionExpandedChanged(bool value)
+    {
+        _settings.HomeWantedExpanded = value;
+        _settings.Save();
+    }
 
     [RelayCommand] private void SelectNewTagColor(string color) => PendingTagColor = color;
 
@@ -246,6 +294,11 @@ public partial class MainViewModel : ObservableObject
         _settings = AppSettings.Load();
         DeckBuilder = new DeckBuilderViewModel(db, imageCache);
         _showMyCollection = _settings.ShowMyCollection;
+        _showLegalityCheck = _settings.ShowLegalityCheck;
+        _isFavoritesSectionExpanded = _settings.HomeFavoritesExpanded;
+        _isMyCollectionSectionExpanded = _settings.HomeMyCollectionExpanded;
+        _isDuplicatesSectionExpanded = _settings.HomeDuplicatesExpanded;
+        _isWantedSectionExpanded = _settings.HomeWantedExpanded;
         ApplyBorderColor(_settings.CollectionBorderColor);
         WantedCards.CollectionChanged    += (_, _) => { OnPropertyChanged(nameof(HasWantedCards)); OnPropertyChanged(nameof(HasHomeContent)); };
         DuplicateCards.CollectionChanged += (_, _) => { OnPropertyChanged(nameof(HasDuplicates));  OnPropertyChanged(nameof(HasHomeContent)); };
@@ -267,6 +320,16 @@ public partial class MainViewModel : ObservableObject
                         new UnlockedAchievement { Id = def.Id, UnlockedAt = DateTime.UtcNow });
             });
         };
+
+        DeckBuilder.DeckChanged += () =>
+        {
+            if (SelectedSet is null) return;
+            var deckMap = DeckBuilder.DeckEntries
+                .GroupBy(e => e.CardId)
+                .ToDictionary(g => g.Key, g => g.Sum(e => e.Quantity));
+            foreach (var card in SelectedSet.Cards)
+                card.DeckQuantity = deckMap.GetValueOrDefault(card.CardId, 0);
+        };
     }
 
     public async Task LoadAchievementsAsync()
@@ -278,8 +341,8 @@ public partial class MainViewModel : ObservableObject
             Achievements.Add(new AchievementViewModel(def, map.GetValueOrDefault(def.Id)));
     }
 
-    public bool IsHomeVisible    => SelectedSet is null && !IsDeckBuilderOpen;
-    public bool IsSetViewVisible => SelectedSet is not null && !IsDeckBuilderOpen;
+    public bool IsHomeVisible    => _selectedTab == 0 && SelectedSet is null;
+    public bool IsSetViewVisible => _selectedTab == 0 && SelectedSet is not null;
 
     public string AppVersion
     {
@@ -294,17 +357,6 @@ public partial class MainViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(IsHomeVisible));
         OnPropertyChanged(nameof(IsSetViewVisible));
-    }
-
-    partial void OnIsDeckBuilderOpenChanged(bool value)
-    {
-        OnPropertyChanged(nameof(IsHomeVisible));
-        OnPropertyChanged(nameof(IsSetViewVisible));
-        if (value && SelectedSet is not null)
-        {
-            SelectedSet.IsSelected = false;
-            SelectedSet = null;
-        }
     }
 
     private CancellationTokenSource? _searchCts;
@@ -391,21 +443,38 @@ public partial class MainViewModel : ObservableObject
         if (SelectedSet is not null)
             SelectedSet.IsSelected = false;
         SelectedSet = null;
-        IsDeckBuilderOpen = false;
+        SelectedTab = 0;
         GlobalSearch = "";
         SearchResults.Clear();
     }
 
     [RelayCommand]
-    private async Task OpenDeckBuilderAsync()
+    private void SwitchToCollection()
     {
-        if (SelectedSet is not null)
-            SelectedSet.IsSelected = false;
-        SelectedSet = null;
         GlobalSearch = "";
         SearchResults.Clear();
-        IsDeckBuilderOpen = true;
+        SelectedTab = 0;
+    }
+
+    [RelayCommand]
+    private async Task SwitchToDeckBuilderAsync()
+    {
+        GlobalSearch = "";
+        SearchResults.Clear();
+        SelectedTab = 1;
         await DeckBuilder.InitializeAsync();
+    }
+
+    [RelayCommand]
+    private void AddCardToDeck(CardViewModel card)
+    {
+        var setName = Series.SelectMany(s => s.Sets)
+            .FirstOrDefault(s => s.SetId == card.SetId)?.Name ?? card.SetId;
+        DeckBuilder.AddCardFromCollection(
+            card.CardId, card.Name, card.SetId, setName,
+            card.Number, card.Supertype, card.Subtypes,
+            card.ImageUrl, card.ImageLargeUrl, card.Rarity, card.CmLow, card.TcgLow);
+        StatusText = $"{card.Name} ajouté au deck";
     }
 
     [RelayCommand]
@@ -434,10 +503,32 @@ public partial class MainViewModel : ObservableObject
                         ReleaseDate = s.ReleaseDate, LogoUrl = s.Images.Logo,
                         SymbolUrl = s.Images.Symbol, CachedAt = DateTime.UtcNow,
                         PtcgoCode = s.PtcgoCode,
-                        ShortCode = SetShortCodes.BySetId.TryGetValue(s.Id, out var sc) ? sc : null
+                        ShortCode = SetShortCodes.BySetId.TryGetValue(s.Id, out var sc) ? sc : null,
+                        StandardLegal = s.Legalities?.Standard == "Legal",
+                        ExpandedLegal = s.Legalities?.Expanded == "Legal"
                     }));
                     await _db.SaveChangesAsync();
                 }
+
+                // Backfill Standard/Expanded legality for sets cached before this field existed
+                // (or whose legality changed, e.g. a rotation update) — reuses the sets already
+                // fetched above, no extra API calls.
+                var apiById = apiSets.ToDictionary(s => s.Id);
+                var existingSets = await _db.CachedSets.Where(s => cachedIds.Contains(s.SetId)).ToListAsync();
+                var legalityChanged = false;
+                foreach (var cs in existingSets)
+                {
+                    if (!apiById.TryGetValue(cs.SetId, out var api)) continue;
+                    var std = api.Legalities?.Standard == "Legal";
+                    var exp = api.Legalities?.Expanded == "Legal";
+                    if (cs.StandardLegal != std || cs.ExpandedLegal != exp)
+                    {
+                        cs.StandardLegal = std;
+                        cs.ExpandedLegal = exp;
+                        legalityChanged = true;
+                    }
+                }
+                if (legalityChanged) await _db.SaveChangesAsync();
             }
             catch (Exception ex)
             {
@@ -585,9 +676,6 @@ public partial class MainViewModel : ObservableObject
         HomeCollection.Clear();
         foreach (var s in collected) HomeCollection.Add(s);
 
-        IsFavoritesSectionExpanded    = favorites.Count <= 12;
-        IsMyCollectionSectionExpanded = collected.Count <= 12;
-
         TotalOwnedCards = allSets.Sum(s => s.OwnedCount);
 
         int pos = 0;
@@ -690,7 +778,7 @@ public partial class MainViewModel : ObservableObject
                     .ToDictionaryAsync(ct => ct.CardId, ct => ct.TagId);
 
                 BuildCardViewModels(cachedCards.Select(c =>
-                    new CardData(c.CardId, c.Name, c.Number, c.SetId, c.ImageSmall, c.ImageLarge, c.Rarity, c.CmLow, c.TcgLow, c.PricesUpdatedAt, c.CmUrl, c.TcgUrl)),
+                    new CardData(c.CardId, c.Name, c.Number, c.SetId, c.ImageSmall, c.ImageLarge, c.Rarity, c.CmLow, c.TcgLow, c.PricesUpdatedAt, c.CmUrl, c.TcgUrl, c.Supertype, c.Subtypes)),
                     ownedMap, wantedIds, excludedIds, set, cardTagMap);
                 StatusText = $"{set.Name} — {set.CompletionText}";
                 _ = RefreshPricesIfNeededAsync(set);
@@ -724,7 +812,8 @@ public partial class MainViewModel : ObservableObject
                     BuildCardViewModels(apiCards.Select(c =>
                         new CardData(c.Id, c.Name, c.Number, c.Set.Id, c.Images.Small, c.Images.Large, c.Rarity,
                             c.Cardmarket?.Prices?.LowPrice, ExtractTcgLow(c), now,
-                            c.Cardmarket?.Url, c.Tcgplayer?.Url)),
+                            c.Cardmarket?.Url, c.Tcgplayer?.Url, c.Supertype,
+                            c.Subtypes is { Count: > 0 } ? string.Join(", ", c.Subtypes) : null)),
                         ownedMap, wantedIds, excludedIds, set);
                     StatusText = $"{set.Name} — {set.CompletionText}";
                 }
@@ -752,6 +841,10 @@ public partial class MainViewModel : ObservableObject
         HashSet<string> wantedIds, HashSet<string> excludedIds, SetViewModel set,
         Dictionary<string, int>? cardTagMap = null)
     {
+        var deckMap = IsDeckBuilderTabActive
+            ? DeckBuilder.DeckEntries.GroupBy(e => e.CardId).ToDictionary(g => g.Key, g => g.Sum(e => e.Quantity))
+            : null;
+
         foreach (var card in cards)
         {
             var vm = new CardViewModel(
@@ -760,13 +853,14 @@ public partial class MainViewModel : ObservableObject
                 ownedMap.TryGetValue(card.Id, out var qty) ? qty : 0,
                 wantedIds.Contains(card.Id),
                 excludedIds.Contains(card.Id),
-                _imageCache)
+                _imageCache, card.Supertype, card.Subtypes)
             {
                 CmLow = card.CmLow,
                 TcgLow = card.TcgLow,
                 PricesUpdatedAt = card.PricesUpdatedAt,
                 CmUrl = card.CmUrl,
-                TcgUrl = card.TcgUrl
+                TcgUrl = card.TcgUrl,
+                DeckQuantity = deckMap?.GetValueOrDefault(card.Id, 0) ?? 0
             };
 
             // Set initial tag before wiring OnTagChanged to avoid DB write during init
@@ -1697,7 +1791,7 @@ public partial class MainViewModel : ObservableObject
     private record SetData(string Id, string Name, int Total, string Series, string ReleaseDate, string LogoUrl, string SymbolUrl);
     private record CardData(string Id, string Name, string Number, string SetId, string ImageSmall, string? ImageLarge, string? Rarity,
         decimal? CmLow = null, decimal? TcgLow = null, DateTime? PricesUpdatedAt = null,
-        string? CmUrl = null, string? TcgUrl = null);
+        string? CmUrl = null, string? TcgUrl = null, string? Supertype = null, string? Subtypes = null);
 
     private record BackupFile(string Version, DateTime ExportedAt,
         List<BackupOwned>? OwnedCards, List<BackupWanted>? WantedCards, List<string>? FavoriteSets);

@@ -16,11 +16,14 @@ public partial class CardViewModel : ObservableObject
     public string ImageUrl { get; }
     public string? ImageLargeUrl { get; }
     public string? Rarity { get; }
+    public string? Supertype { get; }
+    public string? Subtypes { get; }
 
     [ObservableProperty] private BitmapImage? _cardImage;
     [ObservableProperty] private bool _isLoadingImage;
     [ObservableProperty] private bool _isWanted;
     [ObservableProperty] private bool _isExcluded;
+    [ObservableProperty] private int _deckQuantity;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TagBrush))]
@@ -90,7 +93,7 @@ public partial class CardViewModel : ObservableObject
     public CardViewModel(
         string cardId, string name, string number, string setId,
         string imageUrl, string? imageLargeUrl, string? rarity, int quantity, bool isWanted, bool isExcluded,
-        ImageCacheService imageCache)
+        ImageCacheService imageCache, string? supertype = null, string? subtypes = null)
     {
         CardId = cardId;
         Name = name;
@@ -99,6 +102,8 @@ public partial class CardViewModel : ObservableObject
         ImageUrl = imageUrl;
         ImageLargeUrl = imageLargeUrl;
         Rarity = rarity;
+        Supertype = supertype;
+        Subtypes = subtypes;
         _quantity = quantity;
         _isOwned = quantity > 0;
         _isWanted = isWanted;

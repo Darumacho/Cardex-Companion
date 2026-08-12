@@ -34,6 +34,9 @@
     <EmbeddedResource Include="SeedData\supertypes.json" LogicalName="Cardex.SeedData.supertypes.json" Condition="Exists('SeedData\supertypes.json')"/>
     <Resource Include="Assets\cardmarket.png"/>
     <Resource Include="Assets\tcgplayer.png"/>
+    <Resource Include="Assets\HomeIcon.png"/>
+    <Resource Include="Assets\DeckbuilderIcon.png"/>
+    <Resource Include="Assets\SettingsIcon.png"/>
     <Resource Include="Assets\AchievementIcons\**\*" Condition="Exists('Assets\AchievementIcons')"/>
     <Resource Include="Assets\AchievementXbox.mp3"/>
     <Resource Include="Assets\AchievementPS4.mp3"/>

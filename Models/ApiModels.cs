@@ -20,6 +20,13 @@ public record ApiSet
     [JsonPropertyName("releaseDate")] public string ReleaseDate { get; init; } = "";
     [JsonPropertyName("images")] public ApiSetImages Images { get; init; } = new();
     [JsonPropertyName("ptcgoCode")] public string? PtcgoCode { get; init; }
+    [JsonPropertyName("legalities")] public ApiLegalities? Legalities { get; init; }
+}
+
+public record ApiLegalities
+{
+    [JsonPropertyName("standard")] public string? Standard { get; init; }
+    [JsonPropertyName("expanded")] public string? Expanded { get; init; }
 }
 
 public record ApiSetImages

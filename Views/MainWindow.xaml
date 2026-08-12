@@ -492,6 +492,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="28"/>
@@ -545,57 +546,70 @@
             </Grid>
         </Border>
 
-        <!-- ===== SIDEBAR ===== -->
+        <!-- ===== EN-TÊTE SIDEBAR (toujours visible, même en Deck Builder) ===== -->
         <Border Grid.Row="1" Grid.Column="0"
+                Background="{StaticResource BrushAccent}"
+                BorderBrush="{StaticResource BrushAccent}"
+                BorderThickness="0,0,1,0"
+                Padding="12,10">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
+                            VerticalAlignment="Center">
+                    <Button Command="{Binding ToggleSettingsCommand}"
+                            ToolTip="Settings"
+                            Padding="6,4" Margin="0,0,2,0"
+                            VerticalContentAlignment="Center"
+                            Style="{StaticResource SetButtonStyle}">
+                        <Image Source="/Assets/SettingsIcon.png" Width="20" Height="20"
+                               RenderOptions.BitmapScalingMode="HighQuality"/>
+                    </Button>
+                    <Button Command="{Binding GoHomeCommand}"
+                            ToolTip="Home"
+                            Padding="6,4" Margin="0,0,2,0"
+                            VerticalContentAlignment="Center"
+                            Style="{StaticResource SetButtonStyle}">
+                        <Image Source="/Assets/HomeIcon.png" Width="20" Height="20"
+                               RenderOptions.BitmapScalingMode="HighQuality"/>
+                    </Button>
+                    <Button Command="{Binding SwitchToDeckBuilderCommand}"
+                            ToolTip="Deck Builder"
+                            Padding="6,4"
+                            VerticalContentAlignment="Center">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource SetButtonStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsDeckBuilderTabActive}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource BrushHighlight}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <Image Source="/Assets/DeckbuilderIcon.png" Width="20" Height="20"
+                               RenderOptions.BitmapScalingMode="HighQuality"/>
+                    </Button>
+                </StackPanel>
+                <!-- Logo fills remaining space in DockPanel -->
+                <DockPanel VerticalAlignment="Center">
+                    <Image DockPanel.Dock="Left" Source="{Binding AppLogo}" Width="36" Height="36"
+                           Margin="0,0,4,0" RenderOptions.BitmapScalingMode="HighQuality"
+                           VerticalAlignment="Center"/>
+                    <Image Source="{Binding AppName}" Height="36" Stretch="Uniform"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           VerticalAlignment="Center"/>
+                </DockPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ===== SIDEBAR contenu (liste sets) ===== -->
+        <Border Grid.Row="2" Grid.Column="0"
                 Background="{StaticResource BrushPanel}"
                 BorderBrush="{StaticResource BrushAccent}"
                 BorderThickness="0,0,1,0">
-            <DockPanel>
-                <!-- En-tête sidebar -->
-                <Border DockPanel.Dock="Top"
-                        Background="{StaticResource BrushAccent}"
-                        Padding="12,10">
-                    <Grid>
-                        <StackPanel Orientation="Horizontal">
-                            <Image Source="{Binding AppLogo}" Width="36" Height="36" Margin="0,0,4,0"
-                                   RenderOptions.BitmapScalingMode="HighQuality"
-                                   VerticalAlignment="Center"/>
-                            <Image Source="{Binding AppName}"
-                                   Height="36" Stretch="Uniform"
-                                   RenderOptions.BitmapScalingMode="HighQuality"
-                                   VerticalAlignment="Center"/>
-                        </StackPanel>
-                        <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center"
-                                    Orientation="Horizontal">
-                            <Button Command="{Binding ToggleSettingsCommand}"
-                                    ToolTip="Settings"
-                                    FontSize="20" Padding="6,4" Margin="0,0,2,0"
-                                    VerticalContentAlignment="Center"
-                                    Style="{StaticResource SetButtonStyle}">
-                                ⚙
-                            </Button>
-                            <Button Command="{Binding OpenDeckBuilderCommand}"
-                                    ToolTip="Deck Builder"
-                                    FontSize="16" Padding="6,4" Margin="0,0,2,0"
-                                    VerticalContentAlignment="Center"
-                                    Style="{StaticResource SetButtonStyle}">
-                                🃏
-                            </Button>
-                            <Button Command="{Binding GoHomeCommand}"
-                                    ToolTip="Home"
-                                    FontSize="20" Padding="6,4"
-                                    VerticalContentAlignment="Center"
-                                    Style="{StaticResource SetButtonStyle}">
-                                ⌂
-                            </Button>
-                        </StackPanel>
-                    </Grid>
-                </Border>
-
-                <!-- Liste des séries / sets -->
-                <ScrollViewer DockPanel.Dock="Bottom"
+            <!-- Liste des séries / sets -->
+            <ScrollViewer
                               VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled">
+                              HorizontalScrollBarVisibility="Disabled"
+                              Visibility="{Binding IsCollectionTabActive, Converter={StaticResource BoolToVis}}">
                     <ItemsControl ItemsSource="{Binding Series}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type vm:SeriesViewModel}">
@@ -676,11 +690,10 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ScrollViewer>
-            </DockPanel>
         </Border>
 
         <!-- ===== ZONE PRINCIPALE ===== -->
-        <Grid Grid.Row="1" Grid.Column="1">
+        <Grid Grid.Row="1" Grid.RowSpan="2" Grid.Column="1">
 
             <!-- Écran d'accueil -->
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -703,7 +716,7 @@
                 </Grid.RowDefinitions>
 
                 <!-- Barre de recherche globale -->
-                <Border Grid.Row="0" Background="{StaticResource BrushAccent}" Padding="20,14">
+                <Border Grid.Row="0" Background="{StaticResource BrushAccent}" Padding="12,8">
                     <Grid>
                         <TextBox x:Name="GlobalSearchBox"
                                  Text="{Binding GlobalSearch, UpdateSourceTrigger=PropertyChanged}"
@@ -712,8 +725,8 @@
                                  CaretBrush="{StaticResource BrushText}"
                                  BorderBrush="{StaticResource BrushAccent}"
                                  BorderThickness="1"
-                                 Padding="10,7"
-                                 FontSize="13">
+                                 Padding="7,5"
+                                 FontSize="12">
                             <TextBox.Resources>
                                 <Style TargetType="{x:Type Border}">
                                     <Setter Property="CornerRadius" Value="4"/>
@@ -722,7 +735,7 @@
                         </TextBox>
                         <TextBlock Text="Search all cards across all sets…"
                                    Foreground="{StaticResource BrushSubtext}"
-                                   FontSize="13" IsHitTestVisible="False"
+                                   FontSize="12" IsHitTestVisible="False"
                                    Margin="12,0,0,0" VerticalAlignment="Center">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
@@ -1069,19 +1082,6 @@
             </Grid>
             </ScrollViewer>
 
-            <!-- Vue deck builder -->
-            <views:DeckBuilderView DataContext="{Binding DeckBuilder}">
-                <views:DeckBuilderView.Style>
-                    <Style TargetType="views:DeckBuilderView">
-                        <Setter Property="Visibility" Value="Collapsed"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding DataContext.IsDeckBuilderOpen, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
-                                <Setter Property="Visibility" Value="Visible"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </views:DeckBuilderView.Style>
-            </views:DeckBuilderView>
 
             <!-- Vue set -->
             <Grid>
@@ -1387,7 +1387,7 @@
         </Grid>
 
         <!-- ===== PANNEAU PARAMÈTRES (remplacé par SettingsWindow) ===== -->
-        <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+        <Border Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
                 Visibility="Collapsed">
             <Border.Style>
                 <Style TargetType="Border">
@@ -1557,8 +1557,52 @@
             </Grid>
         </Border>
 
+        <!-- ===== VUE DECK BUILDER : panneau deck (colonne sidebar) ===== -->
+        <views:DeckPanelView Grid.Row="2" Grid.Column="0"
+                              DataContext="{Binding DeckBuilder}">
+            <views:DeckPanelView.Style>
+                <Style TargetType="views:DeckPanelView">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding DataContext.IsDeckBuilderTabActive,
+                                              RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </views:DeckPanelView.Style>
+        </views:DeckPanelView>
+
+        <!-- ===== VUE DECK BUILDER : browser + admin (zone principale, pleine hauteur) ===== -->
+        <views:DeckBuilderView Grid.Row="1" Grid.RowSpan="2" Grid.Column="1"
+                               DataContext="{Binding DeckBuilder}">
+            <views:DeckBuilderView.Style>
+                <Style TargetType="views:DeckBuilderView">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding DataContext.IsDeckBuilderTabActive,
+                                              RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </views:DeckBuilderView.Style>
+        </views:DeckBuilderView>
+
+        <!-- ===== TOAST DECK BUILDER (règles de construction) ===== -->
+        <Border Grid.Row="1" Grid.RowSpan="2" Grid.Column="0" Grid.ColumnSpan="2"
+                Background="#1e1e3a" BorderBrush="#ffd700" BorderThickness="1.5"
+                CornerRadius="8" Padding="14,9"
+                HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                Margin="0,0,0,30"
+                IsHitTestVisible="False"
+                Visibility="{Binding DeckBuilder.HasToast, Converter={StaticResource BoolToVis}}">
+            <TextBlock Text="{Binding DeckBuilder.ToastMessage}"
+                       Foreground="#ffd700" FontSize="12" FontWeight="SemiBold"/>
+        </Border>
+
         <!-- ===== BARRE DE STATUT ===== -->
-        <Border Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+        <Border Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
                 Background="{StaticResource BrushAccent}"
                 Padding="10,0">
             <Grid>
@@ -1617,7 +1661,7 @@
             </Grid>
         </Border>
         <!-- ===== TOAST ACHIEVEMENT ===== -->
-        <Grid Grid.Row="0" Grid.RowSpan="4" Grid.Column="0" Grid.ColumnSpan="2"
+        <Grid Grid.Row="0" Grid.RowSpan="5" Grid.Column="0" Grid.ColumnSpan="2"
               IsHitTestVisible="False">
             <MediaElement x:Name="ToastSound" LoadedBehavior="Manual" Volume="1" Width="0" Height="0" MediaOpened="ToastSound_MediaOpened"/>
             <Border x:Name="AchievementToast"

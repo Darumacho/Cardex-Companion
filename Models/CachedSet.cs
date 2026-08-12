@@ -14,4 +14,6 @@ public class CachedSet
     public DateTime CachedAt { get; set; }
     public string? PtcgoCode { get; set; }
     public string? ShortCode { get; set; }
+    public bool StandardLegal { get; set; }
+    public bool ExpandedLegal { get; set; }
 }

@@ -8,7 +8,12 @@ public class AppSettings
     public string? ApiKey { get; set; }
     public string CollectionBorderColor { get; set; } = "#3a7fc1";
     public bool ShowMyCollection { get; set; } = true;
+    public bool ShowLegalityCheck { get; set; } = true;
     public string AchievementSound { get; set; } = "xbox";
+    public bool HomeFavoritesExpanded    { get; set; } = true;
+    public bool HomeMyCollectionExpanded { get; set; } = true;
+    public bool HomeDuplicatesExpanded   { get; set; } = true;
+    public bool HomeWantedExpanded       { get; set; } = true;
 
     private static readonly JsonSerializerOptions _json = new() { WriteIndented = true };
 

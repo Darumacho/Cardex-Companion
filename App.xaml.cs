@@ -79,6 +79,8 @@ public partial class App : Application
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN Supertype TEXT"); } catch { }
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN Subtypes TEXT"); } catch { }
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN Types TEXT"); } catch { }
+        try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedSets ADD COLUMN StandardLegal INTEGER NOT NULL DEFAULT 0"); } catch { }
+        try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedSets ADD COLUMN ExpandedLegal INTEGER NOT NULL DEFAULT 0"); } catch { }
         try { await db.Database.ExecuteSqlRawAsync(@"
             CREATE TABLE IF NOT EXISTS Decks (
                 Id        INTEGER PRIMARY KEY AUTOINCREMENT,

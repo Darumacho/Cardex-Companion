@@ -1,6 +1,6 @@
 # Cardex — Pokémon TCG Collection Companion
 
-> A Windows desktop app to manage your Pokémon TCG card collection.
+> A Windows desktop app to manage your Pokémon TCG card collection and build tournament decks.
 
 ---
 
@@ -8,10 +8,12 @@
 
 ### Catalogue & Navigation
 - **Full Pokémon TCG catalogue** loaded automatically from [pokemontcg.io](https://pokemontcg.io)
-- Sidebar organized into three sections: **★ Favorites**, **My Collection**, **All Sets**
+- Sidebar organized into sections: **★ Favorites**, **My Collection**, **All Sets**
 - **▾ ALL SETS** toggle to collapse/expand all series at once
 - Set symbol and logo displayed in the sidebar and as a set header
 - **✓ Completed!** badge when a set is 100% owned
+- Home screen sections (Favorites, My Collection, Duplicates, Wanted Cards) remember their
+  expanded/collapsed state between launches
 
 ### Collection Management
 - Mark cards as **Owned** and track **quantity** per card (−/+)
@@ -20,6 +22,11 @@
 - **My Collection** sidebar section grouping all sets with at least one owned card
 - **⊕ Duplicate Cards** section on the home screen listing every card owned more than once
 - **Per-set ↻ Refresh** button to re-sync a set from the API without clearing the database
+- **⬆ Import** cards from a text file (`CODE-NUMBER` / `CODE-NUMBER x3` format, see Settings → Templates)
+
+### Custom Tags
+- Create colored tags (My Tags settings tab) and assign one per card via a dropdown on each card tile
+- Useful for personal organization (e.g. "For trade", "PSA submission", "Binder A")
 
 ### Views
 - **List view** — card grid with full details (price, rarity, owned/wanted badges)
@@ -47,11 +54,37 @@
 - Star ★ a set in the sidebar to add it to your favorites
 - **★ Favorite Sets** section on the home screen with visual set tiles
 
+### Deck Builder
+A dedicated tab (🃏 button in the header) separate from the Collection, laid out in three panels:
+
+- **Current deck** (left) — name, save/new, live Pokémon/Trainer/Energy/60 counters shown as a
+  segmented composition bar, quantity controls per card, price estimate (Cardmarket + TCGPlayer),
+  export to `.txt`
+- **Card search** (center) — filter by supertype, subtype, set, custom tag, owned-only; results
+  shown as a card grid (click to zoom, "+ Deck" to add)
+- **Saved decks** (right) — inline rename, duplicate, delete; Pk/Tr/En chip counts per deck
+- **Deck-building rule enforced**: no more than 4 copies of a same-named Pokémon across all
+  printings/sets (e.g. 2 Darmanitan from set A + 2 from set B is the max — a 5th is blocked with
+  an on-screen warning)
+- **Format legality checker** — ✓/✕ **Standard** and **Expanded** badges update live as the deck
+  changes, based on each card's set legality (Basic Energy is always legal regardless of print);
+  hover a badge to see which cards aren't legal in that format
+- **Import a decklist**:
+  - **⬆ File** — open a `.txt` file in PTCGO/Pokémon TCG Live export format
+  - **📋 Paste** — paste a decklist copied from Limitless TCG, TCGPlayer, PTCGL, etc. (same text
+    format, no file needed)
+- **📤 Export** — save the current deck as a `.txt` file in the same PTCGO format
+
+### Achievements
+- Unlockable achievements (set completions, collection milestones, backups, tags, and a few
+  hidden ones) tracked in **Settings → Achievements**
+- Animated toast notification with sound when one unlocks
+
 ### Backup & Restore
 - **💾 Backup** exports your collection to a portable `.cardex` file (JSON)
 - **📂 Restore** reimports a backup, replacing the current collection with a confirmation prompt
-- Only user data is saved: owned cards (with quantities), want list, and favorite sets
-- Cache data (sets, cards, prices) is excluded — it is re-downloaded automatically
+- Only user data is saved: owned cards (with quantities), want list, favorite sets, and tags
+- Cache data (sets, cards, prices) and decks are excluded — sets/cards are re-downloaded automatically
 
 ### CSV Export
 - Choose a **data range**: Collection, Wants, Duplicates, or Missing
@@ -62,9 +95,12 @@
 - UTF-8 encoded, Excel-compatible
 
 ### Settings
-- Accessible via the ⚙ button — opens a dedicated window with two tabs:
-  - **Options**: collection border color picker, Show My Collection toggle
-  - **Shortcuts**: reference list of all keyboard shortcuts
+Accessible via the ⚙ button — a dedicated window with five tabs:
+  - **Options** — collection border color picker, Show My Collection toggle, achievement sound
+  - **My Tags** — create/edit/delete custom colored tags
+  - **Achievements** — progress and unlock status for every achievement
+  - **Templates** — reference for the mass-import text format (set codes table, syntax examples)
+  - **Shortcuts** — reference list of all keyboard shortcuts
 
 ### Keyboard Shortcuts
 
@@ -129,25 +165,32 @@ A free API key from [pokemontcg.io](https://pokemontcg.io) raises rate limits. T
 
 ```
 Cardex/
-├── Assets/              # Cardmarket and TCGPlayer icons
-├── Converters/          # XAML value converters
+├── Assets/              # Icons (nav, Cardmarket, TCGPlayer), achievement sounds
+├── Converters/          # XAML value converters (image loading, ratio/wrap widths, etc.)
 ├── Data/                # EF Core DbContext
 ├── Models/              # Database entities and API models
 ├── SeedData/            # Embedded seed data (sets + cards)
 ├── Services/
 │   ├── PokemonTcgService    # pokemontcg.io API client
 │   ├── ImageCacheService    # Local image cache (thumbnails + full-res)
+│   ├── AchievementService   # Achievement unlock checks
 │   ├── UpdateService        # Update check and installation
-│   └── AppSettings          # Configuration loader
+│   └── AppSettings          # Configuration loader (persisted UI state, API key, ...)
 ├── ViewModels/
 │   ├── MainViewModel        # Root view model
 │   ├── SetViewModel         # A set with its filters and cards
 │   ├── CardViewModel        # A card (owned, wanted, excluded, prices, links)
 │   ├── SeriesViewModel      # A sidebar series group
+│   ├── DeckBuilderViewModel # Deck Builder tab (current deck, browser, saved decks)
+│   ├── TagViewModel / TagSectionViewModel
+│   ├── AchievementViewModel
 │   └── SearchResultViewModel
 └── Views/
-    ├── MainWindow.xaml      # Main application window
-    ├── SettingsWindow.xaml  # Settings (options + shortcuts)
+    ├── MainWindow.xaml      # Main application window (Collection + Deck Builder tabs)
+    ├── DeckPanelView.xaml   # Deck Builder: current deck panel
+    ├── DeckBuilderView.xaml # Deck Builder: card search + saved decks
+    ├── PasteDeckDialog.xaml # Deck Builder: paste-a-decklist import dialog
+    ├── SettingsWindow.xaml  # Settings (Options, Tags, Achievements, Templates, Shortcuts)
     ├── CardZoomWindow.xaml  # Full-res card viewer
     └── ExportDialog.xaml    # CSV export options
 ```
@@ -156,7 +199,7 @@ Cardex/
 
 ## Local Data
 
-The SQLite database is stored in `%AppData%\Cardex\cardex.db` and contains:
+The SQLite database is stored in `%AppData%\Cardex\collection.db` and contains:
 
 | Table | Content |
 |---|---|
@@ -166,6 +209,9 @@ The SQLite database is stored in `%AppData%\Cardex\cardex.db` and contains:
 | `WantedCards` | Want list |
 | `FavoriteSets` | Starred sets |
 | `ExcludedCards` | Cards excluded from completion tracking |
+| `Tags` / `CardTags` | Custom colored tags and their card assignments |
+| `Decks` / `DeckCards` | Saved decks and their card lists |
+| `UnlockedAchievements` | Achievement unlock records |
 
 ---
 
@@ -175,7 +221,7 @@ The SQLite database is stored in `%AppData%\Cardex\cardex.db` and contains:
 # Run in development
 dotnet run
 
-# Publish as single-file exe
-dotnet publish -c Release -o publish
-# → publish/Cardex.exe
+# Publish as single-file, self-contained exe
+dotnet publish Cardex.csproj -c Release -r win-x64 -p:PublishSingleFile=true
+# → bin/Release/net9.0-windows/win-x64/publish/Cardex.exe
 ```

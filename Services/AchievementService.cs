@@ -36,6 +36,8 @@ public static class AchievementService
         new("briggs",           "😬", "Anything but this",                      ";D",                                                         IsSecret: true,            Icon: "briggs.png",       CustomSound: "Briggs.mp3"),
         new("regis",            "🤖", "ÜN ÜN ÜN *angry computer noises*",       "Own at least one of each Regi",                              IsSecret: true,            Icon: "regis.png"),
         new("cynthia_wannabe",  "👑", "Cynthia Wannabe",                        "Own at least one card of each Pokémon from Cynthia's team",  IsSecret: true,            Icon: "cynthia_wannabe.png"),
+        new("full_deck",        "🃏", "Ready to Battle",                        "Save a complete 60-card deck",                                                          Icon: "full_deck.png"),
+        new("five_full_decks",  "🏆", "Deck Master",                            "Save 5 complete 60-card decks",                                                         Icon: "five_full_deck.png"),
     };
 
     public static event Action<AchievementDef>? Unlocked;
