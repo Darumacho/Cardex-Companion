@@ -23,6 +23,9 @@ public partial class CardViewModel : ObservableObject
     [ObservableProperty] private bool _isLoadingImage;
     [ObservableProperty] private bool _isWanted;
     [ObservableProperty] private bool _isExcluded;
+
+    // Some fallback sets (see TCGdex) don't have an image URL at all for certain cards.
+    public bool HasNoImage => string.IsNullOrEmpty(ImageUrl);
     [ObservableProperty] private int _deckQuantity;
 
     [ObservableProperty]

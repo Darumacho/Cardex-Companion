@@ -203,6 +203,10 @@
                                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                                    FontSize="22"
                                                    Visibility="{Binding IsLoadingImage, Converter={StaticResource BoolToVis}}"/>
+                                        <TextBlock Text="No image returned by API" Foreground="{StaticResource BrushSubtext}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   FontSize="11" TextAlignment="Center" TextWrapping="Wrap" Width="110"
+                                                   Visibility="{Binding HasNoImage, Converter={StaticResource BoolToVis}}"/>
                                         <Image Stretch="Uniform"
                                                RenderOptions.BitmapScalingMode="HighQuality"
                                                Source="{Binding ImageUrl, Converter={StaticResource ImageUrlToBitmap}, ConverterParameter=300}"/>

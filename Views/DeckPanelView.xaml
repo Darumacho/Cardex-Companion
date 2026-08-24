@@ -286,9 +286,14 @@
                                 <Button Command="{Binding ShowZoomCommand}"
                                         Style="{x:Null}" Background="Transparent"
                                         BorderThickness="0" Padding="0" Cursor="Hand">
-                                    <Image Stretch="Uniform"
-                                           RenderOptions.BitmapScalingMode="HighQuality"
-                                           Source="{Binding ImageUrl, Converter={StaticResource ImageUrlToBitmap}, ConverterParameter=72}"/>
+                                    <Grid>
+                                        <Image Stretch="Uniform"
+                                               RenderOptions.BitmapScalingMode="HighQuality"
+                                               Source="{Binding ImageUrl, Converter={StaticResource ImageUrlToBitmap}, ConverterParameter=72}"/>
+                                        <TextBlock Text="🚫" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   ToolTip="No image returned by API"
+                                                   Visibility="{Binding HasNoImage, Converter={StaticResource BoolToVis}}"/>
+                                    </Grid>
                                 </Button>
                             </Border>
 

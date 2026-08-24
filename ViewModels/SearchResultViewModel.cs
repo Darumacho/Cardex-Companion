@@ -20,6 +20,8 @@ public partial class SearchResultViewModel : ObservableObject
     [ObservableProperty] private BitmapImage? _cardImage;
     [ObservableProperty] private bool _isLoadingImage;
 
+    public bool HasNoImage => string.IsNullOrEmpty(ImageUrl);
+
     public SearchResultViewModel(string cardId, string name, string number, string setId, string setName,
         string imageUrl, string? rarity, int ownedQuantity, ImageCacheService imageCache)
     {

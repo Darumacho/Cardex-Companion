@@ -50,6 +50,10 @@
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                        FontSize="24"
                                        Visibility="{Binding IsLoadingImage, Converter={StaticResource BoolToVis}}"/>
+                            <TextBlock Text="No image returned by API" Foreground="{StaticResource BrushSubtext}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       FontSize="11" TextAlignment="Center" TextWrapping="Wrap" Width="120"
+                                       Visibility="{Binding HasNoImage, Converter={StaticResource BoolToVis}}"/>
                             <Image Source="{Binding CardImage}" Stretch="Uniform"
                                    RenderOptions.BitmapScalingMode="HighQuality"/>
                             <Button Command="{Binding ShowZoomCommand}"
@@ -370,6 +374,10 @@
                     <TextBlock Text="…" Foreground="{StaticResource BrushSubtext}"
                                HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="20"
                                Visibility="{Binding IsLoadingImage, Converter={StaticResource BoolToVis}}"/>
+                    <TextBlock Text="No image returned by API" Foreground="{StaticResource BrushSubtext}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               FontSize="10" TextAlignment="Center" TextWrapping="Wrap" Width="100"
+                               Visibility="{Binding HasNoImage, Converter={StaticResource BoolToVis}}"/>
                     <Image Source="{Binding CardImage}" Stretch="Uniform" Height="162"
                            RenderOptions.BitmapScalingMode="HighQuality"/>
                     <!-- Badge quantité (×N si >1) -->
@@ -448,6 +456,10 @@
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                        FontSize="24"
                                        Visibility="{Binding IsLoadingImage, Converter={StaticResource BoolToVis}}"/>
+                            <TextBlock Text="No image returned by API" Foreground="{StaticResource BrushSubtext}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       FontSize="11" TextAlignment="Center" TextWrapping="Wrap" Width="110"
+                                       Visibility="{Binding HasNoImage, Converter={StaticResource BoolToVis}}"/>
                             <Image Source="{Binding CardImage}" Stretch="Uniform"
                                    RenderOptions.BitmapScalingMode="HighQuality"/>
                             <Border CornerRadius="4" Background="{StaticResource BrushHighlight}"

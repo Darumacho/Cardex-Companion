@@ -42,6 +42,8 @@ public partial class DeckBrowserCardVm : ObservableObject
     public bool InDeck => DeckQuantity > 0;
     partial void OnDeckQuantityChanged(int value) => OnPropertyChanged(nameof(InDeck));
 
+    public bool HasNoImage => string.IsNullOrEmpty(ImageUrl);
+
     public string TypeBadge => string.Join(" · ", new[] { Supertype, Subtypes, Types }
         .Where(s => !string.IsNullOrWhiteSpace(s)));
 
@@ -123,6 +125,8 @@ public partial class DeckEntryVm : ObservableObject
 
     public decimal? LineCmPrice  => CmLow  is null ? null : CmLow  * Quantity;
     public decimal? LineTcgPrice => TcgLow is null ? null : TcgLow * Quantity;
+
+    public bool HasNoImage => string.IsNullOrEmpty(ImageUrl);
 
     public DeckEntryVm(string cardId, string name, string setId, string setName,
         string number, string? supertype, string? subtypes, string? imageUrl,
