@@ -16,4 +16,5 @@ public class CachedSet
     public string? ShortCode { get; set; }
     public bool StandardLegal { get; set; }
     public bool ExpandedLegal { get; set; }
+    public string Source { get; set; } = "pokemontcgio";
 }

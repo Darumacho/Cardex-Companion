@@ -81,6 +81,8 @@ public partial class App : Application
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN Types TEXT"); } catch { }
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedSets ADD COLUMN StandardLegal INTEGER NOT NULL DEFAULT 0"); } catch { }
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedSets ADD COLUMN ExpandedLegal INTEGER NOT NULL DEFAULT 0"); } catch { }
+        try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedSets ADD COLUMN Source TEXT NOT NULL DEFAULT 'pokemontcgio'"); } catch { }
+        try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN Source TEXT NOT NULL DEFAULT 'pokemontcgio'"); } catch { }
         try { await db.Database.ExecuteSqlRawAsync(@"
             CREATE TABLE IF NOT EXISTS Decks (
                 Id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,9 +100,10 @@ public partial class App : Application
 
         var settings = AppSettings.Load();
         var tcgService = new PokemonTcgService(settings.ApiKey);
+        var tcgdexService = new TCGdexService();
         var imageCache = new ImageCacheService();
 
-        MainVm = new MainViewModel(tcgService, imageCache, db);
+        MainVm = new MainViewModel(tcgService, tcgdexService, imageCache, db);
 
         var asm = Assembly.GetExecutingAssembly();
 
@@ -135,6 +138,7 @@ public partial class App : Application
 
         await BackfillShortCodesAsync(db);
         await SeedDbFromEmbeddedAsync(db);
+        await SeedTcgdexFallbackAsync(db);
         await BackfillSupertypesAsync(db);
         await MainVm.LoadSetsAsync();
         _ = MainVm.CheckForUpdateAsync();
@@ -265,6 +269,10 @@ public partial class App : Application
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Seed failed: {ex}");
+            // Une entrée en échec (ex: doublon de CardId) laisse des entités "Added" non
+            // sauvegardées dans le tracker EF — les nettoyer pour ne pas polluer les opérations
+            // suivantes sur ce même AppDbContext (elles réapparaîtraient au prochain SaveChanges).
+            db.ChangeTracker.Clear();
         }
         finally
         {
@@ -272,10 +280,120 @@ public partial class App : Application
         }
     }
 
+    // Sets/cartes que pokemontcg.io n'a pas (promos Mega Evolution, Trainer Kits, McDonald's
+    // récents, etc.), pré-générées depuis TCGdex (voir SeedData/tcgdex_sets.json /
+    // tcgdex_cards.json). Contrairement à SeedDbFromEmbeddedAsync, tourne à chaque démarrage
+    // (pas seulement sur une DB vide) et réconcilie la DB avec le seed embarqué à chaque fois :
+    // ajoute les sets/cartes manquants, met à jour ceux dont les données ont changé (ex: image
+    // retrouvée), et retire ceux qui ont été explicitement exclus d'une régénération du seed
+    // (ex: doublons, sets à 0-1 carte). Tout est identifié par SetId, propre à TCGdex et jamais
+    // en collision avec pokemontcg.io.
+    private static async Task SeedTcgdexFallbackAsync(AppDbContext db)
+    {
+        try
+        {
+            var asm = Assembly.GetExecutingAssembly();
+            var jsonOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+            using var setsStream = asm.GetManifestResourceStream("Cardex.SeedData.tcgdex_sets.json");
+            if (setsStream is null) return;
+            var setsJson = await new StreamReader(setsStream, detectEncodingFromByteOrderMarks: true).ReadToEndAsync();
+            var seedSets = JsonSerializer.Deserialize<List<TcgdexSeedSetEntry>>(setsJson, jsonOpts);
+            if (seedSets is null || seedSets.Count == 0) return;
+
+            using var cardsStream = asm.GetManifestResourceStream("Cardex.SeedData.tcgdex_cards.json");
+            if (cardsStream is null) return;
+            var cardsJson = await new StreamReader(cardsStream, detectEncodingFromByteOrderMarks: true).ReadToEndAsync();
+            var seedCards = JsonSerializer.Deserialize<List<TcgdexSeedCardEntry>>(cardsJson, jsonOpts) ?? [];
+
+            var seedSetIds = seedSets.Select(s => s.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var dbTcgdexSetIds = (await db.CachedSets.Where(s => s.Source == "tcgdex").Select(s => s.SetId).ToListAsync())
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            // Retire les sets tcgdex en base qui ne sont plus dans le seed (doublons, sets vides…).
+            var removedSetIds = dbTcgdexSetIds.Except(seedSetIds).ToList();
+            if (removedSetIds.Count > 0)
+            {
+                await db.CachedCards.Where(c => removedSetIds.Contains(c.SetId)).ExecuteDeleteAsync();
+                await db.CachedSets.Where(s => removedSetIds.Contains(s.SetId)).ExecuteDeleteAsync();
+                dbTcgdexSetIds.ExceptWith(removedSetIds);
+            }
+
+            var newSets = seedSets.Where(s => !dbTcgdexSetIds.Contains(s.Id)).ToList();
+            if (newSets.Count > 0)
+            {
+                db.CachedSets.AddRange(newSets.Select(s => new CachedSet
+                {
+                    SetId = s.Id, Name = s.Name, Series = s.Series, Total = s.Total,
+                    ReleaseDate = s.ReleaseDate, LogoUrl = s.LogoUrl, SymbolUrl = s.SymbolUrl,
+                    CachedAt = DateTime.UtcNow,
+                    StandardLegal = s.StandardLegal, ExpandedLegal = s.ExpandedLegal,
+                    Source = "tcgdex"
+                }));
+
+                var newSetIds = newSets.Select(s => s.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var sort = 0;
+                db.CachedCards.AddRange(seedCards.Where(c => newSetIds.Contains(c.SetId)).Select(c => new CachedCard
+                {
+                    CardId = c.Id, SetId = c.SetId, Name = c.Name, Number = c.Number,
+                    ImageSmall = c.ImageSmall, ImageLarge = c.ImageLarge, Rarity = c.Rarity,
+                    SortOrder = sort++, Supertype = c.Supertype, Subtypes = c.Subtypes,
+                    Types = c.Types, Source = "tcgdex"
+                }));
+                await db.SaveChangesAsync();
+            }
+
+            // Met à jour les sets/cartes déjà en base si le seed a été régénéré avec de
+            // meilleures données (ex: catégorie, symbole ou image retrouvés).
+            var existingIds = dbTcgdexSetIds;
+            if (existingIds.Count > 0)
+            {
+                var seedSetById = seedSets.Where(s => existingIds.Contains(s.Id)).ToDictionary(s => s.Id, StringComparer.OrdinalIgnoreCase);
+                var setsToRefresh = await db.CachedSets.Where(s => existingIds.Contains(s.SetId)).ToListAsync();
+                var setsChanged = false;
+                foreach (var row in setsToRefresh)
+                {
+                    if (!seedSetById.TryGetValue(row.SetId, out var seed)) continue;
+                    if (row.Series == seed.Series && row.LogoUrl == seed.LogoUrl && row.SymbolUrl == seed.SymbolUrl
+                        && row.StandardLegal == seed.StandardLegal && row.ExpandedLegal == seed.ExpandedLegal) continue;
+                    row.Series = seed.Series;
+                    row.LogoUrl = seed.LogoUrl;
+                    row.SymbolUrl = seed.SymbolUrl;
+                    row.StandardLegal = seed.StandardLegal;
+                    row.ExpandedLegal = seed.ExpandedLegal;
+                    setsChanged = true;
+                }
+                if (setsChanged) await db.SaveChangesAsync();
+
+                var seedCardById = seedCards.Where(c => existingIds.Contains(c.SetId)).ToDictionary(c => c.Id);
+                var cardsToRefresh = await db.CachedCards.Where(c => c.Source == "tcgdex" && existingIds.Contains(c.SetId)).ToListAsync();
+                var cardsChanged = false;
+                foreach (var row in cardsToRefresh)
+                {
+                    if (!seedCardById.TryGetValue(row.CardId, out var seed)) continue;
+                    if (row.ImageSmall == seed.ImageSmall && row.ImageLarge == seed.ImageLarge) continue;
+                    row.ImageSmall = seed.ImageSmall;
+                    row.ImageLarge = seed.ImageLarge;
+                    cardsChanged = true;
+                }
+                if (cardsChanged) await db.SaveChangesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"TCGdex fallback seed failed: {ex}");
+            db.ChangeTracker.Clear();
+        }
+    }
+
     private record SeedSetEntry(string Id, string Name, string Series, int Total,
         string ReleaseDate, string LogoUrl, string SymbolUrl);
     private record SeedCardEntry(string Id, string Name, string Number,
         string SetId, string ImageSmall, string? Rarity);
+    private record TcgdexSeedSetEntry(string Id, string Name, string Series, int Total,
+        string ReleaseDate, string LogoUrl, string SymbolUrl, bool StandardLegal, bool ExpandedLegal);
+    private record TcgdexSeedCardEntry(string Id, string Name, string Number, string SetId,
+        string ImageSmall, string? ImageLarge, string? Rarity, string? Supertype, string? Subtypes, string? Types);
 
     private static ImageSource LoadAndCrop(Stream stream)
     {

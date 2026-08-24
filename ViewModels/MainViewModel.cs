@@ -17,6 +17,7 @@ namespace Cardex.ViewModels;
 public partial class MainViewModel : ObservableObject
 {
     private readonly PokemonTcgService _tcgService;
+    private readonly TCGdexService _tcgdexService;
     private readonly ImageCacheService _imageCache;
     private readonly AppDbContext _db;
     private readonly UpdateService _updateService = new();
@@ -286,9 +287,10 @@ public partial class MainViewModel : ObservableObject
         await RefreshTagSectionsAsync();
     }
 
-    public MainViewModel(PokemonTcgService tcgService, ImageCacheService imageCache, AppDbContext db)
+    public MainViewModel(PokemonTcgService tcgService, TCGdexService tcgdexService, ImageCacheService imageCache, AppDbContext db)
     {
         _tcgService = tcgService;
+        _tcgdexService = tcgdexService;
         _imageCache = imageCache;
         _db = db;
         _settings = AppSettings.Load();
@@ -535,6 +537,10 @@ public partial class MainViewModel : ObservableObject
                 apiError = ex.Message;
             }
 
+            // Les sets absents de pokemontcg.io (promos Mega Evolution, Trainer Kits, etc.) sont
+            // ajoutés une fois pour toutes via le seed embarqué TCGdex (App.SeedTcgdexFallbackAsync,
+            // appelé avant LoadSetsAsync) plutôt que par découverte live à chaque démarrage.
+
             var allCached = await _db.CachedSets.OrderBy(s => s.ReleaseDate).ToListAsync();
 
             if (allCached.Count == 0)
@@ -546,7 +552,7 @@ public partial class MainViewModel : ObservableObject
             }
 
             BuildSeries(allCached.Select(s =>
-                new SetData(s.SetId, s.Name, s.Total, s.Series, s.ReleaseDate, s.LogoUrl, s.SymbolUrl)));
+                new SetData(s.SetId, s.Name, s.Total, s.Series, s.ReleaseDate, s.LogoUrl, s.SymbolUrl, s.Source)));
 
             TemplateSets = allCached
                 .Select(s => new TemplateSetEntry(s.ShortCode ?? "", s.PtcgoCode ?? s.SetId, s.Name, s.Series))
@@ -627,7 +633,7 @@ public partial class MainViewModel : ObservableObject
         {
             var seriesVm = new SeriesViewModel(group.Key);
             foreach (var s in group.OrderBy(s => s.ReleaseDate))
-                seriesVm.Sets.Add(new SetViewModel(s.Id, s.Name, s.Total, s.Series, s.ReleaseDate, s.LogoUrl, s.SymbolUrl));
+                seriesVm.Sets.Add(new SetViewModel(s.Id, s.Name, s.Total, s.Series, s.ReleaseDate, s.LogoUrl, s.SymbolUrl, s.Source));
             Series.Add(seriesVm);
         }
     }
@@ -783,6 +789,19 @@ public partial class MainViewModel : ObservableObject
                 StatusText = $"{set.Name} — {set.CompletionText}";
                 _ = RefreshPricesIfNeededAsync(set);
             }
+            else if (set.Source == "tcgdex")
+            {
+                try
+                {
+                    await LoadCardsFromTcgdexAsync(set, ownedMap, wantedIds, excludedIds);
+                    StatusText = $"{set.Name} — {set.CompletionText}";
+                }
+                catch (Exception ex)
+                {
+                    StatusText = $"Could not load {set.Name} — API error: {ex.Message}";
+                    return;
+                }
+            }
             else
             {
                 try
@@ -835,6 +854,56 @@ public partial class MainViewModel : ObservableObject
         {
             set.IsLoading = false;
         }
+    }
+
+    // Fallback : charge les cartes d'un set qui n'existe que sur TCGdex (pokemontcg.io ne l'a
+    // pas). Contrairement à pokemontcg.io, TCGdex ne fournit pas les cartes d'un set en un seul
+    // appel avec tous les détails (prix, rareté) — il faut d'abord la liste brève du set, puis
+    // un appel par carte. Acceptable ici car ces sets de secours sont peu nombreux.
+    private async Task LoadCardsFromTcgdexAsync(SetViewModel set, Dictionary<string, int> ownedMap,
+        HashSet<string> wantedIds, HashSet<string> excludedIds)
+    {
+        var detail = await _tcgdexService.GetSetDetailAsync(set.SetId)
+            ?? throw new InvalidOperationException("Set not found on TCGdex");
+
+        var now = DateTime.UtcNow;
+        var cachedCards = new List<CachedCard>();
+        var cardData = new List<CardData>();
+        int sort = 0;
+
+        foreach (var brief in detail.Cards)
+        {
+            var full = await _tcgdexService.GetCardAsync(brief.Id);
+            if (full is null) continue;
+
+            var number = brief.LocalId.TrimStart('0');
+            if (number.Length == 0) number = "0";
+            var supertype = TCGdexService.NormalizeSupertype(full.Category);
+            var subtypes = TCGdexService.BuildSubtypes(full);
+            var imageSmall = full.Image is null ? "" : TCGdexService.BuildCardImageUrl(full.Image, "low");
+            var imageLarge = full.Image is null ? null : TCGdexService.BuildCardImageUrl(full.Image, "high");
+            var cmLow = full.Pricing?.Cardmarket?.Low;
+            var tcgLow = full.Pricing?.Tcgplayer?.Normal?.MarketPrice
+                ?? full.Pricing?.Tcgplayer?.ReverseHolofoil?.MarketPrice
+                ?? full.Pricing?.Tcgplayer?.Holofoil?.MarketPrice;
+
+            cachedCards.Add(new CachedCard
+            {
+                CardId = full.Id, SetId = set.SetId, Name = full.Name, Number = number,
+                ImageSmall = imageSmall, ImageLarge = imageLarge, Rarity = full.Rarity,
+                SortOrder = sort++, CmLow = cmLow, TcgLow = tcgLow, PricesUpdatedAt = now,
+                Supertype = supertype, Subtypes = subtypes,
+                Types = full.Types is { Count: > 0 } ? string.Join(", ", full.Types) : null,
+                Source = "tcgdex"
+            });
+            cardData.Add(new CardData(full.Id, full.Name, number, set.SetId, imageSmall, imageLarge,
+                full.Rarity, cmLow, tcgLow, now, null, null, supertype, subtypes));
+        }
+
+        _db.CachedCards.AddRange(cachedCards);
+        await _db.SaveChangesAsync();
+
+        BuildCardViewModels(cardData.OrderBy(c => CardNumberSort(c.Number)), ownedMap, wantedIds, excludedIds, set);
     }
 
     private void BuildCardViewModels(IEnumerable<CardData> cards, Dictionary<string, int> ownedMap,
@@ -1460,7 +1529,10 @@ public partial class MainViewModel : ObservableObject
         var setByName    = allSets.ToDictionary(s => s.Name.ToUpperInvariant());
 
         var ownedDict  = (await _db.OwnedCards.ToListAsync()).ToDictionary(o => o.CardId);
-        var cardIdCache = new Dictionary<string, HashSet<string>>();
+        // SetId -> (Number -> CardId). Résout par Number plutôt que de reconstruire l'ID
+        // ("{SetId}-{number}"), car les cartes TCGdex ont un CardId paddé de zéros (ex: "mep-012")
+        // différent de leur Number affiché ("12") — la concaténation ne matcherait jamais.
+        var cardIdCache = new Dictionary<string, Dictionary<string, string>>();
         var qtyPattern  = new System.Text.RegularExpressions.Regex(@"\s+x(\d+)\s*$",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
@@ -1490,17 +1562,15 @@ public partial class MainViewModel : ObservableObject
             if (!setByShort.TryGetValue(code, out var set) && !setByPtcgo.TryGetValue(code, out set) && !setById.TryGetValue(code, out set) && !setByName.TryGetValue(code, out set))
                 { errors.Add(rawLine.Trim()); continue; }
 
-            if (!cardIdCache.TryGetValue(set.SetId, out var cardIds))
+            if (!cardIdCache.TryGetValue(set.SetId, out var numberToCardId))
             {
-                cardIds = (await _db.CachedCards
+                numberToCardId = await _db.CachedCards
                     .Where(c => c.SetId == set.SetId)
-                    .Select(c => c.CardId)
-                    .ToListAsync()).ToHashSet();
-                cardIdCache[set.SetId] = cardIds;
+                    .ToDictionaryAsync(c => c.Number, c => c.CardId);
+                cardIdCache[set.SetId] = numberToCardId;
             }
 
-            var cardId = $"{set.SetId}-{number}";
-            if (!cardIds.Contains(cardId)) { errors.Add(rawLine.Trim()); continue; }
+            if (!numberToCardId.TryGetValue(number, out var cardId)) { errors.Add(rawLine.Trim()); continue; }
 
             if (ownedDict.TryGetValue(cardId, out var existing))
                 existing.Quantity += qty;
@@ -1748,6 +1818,12 @@ public partial class MainViewModel : ObservableObject
 
     private async Task RefreshPricesIfNeededAsync(SetViewModel set)
     {
+        if (set.Source == "tcgdex")
+        {
+            await RefreshPricesFromTcgdexAsync(set);
+            return;
+        }
+
         try
         {
             var sample = await _db.CachedCards.Where(c => c.SetId == set.SetId).FirstOrDefaultAsync();
@@ -1788,7 +1864,44 @@ public partial class MainViewModel : ObservableObject
         catch { }
     }
 
-    private record SetData(string Id, string Name, int Total, string Series, string ReleaseDate, string LogoUrl, string SymbolUrl);
+    // Équivalent de RefreshPricesIfNeededAsync pour les sets de secours TCGdex : un appel par
+    // carte (pas de fetch bulk côté TCGdex), acceptable vu le faible nombre de cartes de ces sets.
+    private async Task RefreshPricesFromTcgdexAsync(SetViewModel set)
+    {
+        try
+        {
+            var sample = await _db.CachedCards.Where(c => c.SetId == set.SetId).FirstOrDefaultAsync();
+            if (sample?.PricesUpdatedAt > DateTime.UtcNow.AddHours(-24)) return;
+
+            var cached = await _db.CachedCards.Where(c => c.SetId == set.SetId).ToListAsync();
+            var now = DateTime.UtcNow;
+
+            foreach (var row in cached)
+            {
+                var full = await _tcgdexService.GetCardAsync(row.CardId);
+                if (full is null) continue;
+
+                row.CmLow = full.Pricing?.Cardmarket?.Low;
+                row.TcgLow = full.Pricing?.Tcgplayer?.Normal?.MarketPrice
+                    ?? full.Pricing?.Tcgplayer?.ReverseHolofoil?.MarketPrice
+                    ?? full.Pricing?.Tcgplayer?.Holofoil?.MarketPrice;
+                row.PricesUpdatedAt = now;
+            }
+            await _db.SaveChangesAsync();
+
+            var byId = cached.ToDictionary(c => c.CardId);
+            foreach (var vm in set.Cards)
+            {
+                if (!byId.TryGetValue(vm.CardId, out var row)) continue;
+                vm.CmLow = row.CmLow;
+                vm.TcgLow = row.TcgLow;
+                vm.PricesUpdatedAt = now;
+            }
+        }
+        catch { }
+    }
+
+    private record SetData(string Id, string Name, int Total, string Series, string ReleaseDate, string LogoUrl, string SymbolUrl, string Source = "pokemontcgio");
     private record CardData(string Id, string Name, string Number, string SetId, string ImageSmall, string? ImageLarge, string? Rarity,
         decimal? CmLow = null, decimal? TcgLow = null, DateTime? PricesUpdatedAt = null,
         string? CmUrl = null, string? TcgUrl = null, string? Supertype = null, string? Subtypes = null);

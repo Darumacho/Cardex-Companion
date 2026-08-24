@@ -15,6 +15,7 @@ public partial class SetViewModel : ObservableObject
     public string ReleaseDate { get; }
     public string LogoUrl { get; }
     public string SymbolUrl { get; }
+    public string Source { get; }
 
     [ObservableProperty] private bool _isSelected;
     [ObservableProperty] private bool _isFavorite;
@@ -145,7 +146,7 @@ public partial class SetViewModel : ObservableObject
     public string ToggleAllLabel => AllOwned ? "Uncheck all" : "Check all";
 
     public SetViewModel(string setId, string name, int total, string series, string releaseDate,
-                        string logoUrl, string symbolUrl)
+                        string logoUrl, string symbolUrl, string source = "pokemontcgio")
     {
         SetId = setId;
         Name = name;
@@ -154,6 +155,7 @@ public partial class SetViewModel : ObservableObject
         ReleaseDate = releaseDate;
         LogoUrl = logoUrl;
         SymbolUrl = symbolUrl;
+        Source = source;
     }
 
     public void NotifyCardsLoaded()

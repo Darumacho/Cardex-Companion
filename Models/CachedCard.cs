@@ -20,4 +20,5 @@ public class CachedCard
     public string? Supertype { get; set; }
     public string? Subtypes { get; set; }
     public string? Types { get; set; }
+    public string Source { get; set; } = "pokemontcgio";
 }
