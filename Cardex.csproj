@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0-windows</TargetFramework>
-    <Version>2.1.1</Version>
+    <Version>2.1.2</Version>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
@@ -34,6 +34,7 @@
     <EmbeddedResource Include="SeedData\supertypes.json" LogicalName="Cardex.SeedData.supertypes.json" Condition="Exists('SeedData\supertypes.json')"/>
     <EmbeddedResource Include="SeedData\tcgdex_sets.json" LogicalName="Cardex.SeedData.tcgdex_sets.json"/>
     <EmbeddedResource Include="SeedData\tcgdex_cards.json" LogicalName="Cardex.SeedData.tcgdex_cards.json"/>
+    <EmbeddedResource Include="SeedData\tcgdex_completion_cards.json" LogicalName="Cardex.SeedData.tcgdex_completion_cards.json"/>
     <Resource Include="Assets\cardmarket.png"/>
     <Resource Include="Assets\tcgplayer.png"/>
     <Resource Include="Assets\HomeIcon.png"/>

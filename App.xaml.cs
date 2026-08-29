@@ -139,6 +139,7 @@ public partial class App : Application
         await BackfillShortCodesAsync(db);
         await SeedDbFromEmbeddedAsync(db);
         await SeedTcgdexFallbackAsync(db);
+        await SeedCompletionCardsAsync(db);
         await BackfillSupertypesAsync(db);
         await MainVm.LoadSetsAsync();
         _ = MainVm.CheckForUpdateAsync();
@@ -386,6 +387,59 @@ public partial class App : Application
         }
     }
 
+    // Complète les cartes manquantes de sets pokemontcg.io connus pour être bloqués à 250 cartes
+    // (limite de pagination de leur API, qui renvoie une 500 sur `cards?...&page=2` pour certains
+    // sets — ex: me2pt5 "Ascended Heroes", 295 cartes réelles). Le set reste rattaché à
+    // pokemontcg.io (Source inchangée) ; seules les cartes au-delà de ce que pokemontcg.io peut
+    // servir sont ajoutées, avec Source="tcgdex" pour tracer leur provenance réelle.
+    private static async Task SeedCompletionCardsAsync(AppDbContext db)
+    {
+        try
+        {
+            var asm = Assembly.GetExecutingAssembly();
+            var jsonOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+            using var stream = asm.GetManifestResourceStream("Cardex.SeedData.tcgdex_completion_cards.json");
+            if (stream is null) return;
+            var json = await new StreamReader(stream, detectEncodingFromByteOrderMarks: true).ReadToEndAsync();
+            var completionCards = JsonSerializer.Deserialize<List<TcgdexCompletionCardEntry>>(json, jsonOpts);
+            if (completionCards is null || completionCards.Count == 0) return;
+
+            foreach (var group in completionCards.GroupBy(c => c.SetId))
+            {
+                // Le set doit déjà exister (pokemontcg.io) — sinon rien à compléter ici, c'est le
+                // rôle de SeedTcgdexFallbackAsync pour un set entièrement absent.
+                if (!await db.CachedSets.AnyAsync(s => s.SetId == group.Key)) continue;
+
+                var existingNumbers = (await db.CachedCards
+                    .Where(c => c.SetId == group.Key)
+                    .Select(c => c.Number)
+                    .ToListAsync()).ToHashSet();
+
+                var toAdd = group.Where(c => !existingNumbers.Contains(c.Number)).ToList();
+                if (toAdd.Count == 0) continue;
+
+                var maxSort = await db.CachedCards.Where(c => c.SetId == group.Key)
+                    .Select(c => (int?)c.SortOrder).MaxAsync() ?? 0;
+                var sort = maxSort + 1;
+
+                db.CachedCards.AddRange(toAdd.Select(c => new CachedCard
+                {
+                    CardId = c.Id, SetId = c.SetId, Name = c.Name, Number = c.Number,
+                    ImageSmall = c.ImageSmall, ImageLarge = c.ImageLarge, Rarity = c.Rarity,
+                    SortOrder = sort++, Supertype = c.Supertype, Subtypes = c.Subtypes,
+                    Types = c.Types, Source = "tcgdex"
+                }));
+                await db.SaveChangesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Completion seed failed: {ex}");
+            db.ChangeTracker.Clear();
+        }
+    }
+
     private record SeedSetEntry(string Id, string Name, string Series, int Total,
         string ReleaseDate, string LogoUrl, string SymbolUrl);
     private record SeedCardEntry(string Id, string Name, string Number,
@@ -393,6 +447,8 @@ public partial class App : Application
     private record TcgdexSeedSetEntry(string Id, string Name, string Series, int Total,
         string ReleaseDate, string LogoUrl, string SymbolUrl, bool StandardLegal, bool ExpandedLegal);
     private record TcgdexSeedCardEntry(string Id, string Name, string Number, string SetId,
+        string ImageSmall, string? ImageLarge, string? Rarity, string? Supertype, string? Subtypes, string? Types);
+    private record TcgdexCompletionCardEntry(string Id, string Name, string Number, string SetId,
         string ImageSmall, string? ImageLarge, string? Rarity, string? Supertype, string? Subtypes, string? Types);
 
     private static ImageSource LoadAndCrop(Stream stream)
