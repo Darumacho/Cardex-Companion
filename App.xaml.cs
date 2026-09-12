@@ -443,12 +443,19 @@ public partial class App : Application
         }
     }
 
-    // Clé secrète chargée depuis un fichier local non commité (voir .gitignore), sur le même
-    // principe que Logo.ico : copiée à côté de l'exe au build, jamais dans le code source.
+    // Clé secrète fondue dans le binaire au build via un fichier local non commité (voir
+    // .gitignore) — jamais dans le code source suivi par git, mais bien embarquée dans l'exe
+    // (contrairement à un simple fichier copié à côté, qui ne suivrait pas si l'exe est déplacé
+    // seul). Même mécanisme que les seeds JSON (EmbeddedResource + GetManifestResourceStream).
     private static string LoadCardexApiKey()
     {
-        var path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "cardex-api-key.txt");
-        try { return System.IO.File.Exists(path) ? System.IO.File.ReadAllText(path).Trim() : ""; }
+        try
+        {
+            using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Cardex.cardex-api-key.txt");
+            if (stream is null) return "";
+            using var reader = new StreamReader(stream);
+            return reader.ReadToEnd().Trim();
+        }
         catch { return ""; }
     }
 

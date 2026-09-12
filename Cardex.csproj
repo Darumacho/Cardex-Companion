@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0-windows</TargetFramework>
-    <Version>2.3</Version>
+    <Version>2.3.1</Version>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
@@ -27,9 +27,7 @@
     <Content Include="Logo.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="cardex-api-key.txt" Condition="Exists('cardex-api-key.txt')">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+    <EmbeddedResource Include="cardex-api-key.txt" LogicalName="Cardex.cardex-api-key.txt" Condition="Exists('cardex-api-key.txt')" />
     <EmbeddedResource Include="Logo.png" />
     <EmbeddedResource Include="Name.png" />
     <EmbeddedResource Include="SeedData\sets.json" LogicalName="Cardex.SeedData.sets.json" />
