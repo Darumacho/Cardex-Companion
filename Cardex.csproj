@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0-windows</TargetFramework>
-    <Version>2.1.2</Version>
+    <Version>2.2</Version>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
@@ -27,29 +27,30 @@
     <Content Include="Logo.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <EmbeddedResource Include="Logo.png"/>
-    <EmbeddedResource Include="Name.png"/>
-    <EmbeddedResource Include="SeedData\sets.json" LogicalName="Cardex.SeedData.sets.json"/>
-    <EmbeddedResource Include="SeedData\cards.json" LogicalName="Cardex.SeedData.cards.json"/>
-    <EmbeddedResource Include="SeedData\supertypes.json" LogicalName="Cardex.SeedData.supertypes.json" Condition="Exists('SeedData\supertypes.json')"/>
-    <EmbeddedResource Include="SeedData\tcgdex_sets.json" LogicalName="Cardex.SeedData.tcgdex_sets.json"/>
-    <EmbeddedResource Include="SeedData\tcgdex_cards.json" LogicalName="Cardex.SeedData.tcgdex_cards.json"/>
-    <EmbeddedResource Include="SeedData\tcgdex_completion_cards.json" LogicalName="Cardex.SeedData.tcgdex_completion_cards.json"/>
-    <Resource Include="Assets\cardmarket.png"/>
-    <Resource Include="Assets\tcgplayer.png"/>
-    <Resource Include="Assets\HomeIcon.png"/>
-    <Resource Include="Assets\DeckbuilderIcon.png"/>
-    <Resource Include="Assets\SettingsIcon.png"/>
-    <Resource Include="Assets\AchievementIcons\**\*" Condition="Exists('Assets\AchievementIcons')"/>
-    <Resource Include="Assets\AchievementXbox.mp3"/>
-    <Resource Include="Assets\AchievementPS4.mp3"/>
-    <Resource Include="Assets\Outstanding.mp3"/>
-    <Resource Include="Assets\Briggs.mp3"/>
+    <EmbeddedResource Include="Logo.png" />
+    <EmbeddedResource Include="Name.png" />
+    <EmbeddedResource Include="SeedData\sets.json" LogicalName="Cardex.SeedData.sets.json" />
+    <EmbeddedResource Include="SeedData\cards.json" LogicalName="Cardex.SeedData.cards.json" />
+    <EmbeddedResource Include="SeedData\supertypes.json" LogicalName="Cardex.SeedData.supertypes.json" Condition="Exists('SeedData\supertypes.json')" />
+    <EmbeddedResource Include="SeedData\tcgdex_sets.json" LogicalName="Cardex.SeedData.tcgdex_sets.json" />
+    <EmbeddedResource Include="SeedData\tcgdex_cards.json" LogicalName="Cardex.SeedData.tcgdex_cards.json" />
+    <EmbeddedResource Include="SeedData\tcgdex_completion_cards.json" LogicalName="Cardex.SeedData.tcgdex_completion_cards.json" />
+    <Resource Include="Assets\cardmarket.png" />
+    <Resource Include="Assets\tcgplayer.png" />
+    <Resource Include="Assets\HomeIcon.png" />
+    <Resource Include="Assets\DeckbuilderIcon.png" />
+    <Resource Include="Assets\SettingsIcon.png" />
+    <Resource Include="Assets\AchievementIcons\**\*" Condition="Exists('Assets\AchievementIcons')" />
+    <Resource Include="Assets\AchievementXbox.mp3" />
+    <Resource Include="Assets\AchievementPS4.mp3" />
+    <Resource Include="Assets\Outstanding.mp3" />
+    <Resource Include="Assets\Briggs.mp3" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.11" />
+    <PackageReference Include="SharpVectors.Wpf" Version="1.8.6" />
   </ItemGroup>
 
 </Project>
