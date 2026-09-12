@@ -82,6 +82,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _isMyCollectionSectionExpanded = true;
     [ObservableProperty] private bool _isDuplicatesSectionExpanded   = true;
     [ObservableProperty] private bool _isWantedSectionExpanded       = true;
+    [ObservableProperty] private bool _isApiAnnouncementVisible      = true;
     [ObservableProperty] private string _newTagName    = "";
     [ObservableProperty] private string _pendingTagColor = "#3a7fc1";
 
@@ -158,6 +159,18 @@ public partial class MainViewModel : ObservableObject
         _settings.HomeWantedExpanded = value;
         _settings.Save();
     }
+
+    [RelayCommand]
+    private void DismissApiAnnouncement()
+    {
+        IsApiAnnouncementVisible = false;
+        _settings.ApiAnnouncementDismissed = true;
+        _settings.Save();
+    }
+
+    [RelayCommand]
+    private void OpenApiWebsite()
+        => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://cardex-api.dev/") { UseShellExecute = true });
 
     [RelayCommand] private void SelectNewTagColor(string color) => PendingTagColor = color;
 
@@ -301,6 +314,7 @@ public partial class MainViewModel : ObservableObject
         _isMyCollectionSectionExpanded = _settings.HomeMyCollectionExpanded;
         _isDuplicatesSectionExpanded = _settings.HomeDuplicatesExpanded;
         _isWantedSectionExpanded = _settings.HomeWantedExpanded;
+        _isApiAnnouncementVisible = !_settings.ApiAnnouncementDismissed;
         ApplyBorderColor(_settings.CollectionBorderColor);
         WantedCards.CollectionChanged    += (_, _) => { OnPropertyChanged(nameof(HasWantedCards)); OnPropertyChanged(nameof(HasHomeContent)); };
         DuplicateCards.CollectionChanged += (_, _) => { OnPropertyChanged(nameof(HasDuplicates));  OnPropertyChanged(nameof(HasHomeContent)); };

@@ -14,6 +14,7 @@ public class AppSettings
     public bool HomeMyCollectionExpanded { get; set; } = true;
     public bool HomeDuplicatesExpanded   { get; set; } = true;
     public bool HomeWantedExpanded       { get; set; } = true;
+    public bool ApiAnnouncementDismissed { get; set; } = false;
 
     private static readonly JsonSerializerOptions _json = new() { WriteIndented = true };
 

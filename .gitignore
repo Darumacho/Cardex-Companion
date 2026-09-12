@@ -33,3 +33,6 @@ CONTEXT.md
 *.png
 Todo.txt
 API project/
+
+# Clé API Cardex (secret local, jamais commité)
+cardex-api-key.txt

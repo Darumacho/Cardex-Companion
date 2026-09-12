@@ -719,6 +719,42 @@
                         </Style.Triggers>
                     </Style>
                 </ScrollViewer.Style>
+                <StackPanel>
+                <!-- Bandeau annonce API Cardex -->
+                <Border Background="{StaticResource BrushAccent}" Padding="12,9">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsApiAnnouncementVisible}" Value="False">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Check out the new Cardex API ! Devs, get an API key now to get access to a free enriched catalog !"
+                                       Foreground="{StaticResource BrushText}" FontSize="12"
+                                       VerticalAlignment="Center" TextWrapping="Wrap"/>
+                            <Button Content="cardex-api.dev ↗"
+                                    Command="{Binding OpenApiWebsiteCommand}"
+                                    Margin="10,0,0,0" Padding="8,3" FontSize="11.5" Cursor="Hand"
+                                    Background="#111122" Foreground="{StaticResource BrushText}"
+                                    BorderThickness="0"/>
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="✕"
+                                Command="{Binding DismissApiAnnouncementCommand}"
+                                Style="{StaticResource IconButtonStyle}"
+                                Foreground="{StaticResource BrushText}"
+                                FontSize="13" Padding="8,2" VerticalAlignment="Center"
+                                ToolTip="Dismiss forever"/>
+                    </Grid>
+                </Border>
                 <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -1092,6 +1128,7 @@
                                HorizontalAlignment="Center" Margin="0,4,0,0"/>
                 </StackPanel>
             </Grid>
+                </StackPanel>
             </ScrollViewer>
 
 

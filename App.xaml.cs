@@ -140,6 +140,9 @@ public partial class App : Application
         await SeedDbFromEmbeddedAsync(db);
         await SeedTcgdexFallbackAsync(db);
         await SeedCompletionCardsAsync(db);
+        var cardexApiService = new CardexApiService(LoadCardexApiKey());
+        await DiscoverNewCardexEntriesAsync(db, cardexApiService, tcgdexService);
+        await SyncFromCardexApiAsync(db, cardexApiService);
         await BackfillSupertypesAsync(db);
         await MainVm.LoadSetsAsync();
         _ = MainVm.CheckForUpdateAsync();
@@ -436,6 +439,193 @@ public partial class App : Application
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Completion seed failed: {ex}");
+            db.ChangeTracker.Clear();
+        }
+    }
+
+    // Clé secrète chargée depuis un fichier local non commité (voir .gitignore), sur le même
+    // principe que Logo.ico : copiée à côté de l'exe au build, jamais dans le code source.
+    private static string LoadCardexApiKey()
+    {
+        var path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "cardex-api-key.txt");
+        try { return System.IO.File.Exists(path) ? System.IO.File.ReadAllText(path).Trim() : ""; }
+        catch { return ""; }
+    }
+
+    private static string? NullIfEmpty(string? s) => string.IsNullOrEmpty(s) ? null : s;
+
+    // Découvre les sets et cartes entièrement nouveaux côté API Cardex (ex: un set complété après
+    // coup avec de nouvelles cartes, comme "mep" passé de 60 à 110). Pour toute entrée dont la
+    // source déclarée est "tcgdex" et dont la fiche Cardex est incomplète, on croise avec TCGdex
+    // (même convention d'ID) pour combler ce qu'il manque avant d'insérer — Cardex API peut avoir
+    // une fiche minimaliste pour une carte tout juste ajoutée par l'utilisateur.
+    private static async Task DiscoverNewCardexEntriesAsync(AppDbContext db, CardexApiService cardexApi, TCGdexService tcgdexService)
+    {
+        try
+        {
+            var remoteSets = await cardexApi.GetSetsAsync();
+            if (remoteSets.Count == 0) return;
+
+            var localSetIds = (await db.CachedSets.Select(s => s.SetId).ToListAsync())
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var newSets = remoteSets.Where(s => !localSetIds.Contains(s.Id)).ToList();
+            if (newSets.Count > 0)
+            {
+                var toInsert = new List<CachedSet>();
+                foreach (var s in newSets)
+                {
+                    var logoUrl = s.LogoUrl ?? "";
+                    var symbolUrl = s.SymbolUrl ?? "";
+                    if (s.Source == "tcgdex" && (logoUrl == "" || symbolUrl == ""))
+                    {
+                        var detail = await tcgdexService.GetSetDetailAsync(s.Id);
+                        if (detail is not null)
+                        {
+                            if (logoUrl == "" && detail.Logo is not null) logoUrl = TCGdexService.BuildAssetUrl(detail.Logo);
+                            if (symbolUrl == "" && detail.Symbol is not null) symbolUrl = TCGdexService.BuildAssetUrl(detail.Symbol);
+                        }
+                    }
+                    toInsert.Add(new CachedSet
+                    {
+                        SetId = s.Id, Name = s.Name, Series = s.Series, Total = s.Total,
+                        ReleaseDate = s.ReleaseDate, LogoUrl = logoUrl, SymbolUrl = symbolUrl,
+                        CachedAt = DateTime.UtcNow, StandardLegal = s.StandardLegal, ExpandedLegal = s.ExpandedLegal,
+                        Source = s.Source
+                    });
+                }
+                db.CachedSets.AddRange(toInsert);
+                await db.SaveChangesAsync();
+                localSetIds.UnionWith(newSets.Select(s => s.Id));
+            }
+
+            // Le champ Total renvoyé par /sets n'est pas fiable pour détecter des cartes ajoutées
+            // après coup (il peut rester obsolète), donc on revérifie directement la liste des
+            // cartes pour : les sets tout juste créés ci-dessus, et les sets de secours ("tcgdex")
+            // que l'utilisateur alimente lui-même à la main — pas tout le catalogue (trop coûteux).
+            var newSetIds = newSets.Select(s => s.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var setsToCheck = remoteSets.Where(s => newSetIds.Contains(s.Id) || s.Source == "tcgdex").ToList();
+
+            foreach (var set in setsToCheck)
+            {
+                var remoteCards = await cardexApi.GetSetCardsAsync(set.Id);
+                if (remoteCards.Count == 0) continue;
+
+                var localCardIds = (await db.CachedCards.Where(c => c.SetId == set.Id)
+                    .Select(c => c.CardId).ToListAsync()).ToHashSet();
+
+                var newCards = remoteCards.Where(c => !localCardIds.Contains(c.Id)).ToList();
+                if (newCards.Count == 0) continue;
+
+                var maxSort = await db.CachedCards.Where(c => c.SetId == set.Id)
+                    .Select(c => (int?)c.SortOrder).MaxAsync() ?? 0;
+                var sort = maxSort + 1;
+
+                foreach (var c in newCards)
+                {
+                    var imageSmall = c.ImageSmall ?? "";
+                    var imageLarge = c.ImageLarge;
+                    var rarity = NullIfEmpty(c.Rarity);
+                    var supertype = NullIfEmpty(c.Supertype);
+                    var subtypes = c.Subtypes is { Count: > 0 } ? string.Join(", ", c.Subtypes) : null;
+                    var types = c.Types is { Count: > 0 } ? string.Join(", ", c.Types) : null;
+
+                    if (c.Source == "tcgdex" && (imageSmall == "" || rarity is null || supertype is null || subtypes is null || types is null))
+                    {
+                        var tcgdexCard = await tcgdexService.GetCardAsync(c.Id);
+                        if (tcgdexCard is not null)
+                        {
+                            if (imageSmall == "" && tcgdexCard.Image is not null)
+                            {
+                                imageSmall = TCGdexService.BuildCardImageUrl(tcgdexCard.Image, "low");
+                                imageLarge ??= TCGdexService.BuildCardImageUrl(tcgdexCard.Image, "high");
+                            }
+                            rarity ??= tcgdexCard.Rarity;
+                            supertype ??= TCGdexService.NormalizeSupertype(tcgdexCard.Category);
+                            subtypes ??= TCGdexService.BuildSubtypes(tcgdexCard);
+                            types ??= tcgdexCard.Types is { Count: > 0 } ? string.Join(", ", tcgdexCard.Types) : null;
+                        }
+                    }
+
+                    db.CachedCards.Add(new CachedCard
+                    {
+                        CardId = c.Id, SetId = set.Id, Name = c.Name, Number = c.Number,
+                        ImageSmall = imageSmall, ImageLarge = imageLarge, Rarity = rarity,
+                        SortOrder = sort++, Supertype = supertype, Subtypes = subtypes, Types = types,
+                        Source = c.Source
+                    });
+                }
+
+                // Le total réel est le nombre de cartes que l'API a effectivement renvoyées, pas
+                // le champ Total du set (potentiellement obsolète — voir remarque plus haut).
+                var localSet = await db.CachedSets.FirstOrDefaultAsync(s => s.SetId == set.Id);
+                if (localSet is not null && localSet.Total < remoteCards.Count) localSet.Total = remoteCards.Count;
+
+                await db.SaveChangesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Cardex API discovery failed: {ex}");
+            db.ChangeTracker.Clear();
+        }
+    }
+
+    // Comble automatiquement, à chaque démarrage, les trous d'images/logos/symboles encore
+    // présents en base en interrogeant notre propre API Cardex (cardex-api.dev). N'écrase jamais
+    // une donnée locale déjà présente ; échoue silencieusement si l'API est injoignable.
+    private static async Task SyncFromCardexApiAsync(AppDbContext db, CardexApiService cardexApi)
+    {
+        try
+        {
+            var setsNeedingAssets = await db.CachedSets
+                .Where(s => s.LogoUrl == "" || s.SymbolUrl == "")
+                .ToListAsync();
+            if (setsNeedingAssets.Count > 0)
+            {
+                var remoteSets = await cardexApi.GetSetsAsync();
+                if (remoteSets.Count > 0)
+                {
+                    var remoteById = remoteSets.ToDictionary(s => s.Id, StringComparer.OrdinalIgnoreCase);
+                    var setsChanged = false;
+                    foreach (var set in setsNeedingAssets)
+                    {
+                        if (!remoteById.TryGetValue(set.SetId, out var remote)) continue;
+                        if (set.LogoUrl == "" && !string.IsNullOrEmpty(remote.LogoUrl)) { set.LogoUrl = remote.LogoUrl; setsChanged = true; }
+                        if (set.SymbolUrl == "" && !string.IsNullOrEmpty(remote.SymbolUrl)) { set.SymbolUrl = remote.SymbolUrl; setsChanged = true; }
+                    }
+                    if (setsChanged) await db.SaveChangesAsync();
+                }
+            }
+
+            var setIdsNeedingCards = await db.CachedCards
+                .Where(c => c.ImageSmall == "")
+                .Select(c => c.SetId)
+                .Distinct()
+                .ToListAsync();
+            foreach (var setId in setIdsNeedingCards)
+            {
+                var remoteCards = await cardexApi.GetSetCardsAsync(setId);
+                if (remoteCards.Count == 0) continue;
+
+                var remoteById = remoteCards.ToDictionary(c => c.Id);
+                var localCards = await db.CachedCards
+                    .Where(c => c.SetId == setId && c.ImageSmall == "")
+                    .ToListAsync();
+                var cardsChanged = false;
+                foreach (var card in localCards)
+                {
+                    if (!remoteById.TryGetValue(card.CardId, out var remote) || string.IsNullOrEmpty(remote.ImageSmall)) continue;
+                    card.ImageSmall = remote.ImageSmall;
+                    card.ImageLarge = remote.ImageLarge;
+                    cardsChanged = true;
+                }
+                if (cardsChanged) await db.SaveChangesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Cardex API sync failed: {ex}");
             db.ChangeTracker.Clear();
         }
     }
