@@ -19,6 +19,11 @@ public partial class SetViewModel : ObservableObject
 
     [ObservableProperty] private bool _isSelected;
     [ObservableProperty] private bool _isFavorite;
+    [ObservableProperty] private bool _isIgnored;
+
+    public bool IsVisibleInSidebar => !IsIgnored;
+
+    partial void OnIsIgnoredChanged(bool value) => OnPropertyChanged(nameof(IsVisibleInSidebar));
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private BitmapImage? _logoImage;
     [ObservableProperty] private BitmapImage? _symbolImage;

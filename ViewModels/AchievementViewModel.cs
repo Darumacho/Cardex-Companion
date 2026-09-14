@@ -42,6 +42,8 @@ public class AchievementViewModel
                     bmp.BeginInit();
                     bmp.StreamSource = info.Stream;
                     bmp.CacheOption  = BitmapCacheOption.OnLoad;
+                    bmp.DecodePixelWidth  = 32;
+                    bmp.DecodePixelHeight = 32;
                     bmp.EndInit();
                     bmp.Freeze();
                     IconImage = bmp;

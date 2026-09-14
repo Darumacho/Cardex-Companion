@@ -48,6 +48,10 @@ public partial class App : Application
             CREATE TABLE IF NOT EXISTS FavoriteSets (
                 SetId TEXT PRIMARY KEY NOT NULL)"); }
         catch { }
+        try { await db.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE IF NOT EXISTS IgnoredSets (
+                SetId TEXT PRIMARY KEY NOT NULL)"); }
+        catch { }
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN CmLow REAL"); } catch { }
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN TcgLow REAL"); } catch { }
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE CachedCards ADD COLUMN PricesUpdatedAt TEXT"); } catch { }
@@ -140,9 +144,19 @@ public partial class App : Application
         await SeedDbFromEmbeddedAsync(db);
         await SeedTcgdexFallbackAsync(db);
         await SeedCompletionCardsAsync(db);
-        var cardexApiService = new CardexApiService(LoadCardexApiKey());
-        await DiscoverNewCardexEntriesAsync(db, cardexApiService, tcgdexService);
-        await SyncFromCardexApiAsync(db, cardexApiService);
+
+        // L'appel live à l'API Cardex (découverte + comblement) est coûteux (~20 requêtes réseau
+        // pour les sets de secours) : on ne le refait qu'une fois par semaine plutôt qu'à chaque
+        // lancement, pour ne pas ralentir chaque démarrage alors que le catalogue ne change pas si souvent.
+        if (settings.LastCardexSyncAt is null || DateTime.UtcNow - settings.LastCardexSyncAt.Value > TimeSpan.FromDays(7))
+        {
+            var cardexApiService = new CardexApiService(LoadCardexApiKey());
+            await DiscoverNewCardexEntriesAsync(db, cardexApiService, tcgdexService);
+            await SyncFromCardexApiAsync(db, cardexApiService);
+            settings.LastCardexSyncAt = DateTime.UtcNow;
+            settings.Save();
+        }
+
         await BackfillSupertypesAsync(db);
         await MainVm.LoadSetsAsync();
         _ = MainVm.CheckForUpdateAsync();
@@ -513,10 +527,28 @@ public partial class App : Application
             var newSetIds = newSets.Select(s => s.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var setsToCheck = remoteSets.Where(s => newSetIds.Contains(s.Id) || s.Source == "tcgdex").ToList();
 
+            // Les requêtes réseau (une par set) sont indépendantes et peuvent être parallélisées
+            // (concurrence bornée, poli envers l'API) ; DbContext n'étant pas thread-safe, tout
+            // l'accès base de données reste dans la boucle séquentielle qui suit.
+            var cardsBySet = new Dictionary<string, List<CardexApiCard>>();
+            using (var semaphore = new SemaphoreSlim(6, 6))
+            {
+                var fetchTasks = setsToCheck.Select(async set =>
+                {
+                    await semaphore.WaitAsync();
+                    try
+                    {
+                        var cards = await cardexApi.GetSetCardsAsync(set.Id);
+                        lock (cardsBySet) cardsBySet[set.Id] = cards;
+                    }
+                    finally { semaphore.Release(); }
+                });
+                await Task.WhenAll(fetchTasks);
+            }
+
             foreach (var set in setsToCheck)
             {
-                var remoteCards = await cardexApi.GetSetCardsAsync(set.Id);
-                if (remoteCards.Count == 0) continue;
+                if (!cardsBySet.TryGetValue(set.Id, out var remoteCards) || remoteCards.Count == 0) continue;
 
                 var localCardIds = (await db.CachedCards.Where(c => c.SetId == set.Id)
                     .Select(c => c.CardId).ToListAsync()).ToHashSet();

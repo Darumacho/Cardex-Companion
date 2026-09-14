@@ -185,6 +185,7 @@
                     Command="{Binding DataContext.SelectSetCommand,
                               RelativeSource={RelativeSource AncestorType=Window}}"
                     CommandParameter="{Binding}"
+                    Visibility="{Binding IsVisibleInSidebar, Converter={StaticResource BoolToVis}}"
                     HorizontalAlignment="Stretch">
                 <Border BorderThickness="1" CornerRadius="3">
                     <Border.Style>
@@ -626,6 +627,16 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type vm:SeriesViewModel}">
                                 <StackPanel>
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasVisibleSets}" Value="False">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
                                     <!-- Label de section "All Sets" avec toggle -->
                                     <Border Padding="8,10,8,2">
                                         <Border.Style>

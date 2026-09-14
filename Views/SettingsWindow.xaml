@@ -732,6 +732,72 @@
             </Grid>
         </TabItem>
 
+        <!-- ===== ONGLET IGNORED SETS ===== -->
+        <TabItem Header="Ignored Sets" Style="{StaticResource TabItemStyle}">
+            <Grid Margin="24,20,24,16">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Foreground="#8888aa" FontSize="11" TextWrapping="Wrap"
+                           Margin="0,0,0,14">
+                    <Run Text="Ignored sets no longer appear in the sidebar. Check a whole block to ignore every set in it."/>
+                </TextBlock>
+
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Series}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:SeriesViewModel}">
+                                <StackPanel>
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsRealSeriesGroup}" Value="False">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+
+                                    <Expander IsExpanded="False" Margin="0,2" Style="{StaticResource SeriesExpanderStyle}">
+                                        <Expander.Header>
+                                            <StackPanel Orientation="Horizontal">
+                                                <CheckBox IsThreeState="True"
+                                                          IsChecked="{Binding AreAllIgnored, Mode=OneWay}"
+                                                          Command="{Binding DataContext.ToggleSeriesIgnoredCommand,
+                                                                    RelativeSource={RelativeSource AncestorType=Window}}"
+                                                          CommandParameter="{Binding}"
+                                                          VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBlock Text="{Binding SeriesName}"
+                                                           Foreground="{StaticResource BrushHighlight}"
+                                                           FontSize="11" FontWeight="Bold"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Expander.Header>
+                                        <ItemsControl ItemsSource="{Binding Sets}" Margin="24,4,0,4">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type vm:SetViewModel}">
+                                                    <CheckBox IsChecked="{Binding IsIgnored}"
+                                                              Command="{Binding DataContext.ToggleSetIgnoredCommand,
+                                                                        RelativeSource={RelativeSource AncestorType=Window}}"
+                                                              CommandParameter="{Binding}"
+                                                              Content="{Binding Name}"
+                                                              Foreground="#e0e0e0" FontSize="12"
+                                                              Cursor="Hand" Margin="0,3"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Expander>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </TabItem>
+
         <!-- ===== ONGLET RACCOURCIS ===== -->
         <TabItem Header="Shortcuts" Style="{StaticResource TabItemStyle}">
             <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="24,20,24,16">

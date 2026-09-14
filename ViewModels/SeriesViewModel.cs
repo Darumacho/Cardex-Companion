@@ -14,6 +14,21 @@ public partial class SeriesViewModel : ObservableObject
 
     public ObservableCollection<SetViewModel> Sets { get; } = [];
 
+    public bool IsRealSeriesGroup => !IsFavoriteGroup && !IsMyCollectionGroup && !IsAllSetsHeader;
+
+    public bool? AreAllIgnored => Sets.Count == 0 ? false
+        : Sets.All(s => s.IsIgnored) ? true
+        : Sets.Any(s => s.IsIgnored) ? null
+        : false;
+
+    public bool HasVisibleSets => IsAllSetsHeader || Sets.Any(s => !s.IsIgnored);
+
+    public void NotifyIgnoredChanged()
+    {
+        OnPropertyChanged(nameof(AreAllIgnored));
+        OnPropertyChanged(nameof(HasVisibleSets));
+    }
+
     public SeriesViewModel(string seriesName,
         bool isFavoriteGroup = false,
         bool isMyCollectionGroup = false,

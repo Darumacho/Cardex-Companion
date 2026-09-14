@@ -72,6 +72,8 @@ public partial class MainWindow : Window
                     bmp.BeginInit();
                     bmp.StreamSource = info.Stream;
                     bmp.CacheOption  = BitmapCacheOption.OnLoad;
+                    bmp.DecodePixelWidth  = 32;
+                    bmp.DecodePixelHeight = 32;
                     bmp.EndInit();
                     bmp.Freeze();
                     ToastIcon.Source     = bmp;

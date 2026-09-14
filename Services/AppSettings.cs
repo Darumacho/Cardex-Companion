@@ -15,6 +15,7 @@ public class AppSettings
     public bool HomeDuplicatesExpanded   { get; set; } = true;
     public bool HomeWantedExpanded       { get; set; } = true;
     public bool ApiAnnouncementDismissed { get; set; } = false;
+    public DateTime? LastCardexSyncAt { get; set; }
 
     private static readonly JsonSerializerOptions _json = new() { WriteIndented = true };
 

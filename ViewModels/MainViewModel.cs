@@ -580,6 +580,8 @@ public partial class MainViewModel : ObservableObject
 
             var favoriteIds = (await _db.FavoriteSets.Select(f => f.SetId).ToListAsync()).ToHashSet();
             ApplyFavorites(favoriteIds);
+            var ignoredIds = (await _db.IgnoredSets.Select(i => i.SetId).ToListAsync()).ToHashSet();
+            ApplyIgnored(ignoredIds);
             await ApplyOwnedCountsAsync();
             RefreshSpecialGroups();
             _ = LoadSymbolsAsync(Series.SelectMany(s => s.Sets).ToList());
@@ -674,6 +676,55 @@ public partial class MainViewModel : ObservableObject
         foreach (var series in Series.Where(s => !s.IsFavoriteGroup))
             foreach (var set in series.Sets)
                 set.IsFavorite = favoriteIds.Contains(set.SetId);
+    }
+
+    private void ApplyIgnored(HashSet<string> ignoredIds)
+    {
+        foreach (var series in Series)
+            foreach (var set in series.Sets)
+                set.IsIgnored = ignoredIds.Contains(set.SetId);
+    }
+
+    [RelayCommand]
+    private async Task ToggleSetIgnoredAsync(SetViewModel set)
+    {
+        var entry = await _db.IgnoredSets.FindAsync(set.SetId);
+        if (set.IsIgnored)
+        {
+            if (entry is null)
+                _db.IgnoredSets.Add(new IgnoredSet { SetId = set.SetId });
+        }
+        else if (entry is not null)
+        {
+            _db.IgnoredSets.Remove(entry);
+        }
+        await _db.SaveChangesAsync();
+        RefreshIgnoredVisibility();
+    }
+
+    [RelayCommand]
+    private async Task ToggleSeriesIgnoredAsync(SeriesViewModel series)
+    {
+        var shouldIgnore = series.AreAllIgnored != true;
+        foreach (var set in series.Sets)
+            set.IsIgnored = shouldIgnore;
+
+        var setIds = series.Sets.Select(s => s.SetId).ToList();
+        var existing = await _db.IgnoredSets.Where(i => setIds.Contains(i.SetId)).ToListAsync();
+        _db.IgnoredSets.RemoveRange(existing);
+        if (shouldIgnore)
+            _db.IgnoredSets.AddRange(setIds.Select(id => new IgnoredSet { SetId = id }));
+        await _db.SaveChangesAsync();
+        RefreshIgnoredVisibility();
+    }
+
+    // Un même SetViewModel peut apparaître dans plusieurs groupes (sa série réelle, Favorites,
+    // My Collection — cf. RefreshSpecialGroups), donc on invalide tous les groupes plutôt que de
+    // chercher le ou les groupes propriétaires exacts.
+    private void RefreshIgnoredVisibility()
+    {
+        foreach (var s in Series)
+            s.NotifyIgnoredChanged();
     }
 
     private void RefreshSpecialGroups()
@@ -1258,6 +1309,47 @@ public partial class MainViewModel : ObservableObject
             if (cynthiaNames.Any(n => card.Name.Contains(n, StringComparison.OrdinalIgnoreCase)))
                 if (await OwnsAtLeastOneOfEachAsync(cynthiaNames))
                     await AchievementService.CheckAsync("cynthia_wannabe", _db);
+
+            string[] blueNames    = ["Pidgeot", "Arcanine", "Rhydon", "Exeggutor", "Alakazam", "Blastoise", "Charizard", "Venusaur"];
+            string[] redNames     = ["Blastoise", "Charizard", "Venusaur", "Snorlax", "Pikachu", "Espeon"];
+            string[] stevenNames  = ["Skarmory", "Aggron", "Cradily", "Armaldo", "Claydol", "Metagross"];
+            string[] nNames       = ["Zekrom", "Reshiram", "Zoroark", "Archeops", "Klinklang", "Carracosta", "Vanilluxe"];
+            string[] dianthaNames = ["Hawlucha", "Tyrantrum", "Abomasnow", "Gourgeist", "Goodra", "Gardevoir"];
+            string[] kukuiNames   = ["Lycanroc", "Ninetales", "Braviary", "Magnezone", "Snorlax", "Incineroar", "Primarina", "Decidueye"];
+            string[] leonNames    = ["Aegislash", "Haxorus", "Dragapult", "Charizard", "Inteleon", "Mr. Rime", "Cinderace", "Seismitoad", "Rillaboom", "Rhyperior"];
+            string[] geetaNames   = ["Espathra", "Avalugg", "Gogoat", "Kingambit", "Veluza", "Glimmora"];
+
+            if (blueNames.Any(n => card.Name.Contains(n, StringComparison.OrdinalIgnoreCase)))
+                if (await OwnsAtLeastOneOfEachAsync(blueNames))
+                    await AchievementService.CheckAsync("blue_team", _db);
+
+            if (redNames.Any(n => card.Name.Contains(n, StringComparison.OrdinalIgnoreCase)))
+                if (await OwnsAtLeastOneOfEachAsync(redNames))
+                    await AchievementService.CheckAsync("red_team", _db);
+
+            if (stevenNames.Any(n => card.Name.Contains(n, StringComparison.OrdinalIgnoreCase)))
+                if (await OwnsAtLeastOneOfEachAsync(stevenNames))
+                    await AchievementService.CheckAsync("steven_team", _db);
+
+            if (nNames.Any(n => card.Name.Contains(n, StringComparison.OrdinalIgnoreCase)))
+                if (await OwnsAtLeastOneOfEachAsync(nNames))
+                    await AchievementService.CheckAsync("n_team", _db);
+
+            if (dianthaNames.Any(n => card.Name.Contains(n, StringComparison.OrdinalIgnoreCase)))
+                if (await OwnsAtLeastOneOfEachAsync(dianthaNames))
+                    await AchievementService.CheckAsync("diantha_team", _db);
+
+            if (kukuiNames.Any(n => card.Name.Contains(n, StringComparison.OrdinalIgnoreCase)))
+                if (await OwnsAtLeastOneOfEachAsync(kukuiNames))
+                    await AchievementService.CheckAsync("kukui_team", _db);
+
+            if (leonNames.Any(n => card.Name.Contains(n, StringComparison.OrdinalIgnoreCase)))
+                if (await OwnsAtLeastOneOfEachAsync(leonNames))
+                    await AchievementService.CheckAsync("leon_team", _db);
+
+            if (geetaNames.Any(n => card.Name.Contains(n, StringComparison.OrdinalIgnoreCase)))
+                if (await OwnsAtLeastOneOfEachAsync(geetaNames))
+                    await AchievementService.CheckAsync("geeta_team", _db);
         }
         if (set.IsComplete)
         {
@@ -1276,6 +1368,16 @@ public partial class MainViewModel : ObservableObject
                 await AchievementService.CheckAsync("too_much_water", _db);
             if (set.Series is "Diamond & Pearl" or "Platinum" or "HeartGold & SoulSilver")
                 await AchievementService.CheckAsync("gen4_win", _db);
+            if (set.Series == "Black & White")
+                await AchievementService.CheckAsync("unova_enthusiast", _db);
+            if (set.Series == "XY")
+                await AchievementService.CheckAsync("all_3d_now", _db);
+            if (set.Series == "Sun & Moon")
+                await AchievementService.CheckAsync("tropical_trip", _db);
+            if (set.Series == "Sword & Shield")
+                await AchievementService.CheckAsync("collector_bruv", _db);
+            if (set.Series == "Scarlet & Violet")
+                await AchievementService.CheckAsync("sandwich_bikes", _db);
             if (set.Total > 250)
                 await AchievementService.CheckAsync("big_set", _db);
         }

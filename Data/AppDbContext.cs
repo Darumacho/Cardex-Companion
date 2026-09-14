@@ -9,6 +9,7 @@ public class AppDbContext : DbContext
     public DbSet<OwnedCard> OwnedCards { get; set; }
     public DbSet<WantedCard> WantedCards { get; set; }
     public DbSet<FavoriteSet> FavoriteSets { get; set; }
+    public DbSet<IgnoredSet> IgnoredSets { get; set; }
     public DbSet<CachedSet> CachedSets { get; set; }
     public DbSet<CachedCard> CachedCards { get; set; }
     public DbSet<ExcludedCard> ExcludedCards { get; set; }
