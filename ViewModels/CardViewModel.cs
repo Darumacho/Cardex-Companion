@@ -59,8 +59,8 @@ public partial class CardViewModel : ObservableObject
 
     public string CmLowText   => CmLow.HasValue  ? $"€{CmLow.Value:F2}"  : "—";
     public string TcgLowText  => TcgLow.HasValue ? $"${TcgLow.Value:F2}" : "—";
-    public string CmTooltip   => $"Cardmarket : {CmLowText}";
-    public string TcgTooltip  => $"TCGPlayer : {TcgLowText}";
+    public string CmTooltip   => $"Cardmarket : {CmLowText}\nClick to visit the card's page";
+    public string TcgTooltip  => $"TCGPlayer : {TcgLowText}\nClick to visit the card's page";
     public bool HasMultiple   => _quantity > 1;
 
     private int _quantity;
