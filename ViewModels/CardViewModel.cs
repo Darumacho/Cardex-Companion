@@ -140,18 +140,28 @@ public partial class CardViewModel : ObservableObject
     [RelayCommand]
     private void Decrement() => Quantity--;
 
+    // Les cartes venant de TCGdex/Cardex API n'ont pas d'URL directe (elles viennent du service de
+    // redirection de pokemontcg.io, qui ne connaît pas ces cartes) : on retombe sur une recherche
+    // par nom plutôt que de ne rien faire au clic.
+    // Nom + identifiant du set + numéro (ex: "Lunatone MEP 4") pour cibler la bonne impression.
+    private string SearchQuery => Uri.EscapeDataString($"{Name} {SetId.ToUpperInvariant()} {Number}");
+
     [RelayCommand]
     private void OpenCmLink()
     {
-        if (CmUrl is null) return;
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(CmUrl) { UseShellExecute = true });
+        var url = !string.IsNullOrEmpty(CmUrl)
+            ? CmUrl
+            : $"https://www.cardmarket.com/en/Pokemon/Products/Search?searchString={SearchQuery}";
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
     }
 
     [RelayCommand]
     private void OpenTcgLink()
     {
-        if (TcgUrl is null) return;
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(TcgUrl) { UseShellExecute = true });
+        var url = !string.IsNullOrEmpty(TcgUrl)
+            ? TcgUrl
+            : $"https://www.tcgplayer.com/search/pokemon/product?productLineName=pokemon&view=grid&q={SearchQuery}";
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
     }
 
     public async Task LoadImageAsync()
