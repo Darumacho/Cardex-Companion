@@ -56,6 +56,7 @@ public partial class CardViewModel : ObservableObject
     public DateTime? PricesUpdatedAt { get; set; }
     public string? CmUrl { get; set; }
     public string? TcgUrl { get; set; }
+    public string? ShortCode { get; set; }
 
     public string CmLowText   => CmLow.HasValue  ? $"€{CmLow.Value:F2}"  : "—";
     public string TcgLowText  => TcgLow.HasValue ? $"${TcgLow.Value:F2}" : "—";
@@ -144,14 +145,22 @@ public partial class CardViewModel : ObservableObject
     // redirection de pokemontcg.io, qui ne connaît pas ces cartes) : on retombe sur une recherche
     // par nom plutôt que de ne rien faire au clic.
     // Nom + identifiant du set + numéro (ex: "Lunatone MEP 4") pour cibler la bonne impression.
-    private string SearchQuery => Uri.EscapeDataString($"{Name} {SetId.ToUpperInvariant()} {Number}");
+    private string CmSearchQuery => Uri.EscapeDataString($"{Name} {SetId.ToUpperInvariant()} {Number}");
+
+    // ShortCode + nom + numéro sur 3 chiffres (ex: "SVP Lunatone 004") — pas de ShortCode pour
+    // certains sets de secours (TCGdex), on retombe alors sur le SetId en majuscules.
+    private static string PadCardNumber(string number) =>
+        int.TryParse(number, out var n) ? n.ToString("D3") : number;
+
+    private string TcgSearchQuery => Uri.EscapeDataString(
+        $"{ShortCode ?? SetId.ToUpperInvariant()} {Name} {PadCardNumber(Number)}");
 
     [RelayCommand]
     private void OpenCmLink()
     {
         var url = !string.IsNullOrEmpty(CmUrl)
             ? CmUrl
-            : $"https://www.cardmarket.com/en/Pokemon/Products/Search?searchString={SearchQuery}";
+            : $"https://www.cardmarket.com/en/Pokemon/Products/Search?searchString={CmSearchQuery}";
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
     }
 
@@ -160,7 +169,7 @@ public partial class CardViewModel : ObservableObject
     {
         var url = !string.IsNullOrEmpty(TcgUrl)
             ? TcgUrl
-            : $"https://www.tcgplayer.com/search/pokemon/product?productLineName=pokemon&view=grid&q={SearchQuery}";
+            : $"https://www.tcgplayer.com/search/pokemon/product?productLineName=pokemon&view=grid&q={TcgSearchQuery}";
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
     }
 

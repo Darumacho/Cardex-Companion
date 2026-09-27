@@ -566,7 +566,7 @@ public partial class MainViewModel : ObservableObject
             }
 
             BuildSeries(allCached.Select(s =>
-                new SetData(s.SetId, s.Name, s.Total, s.Series, s.ReleaseDate, s.LogoUrl, s.SymbolUrl, s.Source)));
+                new SetData(s.SetId, s.Name, s.Total, s.Series, s.ReleaseDate, s.LogoUrl, s.SymbolUrl, s.Source, s.ShortCode)));
 
             TemplateSets = allCached
                 .Select(s => new TemplateSetEntry(s.ShortCode ?? "", s.PtcgoCode ?? s.SetId, s.Name, s.Series))
@@ -649,7 +649,7 @@ public partial class MainViewModel : ObservableObject
         {
             var seriesVm = new SeriesViewModel(group.Key);
             foreach (var s in group.OrderBy(s => s.ReleaseDate))
-                seriesVm.Sets.Add(new SetViewModel(s.Id, s.Name, s.Total, s.Series, s.ReleaseDate, s.LogoUrl, s.SymbolUrl, s.Source));
+                seriesVm.Sets.Add(new SetViewModel(s.Id, s.Name, s.Total, s.Series, s.ReleaseDate, s.LogoUrl, s.SymbolUrl, s.Source, s.ShortCode));
             Series.Add(seriesVm);
         }
     }
@@ -994,6 +994,7 @@ public partial class MainViewModel : ObservableObject
                 PricesUpdatedAt = card.PricesUpdatedAt,
                 CmUrl = card.CmUrl,
                 TcgUrl = card.TcgUrl,
+                ShortCode = set.ShortCode,
                 DeckQuantity = deckMap?.GetValueOrDefault(card.Id, 0) ?? 0
             };
 
@@ -2017,7 +2018,7 @@ public partial class MainViewModel : ObservableObject
         catch { }
     }
 
-    private record SetData(string Id, string Name, int Total, string Series, string ReleaseDate, string LogoUrl, string SymbolUrl, string Source = "pokemontcgio");
+    private record SetData(string Id, string Name, int Total, string Series, string ReleaseDate, string LogoUrl, string SymbolUrl, string Source = "pokemontcgio", string? ShortCode = null);
     private record CardData(string Id, string Name, string Number, string SetId, string ImageSmall, string? ImageLarge, string? Rarity,
         decimal? CmLow = null, decimal? TcgLow = null, DateTime? PricesUpdatedAt = null,
         string? CmUrl = null, string? TcgUrl = null, string? Supertype = null, string? Subtypes = null);
