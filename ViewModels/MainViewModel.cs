@@ -1825,7 +1825,7 @@ public partial class MainViewModel : ObservableObject
             cardIds = wanted.Select(w => w.CardId).ToList();
             var ownedQty = await _db.OwnedCards.Where(o => cardIds.Contains(o.CardId))
                 .ToDictionaryAsync(o => o.CardId, o => o.Quantity);
-            qtyMap = cardIds.ToDictionary(id => id, id => ownedQty.GetValueOrDefault(id, 0));
+            qtyMap = cardIds.ToDictionary(id => id, id => ownedQty.GetValueOrDefault(id, 1));
         }
         else if (mode == Views.ExportMode.Duplicates)
         {
@@ -1843,7 +1843,7 @@ public partial class MainViewModel : ObservableObject
                 .ToListAsync();
             if (missing.Count == 0) return 0;
             cardIds = missing.Select(c => c.CardId).ToList();
-            qtyMap = cardIds.ToDictionary(id => id, _ => 0);
+            qtyMap = cardIds.ToDictionary(id => id, _ => 1);
         }
         else
         {
