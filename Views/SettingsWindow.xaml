@@ -290,12 +290,19 @@
                     </TextBox.Resources>
                 </TextBox>
 
-                <Button Command="{Binding SyncNowCommand}"
-                        Content="🔄  Sync now"
-                        HorizontalAlignment="Left"
-                        Background="#16213e" Foreground="#e0e0e0"
-                        BorderBrush="#0f3460" Padding="14,7"
-                        FontSize="12" Cursor="Hand" Margin="0,0,0,10"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                    <Button Command="{Binding SyncNowCommand}"
+                            Content="🔄  Sync now"
+                            Background="#16213e" Foreground="#e0e0e0"
+                            BorderBrush="#0f3460" Padding="14,7"
+                            FontSize="12" Cursor="Hand" Margin="0,0,8,0"/>
+                    <Button Command="{Binding RestoreLastSyncBackupCommand}"
+                            Content="♻  Restore last backup"
+                            ToolTip="Undo the last sync import using the local backup taken right before it"
+                            Background="#16213e" Foreground="#e0e0e0"
+                            BorderBrush="#0f3460" Padding="14,7"
+                            FontSize="12" Cursor="Hand"/>
+                </StackPanel>
 
                 <TextBlock Text="{Binding LastSyncStatusText}" Foreground="#8888aa" FontSize="11"/>
 

@@ -159,7 +159,7 @@ public partial class App : Application
 
         await BackfillSupertypesAsync(db);
         await MainVm.LoadSetsAsync();
-        await MainVm.AutoPullSyncIfNeededAsync();
+        await MainVm.CheckPendingSyncAsync();
         _ = MainVm.CheckForUpdateAsync();
     }
 

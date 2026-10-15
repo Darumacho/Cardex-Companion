@@ -79,39 +79,21 @@ public class CollectionSyncService
             : DateTime.UtcNow;
     }
 
-    // Garde-fou (incident 2026-10-15) : un rapatriement automatique a effacé la collection d'un
-    // testeur parce que l'autre appareil avait poussé un snapshot entièrement vide (synchronisé
-    // une fois avant d'avoir quoi que ce soit dans sa propre collection). On ne doit donc jamais
-    // remplacer silencieusement une collection locale non vide par un snapshot vide — seul un push
-    // manuel ("Sync now", déjà protégé par l'avertissement d'écrasement) peut écraser dans ce cas.
-    public static bool IsEffectivelyEmpty(string collectionJson)
+    // Suite à l'incident du 2026-10-15 (un rapatriement automatique silencieux a effacé la
+    // collection d'un testeur avec un snapshot vide venu de l'autre appareil), le rapatriement
+    // n'est plus jamais appliqué sans confirmation explicite — voir MainViewModel.CheckPendingSyncAsync.
+    // Ce compteur sert juste à informer l'utilisateur avant qu'il décide.
+    public static int CountOwnedCards(string collectionJson)
     {
         try
         {
             var snapshot = JsonSerializer.Deserialize<CollectionSnapshot>(collectionJson, _json);
-            return snapshot is null
-                || (snapshot.OwnedCards is null or { Count: 0 })
-                && (snapshot.WantedCards is null or { Count: 0 })
-                && (snapshot.ExcludedCards is null or { Count: 0 })
-                && (snapshot.FavoriteSets is null or { Count: 0 })
-                && (snapshot.Tags is null or { Count: 0 })
-                && (snapshot.CardTags is null or { Count: 0 })
-                && (snapshot.UnlockedAchievements is null or { Count: 0 });
+            return snapshot?.OwnedCards?.Count ?? 0;
         }
         catch
         {
-            return true;
+            return 0;
         }
-    }
-
-    public async Task<bool> LocalHasAnyDataAsync()
-    {
-        return await _db.OwnedCards.AnyAsync()
-            || await _db.WantedCards.AnyAsync()
-            || await _db.ExcludedCards.AnyAsync()
-            || await _db.FavoriteSets.AnyAsync()
-            || await _db.Tags.AnyAsync()
-            || await _db.UnlockedAchievements.AnyAsync();
     }
 
     public async Task<string> BuildCollectionJsonAsync()
@@ -146,6 +128,14 @@ public class CollectionSyncService
         await _db.CardTags.ExecuteDeleteAsync();
         await _db.Tags.ExecuteDeleteAsync();
         await _db.UnlockedAchievements.ExecuteDeleteAsync();
+
+        // ExecuteDeleteAsync contourne le change tracker (DELETE direct en SQL) — toute entité
+        // déjà suivie sur ces mêmes clés (ex: lue juste avant par BuildCollectionJsonAsync pour le
+        // backup pré-sync) reste "trackée" alors que la ligne n'existe plus en base. Le AddRange
+        // qui suit créerait un conflit de clé sur ces entités fantômes (exception avalée par le
+        // try/catch "best-effort" de l'appelant — l'apply échouait silencieusement à mi-chemin,
+        // table vidée mais rien réinséré, d'où le retour à 0 constaté en revisitant un set).
+        _db.ChangeTracker.Clear();
 
         if (snapshot.OwnedCards?.Count > 0)
             _db.OwnedCards.AddRange(snapshot.OwnedCards.Select(o =>

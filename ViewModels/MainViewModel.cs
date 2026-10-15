@@ -1694,12 +1694,13 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    // Rapatriement automatique au démarrage (App.xaml.cs) : si la dernière synchro connue côté
-    // serveur vient de l'AUTRE appareil et est plus récente que notre dernier sync connu, on
-    // l'applique directement sans demander — c'est précisément le comportement demandé ("si on
-    // détecte que la dernière synchro vient de l'autre, on récupère automatiquement"). Best-effort :
-    // une erreur réseau ne doit jamais bloquer le démarrage.
-    public async Task AutoPullSyncIfNeededAsync()
+    // Détection au démarrage (App.xaml.cs) d'une synchro en attente côté serveur venant de
+    // l'AUTRE appareil. Depuis l'incident du 2026-10-15 (un rapatriement automatique silencieux a
+    // effacé la collection d'un testeur avec un snapshot vide), on ne l'applique plus jamais sans
+    // confirmation explicite — l'utilisateur voit l'origine, l'heure et le nombre de cartes avant
+    // de décider, et un backup local est pris avant d'écraser quoi que ce soit. Best-effort : une
+    // erreur réseau ne doit jamais bloquer le démarrage.
+    public async Task CheckPendingSyncAsync()
     {
         var apiKey = _settings.CollectionSyncApiKey?.Trim();
         if (string.IsNullOrWhiteSpace(apiKey)) return;
@@ -1713,8 +1714,18 @@ public partial class MainViewModel : ObservableObject
             var remoteUpdatedAt = DateTime.Parse(remote.UpdatedAt, null, System.Globalization.DateTimeStyles.RoundtripKind);
             if (_settings.LastCollectionSyncAt is { } lastKnown && remoteUpdatedAt <= lastKnown) return;
 
-            if (CollectionSyncService.IsEffectivelyEmpty(remote.CollectionJson) && await syncService.LocalHasAnyDataAsync())
-                return; // ne jamais écraser silencieusement une collection locale par du vide
+            var ownedCount = CollectionSyncService.CountOwnedCards(remote.CollectionJson);
+
+            var choice = MessageBox.Show(
+                $"A sync from {remote.Origin} is available, from {remoteUpdatedAt.ToLocalTime():dd/MM/yyyy HH:mm} " +
+                $"({ownedCount} owned card(s)).\n\n" +
+                "Import it now? Your current local collection will be backed up first, just in case.",
+                "Sync available",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (choice != MessageBoxResult.Yes) return;
+
+            var backupPath = await BackupLocalCollectionBeforeSyncAsync(syncService);
 
             await syncService.ApplyCollectionJsonAsync(remote.CollectionJson);
             _settings.LastCollectionSyncAt = remoteUpdatedAt;
@@ -1723,9 +1734,55 @@ public partial class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(LastSyncStatusText));
 
             await ReloadAfterSyncApplyAsync();
-            StatusText = $"Collection auto-synced from {remote.Origin} ({remoteUpdatedAt.ToLocalTime():dd/MM/yyyy HH:mm}).";
+            StatusText = $"Collection synced from {remote.Origin} — local backup saved to {backupPath}.";
         }
         catch { /* best-effort, ne doit jamais bloquer le démarrage */ }
+    }
+
+    private static string SyncBackupsFolder => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Cardex", "SyncBackups");
+
+    private static async Task<string> BackupLocalCollectionBeforeSyncAsync(CollectionSyncService syncService)
+    {
+        var folder = SyncBackupsFolder;
+        Directory.CreateDirectory(folder);
+        var path = Path.Combine(folder, $"pre_sync_{DateTime.Now:yyyyMMdd_HHmmss}.json");
+        var json = await syncService.BuildCollectionJsonAsync();
+        await File.WriteAllTextAsync(path, json);
+        return path;
+    }
+
+    // Filet de sécurité demandé après l'incident du 2026-10-15 : permet d'annuler un import de
+    // sync malvenu en restaurant le backup local pris juste avant (voir
+    // BackupLocalCollectionBeforeSyncAsync, appelé par CheckPendingSyncAsync). N'a pas besoin de
+    // clé API ni de réseau — lit uniquement un fichier local déjà présent.
+    [RelayCommand]
+    private async Task RestoreLastSyncBackupAsync()
+    {
+        var latest = Directory.Exists(SyncBackupsFolder)
+            ? new DirectoryInfo(SyncBackupsFolder).GetFiles("pre_sync_*.json").OrderByDescending(f => f.LastWriteTime).FirstOrDefault()
+            : null;
+        if (latest is null)
+        {
+            MessageBox.Show("No sync backup found.", "Restore backup", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var json = await File.ReadAllTextAsync(latest.FullName);
+        var ownedCount = CollectionSyncService.CountOwnedCards(json);
+
+        var choice = MessageBox.Show(
+            $"Restore the backup from {latest.LastWriteTime:dd/MM/yyyy HH:mm} ({ownedCount} owned card(s))?\n\n" +
+            "This will replace your current collection, wants, tags and achievements.",
+            "Restore backup",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (choice != MessageBoxResult.Yes) return;
+
+        var syncService = new CollectionSyncService(_db, string.Empty);
+        await syncService.ApplyCollectionJsonAsync(json);
+        await ReloadAfterSyncApplyAsync();
+        StatusText = $"Collection restored from backup ({latest.LastWriteTime:dd/MM/yyyy HH:mm}).";
     }
 
     private async Task ReloadAfterSyncApplyAsync()
