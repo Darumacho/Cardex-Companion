@@ -191,6 +191,10 @@ public partial class MainViewModel : ObservableObject
     private void OpenApiWebsite()
         => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://cardex-api.dev/") { UseShellExecute = true });
 
+    [RelayCommand]
+    private void OpenMobileAppReleases()
+        => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/Darumacho/CardexMobile/releases") { UseShellExecute = true });
+
     [RelayCommand] private void SelectNewTagColor(string color) => PendingTagColor = color;
 
     [RelayCommand]

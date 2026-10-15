@@ -304,7 +304,15 @@
                             FontSize="12" Cursor="Hand"/>
                 </StackPanel>
 
-                <TextBlock Text="{Binding LastSyncStatusText}" Foreground="#8888aa" FontSize="11"/>
+                <TextBlock Text="{Binding LastSyncStatusText}" Foreground="#8888aa" FontSize="11" Margin="0,0,0,14"/>
+
+                <TextBlock FontSize="11" TextWrapping="Wrap">
+                    <Run Text="Collection on your phone too ? Grab the companion app: "
+                         Foreground="#8888aa"/>
+                    <Hyperlink Command="{Binding OpenMobileAppReleasesCommand}" Foreground="#ffd700">
+                        <Run Text="CardexMobile releases ↗"/>
+                    </Hyperlink>
+                </TextBlock>
 
             </StackPanel>
         </TabItem>

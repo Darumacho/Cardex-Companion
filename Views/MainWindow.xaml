@@ -731,7 +731,7 @@
                     </Style>
                 </ScrollViewer.Style>
                 <StackPanel>
-                <!-- Bandeau annonce API Cardex -->
+                <!-- Bandeau annonces (API Cardex + appli mobile) -->
                 <Border Background="{StaticResource BrushAccent}" Padding="12,9">
                     <Border.Style>
                         <Style TargetType="Border">
@@ -749,11 +749,19 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="Check out the new Cardex API ! Devs, get an API key now to get access to a free enriched catalog !"
+                            <TextBlock Text="Check out the Cardex API !"
                                        Foreground="{StaticResource BrushText}" FontSize="12"
                                        VerticalAlignment="Center" TextWrapping="Wrap"/>
                             <Button Content="cardex-api.dev ↗"
                                     Command="{Binding OpenApiWebsiteCommand}"
+                                    Margin="10,0,0,0" Padding="8,3" FontSize="11.5" Cursor="Hand"
+                                    Background="#111122" Foreground="{StaticResource BrushText}"
+                                    BorderThickness="0"/>
+                            <TextBlock Text="Download the mobile app !"
+                                       Foreground="{StaticResource BrushText}" FontSize="12"
+                                       VerticalAlignment="Center" TextWrapping="Wrap" Margin="24,0,0,0"/>
+                            <Button Content="Get the APK ↗"
+                                    Command="{Binding OpenMobileAppReleasesCommand}"
                                     Margin="10,0,0,0" Padding="8,3" FontSize="11.5" Cursor="Hand"
                                     Background="#111122" Foreground="{StaticResource BrushText}"
                                     BorderThickness="0"/>
