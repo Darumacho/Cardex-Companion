@@ -1713,6 +1713,9 @@ public partial class MainViewModel : ObservableObject
             var remoteUpdatedAt = DateTime.Parse(remote.UpdatedAt, null, System.Globalization.DateTimeStyles.RoundtripKind);
             if (_settings.LastCollectionSyncAt is { } lastKnown && remoteUpdatedAt <= lastKnown) return;
 
+            if (CollectionSyncService.IsEffectivelyEmpty(remote.CollectionJson) && await syncService.LocalHasAnyDataAsync())
+                return; // ne jamais écraser silencieusement une collection locale par du vide
+
             await syncService.ApplyCollectionJsonAsync(remote.CollectionJson);
             _settings.LastCollectionSyncAt = remoteUpdatedAt;
             _settings.LastCollectionSyncOrigin = remote.Origin;

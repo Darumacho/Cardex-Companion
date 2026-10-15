@@ -79,6 +79,41 @@ public class CollectionSyncService
             : DateTime.UtcNow;
     }
 
+    // Garde-fou (incident 2026-10-15) : un rapatriement automatique a effacé la collection d'un
+    // testeur parce que l'autre appareil avait poussé un snapshot entièrement vide (synchronisé
+    // une fois avant d'avoir quoi que ce soit dans sa propre collection). On ne doit donc jamais
+    // remplacer silencieusement une collection locale non vide par un snapshot vide — seul un push
+    // manuel ("Sync now", déjà protégé par l'avertissement d'écrasement) peut écraser dans ce cas.
+    public static bool IsEffectivelyEmpty(string collectionJson)
+    {
+        try
+        {
+            var snapshot = JsonSerializer.Deserialize<CollectionSnapshot>(collectionJson, _json);
+            return snapshot is null
+                || (snapshot.OwnedCards is null or { Count: 0 })
+                && (snapshot.WantedCards is null or { Count: 0 })
+                && (snapshot.ExcludedCards is null or { Count: 0 })
+                && (snapshot.FavoriteSets is null or { Count: 0 })
+                && (snapshot.Tags is null or { Count: 0 })
+                && (snapshot.CardTags is null or { Count: 0 })
+                && (snapshot.UnlockedAchievements is null or { Count: 0 });
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    public async Task<bool> LocalHasAnyDataAsync()
+    {
+        return await _db.OwnedCards.AnyAsync()
+            || await _db.WantedCards.AnyAsync()
+            || await _db.ExcludedCards.AnyAsync()
+            || await _db.FavoriteSets.AnyAsync()
+            || await _db.Tags.AnyAsync()
+            || await _db.UnlockedAchievements.AnyAsync();
+    }
+
     public async Task<string> BuildCollectionJsonAsync()
     {
         var snapshot = new CollectionSnapshot(
