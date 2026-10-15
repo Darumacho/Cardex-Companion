@@ -1672,6 +1672,13 @@
                            VerticalAlignment="Center"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button VerticalAlignment="Center"
+                            Command="{Binding SyncNowCommand}"
+                            ToolTip="Sync collection with the Cardex mobile app (key in Settings → Sync)"
+                            FontSize="11" Padding="6,2" Margin="0,0,6,0"
+                            Style="{StaticResource SetButtonStyle}">
+                        🔄 Sync collection
+                    </Button>
+                    <Button VerticalAlignment="Center"
                             Command="{Binding BackupCollectionCommand}"
                             ToolTip="Backup collection to .cardex file  (Ctrl+B)"
                             FontSize="11" Padding="6,2" Margin="0,0,6,0"

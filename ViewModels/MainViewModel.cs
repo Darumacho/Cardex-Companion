@@ -85,6 +85,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _isApiAnnouncementVisible      = true;
     [ObservableProperty] private string _newTagName    = "";
     [ObservableProperty] private string _pendingTagColor = "#3a7fc1";
+    [ObservableProperty] private bool _isSyncing;
 
     public System.Windows.Media.SolidColorBrush PendingTagBrush =>
         new((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(PendingTagColor));
@@ -93,6 +94,24 @@ public partial class MainViewModel : ObservableObject
 
     public string CollectionBorderColor => _settings.CollectionBorderColor;
     public string AchievementSound     => _settings.AchievementSound;
+
+    public string CollectionSyncApiKey
+    {
+        get => _settings.CollectionSyncApiKey ?? "";
+        set
+        {
+            // Trim défensif : une clé copiée-collée depuis l'email de vérification embarque
+            // facilement un espace ou un retour à la ligne, ce qui casse la comparaison exacte
+            // côté serveur (`k.KeyValue == keyValue`) et se traduit par un 401 trompeur.
+            _settings.CollectionSyncApiKey = value.Trim();
+            _settings.Save();
+            OnPropertyChanged();
+        }
+    }
+
+    public string LastSyncStatusText => _settings.LastCollectionSyncAt is { } at
+        ? $"Last synced {at.ToLocalTime():dd/MM/yyyy HH:mm} (from {_settings.LastCollectionSyncOrigin})"
+        : "Never synced yet";
 
     [RelayCommand]
     private async Task UnlockKonamiCodeAsync()
@@ -1618,6 +1637,109 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusText = $"Restore failed — {ex.Message}";
+        }
+    }
+
+    // Synchronisation manuelle (bouton Settings) : pousse l'état local vers l'API Cardex, taggé
+    // "desktop". Si le serveur montre que la dernière synchro connue vient du mobile et est plus
+    // récente que notre dernier sync connu, on prévient avant d'écraser (décision utilisateur :
+    // avertir, ne pas bloquer) — contrairement à AutoPullSyncIfNeededAsync (lancée au démarrage)
+    // qui rapatrie automatiquement sans demander.
+    [RelayCommand]
+    private async Task SyncNowAsync()
+    {
+        var apiKey = _settings.CollectionSyncApiKey?.Trim();
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            MessageBox.Show("Enter your Cardex API key first (get one at cardex-api.dev).",
+                "Sync", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        IsSyncing = true;
+        try
+        {
+            var syncService = new CollectionSyncService(_db, apiKey);
+            var remote = await syncService.FetchRemoteStateAsync();
+
+            if (remote is not null && remote.Origin != "desktop")
+            {
+                var remoteUpdatedAt = DateTime.Parse(remote.UpdatedAt, null, System.Globalization.DateTimeStyles.RoundtripKind);
+                if (_settings.LastCollectionSyncAt is null || remoteUpdatedAt > _settings.LastCollectionSyncAt)
+                {
+                    var choice = MessageBox.Show(
+                        $"The last sync came from {remote.Origin} on {remoteUpdatedAt.ToLocalTime():dd/MM/yyyy HH:mm}.\n" +
+                        "Syncing now will overwrite those changes with your local collection.\n\nContinue?",
+                        "Sync — overwrite warning",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Warning);
+                    if (choice != MessageBoxResult.Yes) return;
+                }
+            }
+
+            var updatedAt = await syncService.PushAsync("desktop");
+            _settings.LastCollectionSyncAt = updatedAt;
+            _settings.LastCollectionSyncOrigin = "desktop";
+            _settings.Save();
+            OnPropertyChanged(nameof(LastSyncStatusText));
+            StatusText = "Collection synced.";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Sync failed — {ex.Message}";
+        }
+        finally
+        {
+            IsSyncing = false;
+        }
+    }
+
+    // Rapatriement automatique au démarrage (App.xaml.cs) : si la dernière synchro connue côté
+    // serveur vient de l'AUTRE appareil et est plus récente que notre dernier sync connu, on
+    // l'applique directement sans demander — c'est précisément le comportement demandé ("si on
+    // détecte que la dernière synchro vient de l'autre, on récupère automatiquement"). Best-effort :
+    // une erreur réseau ne doit jamais bloquer le démarrage.
+    public async Task AutoPullSyncIfNeededAsync()
+    {
+        var apiKey = _settings.CollectionSyncApiKey?.Trim();
+        if (string.IsNullOrWhiteSpace(apiKey)) return;
+
+        try
+        {
+            var syncService = new CollectionSyncService(_db, apiKey);
+            var remote = await syncService.FetchRemoteStateAsync();
+            if (remote is null || remote.Origin == "desktop") return;
+
+            var remoteUpdatedAt = DateTime.Parse(remote.UpdatedAt, null, System.Globalization.DateTimeStyles.RoundtripKind);
+            if (_settings.LastCollectionSyncAt is { } lastKnown && remoteUpdatedAt <= lastKnown) return;
+
+            await syncService.ApplyCollectionJsonAsync(remote.CollectionJson);
+            _settings.LastCollectionSyncAt = remoteUpdatedAt;
+            _settings.LastCollectionSyncOrigin = remote.Origin;
+            _settings.Save();
+            OnPropertyChanged(nameof(LastSyncStatusText));
+
+            await ReloadAfterSyncApplyAsync();
+            StatusText = $"Collection auto-synced from {remote.Origin} ({remoteUpdatedAt.ToLocalTime():dd/MM/yyyy HH:mm}).";
+        }
+        catch { /* best-effort, ne doit jamais bloquer le démarrage */ }
+    }
+
+    private async Task ReloadAfterSyncApplyAsync()
+    {
+        var favoriteIds = (await _db.FavoriteSets.Select(f => f.SetId).ToListAsync()).ToHashSet();
+        ApplyFavorites(favoriteIds);
+        await ApplyOwnedCountsAsync();
+        RefreshSpecialGroups();
+        await LoadWantedCardsAsync();
+        await LoadDuplicateCardsAsync();
+        await LoadTagsAsync();
+        await LoadAchievementsAsync();
+
+        if (SelectedSet is not null)
+        {
+            SelectedSet.Cards.Clear();
+            await SelectSetAsync(SelectedSet);
         }
     }
 

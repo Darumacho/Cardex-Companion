@@ -17,6 +17,13 @@ public class AppSettings
     public bool ApiAnnouncementDismissed { get; set; } = false;
     public DateTime? LastCardexSyncAt { get; set; }
 
+    // Clé API Cardex fournie par l'utilisateur pour la synchro de collection (distincte de la clé
+    // catalogue intégrée au build, voir CardexApiService) — bookkeeping purement local, jamais
+    // envoyé dans le JSON synchronisé.
+    public string? CollectionSyncApiKey { get; set; }
+    public DateTime? LastCollectionSyncAt { get; set; }
+    public string? LastCollectionSyncOrigin { get; set; }
+
     private static readonly JsonSerializerOptions _json = new() { WriteIndented = true };
 
     private static string FilePath => Path.Combine(

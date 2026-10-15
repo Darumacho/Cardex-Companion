@@ -268,6 +268,40 @@
             </StackPanel>
         </TabItem>
 
+        <!-- ===== ONGLET SYNC ===== -->
+        <TabItem Header="Sync" Style="{StaticResource TabItemStyle}">
+            <StackPanel Margin="24,20,24,16">
+
+                <TextBlock Text="Cardex API key" Foreground="#8888aa" FontSize="12" Margin="0,0,0,10"/>
+                <TextBlock Foreground="#e0e0e0" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12" LineHeight="16">
+                    <Run Text="Syncs your collection, wants, tags and achievements with the mobile app. Get a free key at "/>
+                    <Run Text="cardex-api.dev" FontFamily="Consolas" Foreground="#ffd700"/>
+                    <Run Text=" and paste it below."/>
+                </TextBlock>
+
+                <TextBox Text="{Binding CollectionSyncApiKey, UpdateSourceTrigger=PropertyChanged}"
+                         Background="#111122" Foreground="#e0e0e0"
+                         CaretBrush="#e0e0e0" BorderBrush="#0f3460"
+                         Padding="8,5" FontSize="12" Margin="0,0,0,16">
+                    <TextBox.Resources>
+                        <Style TargetType="{x:Type Border}">
+                            <Setter Property="CornerRadius" Value="4"/>
+                        </Style>
+                    </TextBox.Resources>
+                </TextBox>
+
+                <Button Command="{Binding SyncNowCommand}"
+                        Content="🔄  Sync now"
+                        HorizontalAlignment="Left"
+                        Background="#16213e" Foreground="#e0e0e0"
+                        BorderBrush="#0f3460" Padding="14,7"
+                        FontSize="12" Cursor="Hand" Margin="0,0,0,10"/>
+
+                <TextBlock Text="{Binding LastSyncStatusText}" Foreground="#8888aa" FontSize="11"/>
+
+            </StackPanel>
+        </TabItem>
+
         <!-- ===== ONGLET MY TAGS ===== -->
         <TabItem Header="My Tags" Style="{StaticResource TabItemStyle}">
             <Grid Margin="24,20,24,16">
