@@ -23,6 +23,7 @@ public partial class MainViewModel : ObservableObject
     private readonly UpdateService _updateService = new();
     private readonly AppSettings _settings;
 
+    public ObservableCollection<LanguageOptionViewModel> LanguageOptions { get; } = [];
     public ObservableCollection<SeriesViewModel> Series { get; } = [];
     public ObservableCollection<SetViewModel> HomeFavorites { get; } = [];
     public ObservableCollection<SetViewModel> HomeCollection { get; } = [];
@@ -142,6 +143,53 @@ public partial class MainViewModel : ObservableObject
         _settings.ShowMyCollection = value;
         _settings.Save();
         RefreshSpecialGroups();
+    }
+
+    private void OnLanguageOptionPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(LanguageOptionViewModel.IsTracked))
+            OnLanguageOptionToggled();
+    }
+
+    // Resynchronise les checkboxes Settings → Languages avec _settings.TrackedLanguages sans
+    // repasser par OnLanguageOptionToggled (qui recharge le set ouvert) — utilisé après une
+    // synchro qui vient d'écraser TrackedLanguages, pour éviter un double rechargement concurrent
+    // avec celui que ReloadAfterSyncApplyAsync fait déjà juste après.
+    private void RefreshLanguageOptionsFromSettings()
+    {
+        foreach (var opt in LanguageOptions)
+        {
+            var shouldTrack = _settings.TrackedLanguages.Contains(opt.Code);
+            if (opt.IsTracked == shouldTrack) continue;
+            opt.PropertyChanged -= OnLanguageOptionPropertyChanged;
+            opt.IsTracked = shouldTrack;
+            opt.PropertyChanged += OnLanguageOptionPropertyChanged;
+        }
+    }
+
+    private async void OnLanguageOptionToggled()
+    {
+        // L'anglais reste toujours suivi (données existantes implicitement en anglais) — défensif,
+        // la case est aussi désactivée côté UI.
+        var en = LanguageOptions.First(o => o.Code == "EN");
+        if (!en.IsTracked) en.IsTracked = true;
+
+        _settings.TrackedLanguages = LanguageOptions.Where(o => o.IsTracked).Select(o => o.Code).ToList();
+        _settings.Save();
+
+        // IsMultiLanguageMode est figé à la construction des CardViewModel : les sets déjà chargés
+        // doivent être reconstruits pour refléter le nouveau réglage (le set ouvert tout de suite,
+        // les autres au prochain SelectSetAsync grâce au Cards.Clear()).
+        foreach (var series in Series)
+            foreach (var set in series.Sets)
+                if (set != SelectedSet && set.Cards.Count > 0)
+                    set.Cards.Clear();
+
+        if (SelectedSet is not null)
+        {
+            SelectedSet.Cards.Clear();
+            await SelectSetAsync(SelectedSet);
+        }
     }
 
     partial void OnShowLegalityCheckChanged(bool value)
@@ -339,6 +387,14 @@ public partial class MainViewModel : ObservableObject
         _isWantedSectionExpanded = _settings.HomeWantedExpanded;
         _isApiAnnouncementVisible = !_settings.ApiAnnouncementDismissed;
         ApplyBorderColor(_settings.CollectionBorderColor);
+
+        foreach (var (code, label) in LanguageCatalog.All)
+        {
+            var opt = new LanguageOptionViewModel(code, label, _settings.TrackedLanguages.Contains(code), isLocked: code == "EN");
+            opt.PropertyChanged += OnLanguageOptionPropertyChanged;
+            LanguageOptions.Add(opt);
+        }
+
         WantedCards.CollectionChanged    += (_, _) => { OnPropertyChanged(nameof(HasWantedCards)); OnPropertyChanged(nameof(HasHomeContent)); };
         DuplicateCards.CollectionChanged += (_, _) => { OnPropertyChanged(nameof(HasDuplicates));  OnPropertyChanged(nameof(HasHomeContent)); };
         TagSections.CollectionChanged    += (_, _) => OnPropertyChanged(nameof(HasHomeContent));
@@ -848,6 +904,8 @@ public partial class MainViewModel : ObservableObject
                 .ToListAsync())
                 .ToDictionary(o => o.CardId, o => o.Quantity);
 
+            var langMap = await BuildLanguageMapAsync(set.SetId, ownedMap);
+
             var wantedIds = (await _db.WantedCards
                 .Where(w => w.SetId == set.SetId)
                 .Select(w => w.CardId)
@@ -873,7 +931,7 @@ public partial class MainViewModel : ObservableObject
 
                 BuildCardViewModels(cachedCards.Select(c =>
                     new CardData(c.CardId, c.Name, c.Number, c.SetId, c.ImageSmall, c.ImageLarge, c.Rarity, c.CmLow, c.TcgLow, c.PricesUpdatedAt, c.CmUrl, c.TcgUrl, c.Supertype, c.Subtypes)),
-                    ownedMap, wantedIds, excludedIds, set, cardTagMap);
+                    ownedMap, wantedIds, excludedIds, set, langMap, cardTagMap);
                 StatusText = $"{set.Name} — {set.CompletionText}";
                 _ = RefreshPricesIfNeededAsync(set);
             }
@@ -881,7 +939,7 @@ public partial class MainViewModel : ObservableObject
             {
                 try
                 {
-                    await LoadCardsFromTcgdexAsync(set, ownedMap, wantedIds, excludedIds);
+                    await LoadCardsFromTcgdexAsync(set, ownedMap, wantedIds, excludedIds, langMap);
                     StatusText = $"{set.Name} — {set.CompletionText}";
                 }
                 catch (Exception ex)
@@ -921,7 +979,7 @@ public partial class MainViewModel : ObservableObject
                             c.Cardmarket?.Prices?.LowPrice, ExtractTcgLow(c), now,
                             c.Cardmarket?.Url, c.Tcgplayer?.Url, c.Supertype,
                             c.Subtypes is { Count: > 0 } ? string.Join(", ", c.Subtypes) : null)),
-                        ownedMap, wantedIds, excludedIds, set);
+                        ownedMap, wantedIds, excludedIds, set, langMap);
                     StatusText = $"{set.Name} — {set.CompletionText}";
                 }
                 catch (Exception ex)
@@ -949,7 +1007,7 @@ public partial class MainViewModel : ObservableObject
     // appel avec tous les détails (prix, rareté) — il faut d'abord la liste brève du set, puis
     // un appel par carte. Acceptable ici car ces sets de secours sont peu nombreux.
     private async Task LoadCardsFromTcgdexAsync(SetViewModel set, Dictionary<string, int> ownedMap,
-        HashSet<string> wantedIds, HashSet<string> excludedIds)
+        HashSet<string> wantedIds, HashSet<string> excludedIds, Dictionary<string, Dictionary<string, int>> langMap)
     {
         var detail = await _tcgdexService.GetSetDetailAsync(set.SetId)
             ?? throw new InvalidOperationException("Set not found on TCGdex");
@@ -991,15 +1049,75 @@ public partial class MainViewModel : ObservableObject
         _db.CachedCards.AddRange(cachedCards);
         await _db.SaveChangesAsync();
 
-        BuildCardViewModels(cardData.OrderBy(c => CardNumberSort(c.Number)), ownedMap, wantedIds, excludedIds, set);
+        BuildCardViewModels(cardData.OrderBy(c => CardNumberSort(c.Number)), ownedMap, wantedIds, excludedIds, set, langMap);
+    }
+
+    // Construit (une fois, à la première ouverture d'un set) la map CardId -> quantité par langue
+    // depuis OwnedCardLanguages. Si plus d'une langue est suivie, toute carte déjà possédée
+    // (ownedMap) mais sans détail par langue encore enregistré se voit attribuer rétroactivement
+    // tout son stock à l'anglais (hypothèse de départ raisonnable, donnée persistée immédiatement).
+    private async Task<Dictionary<string, Dictionary<string, int>>> BuildLanguageMapAsync(
+        string setId, Dictionary<string, int> ownedMap)
+    {
+        var langMap = new Dictionary<string, Dictionary<string, int>>();
+        if (_settings.TrackedLanguages.Count <= 1) return langMap;
+
+        var rows = await _db.OwnedCardLanguages.Where(l => l.SetId == setId).ToListAsync();
+        foreach (var row in rows)
+        {
+            if (!langMap.TryGetValue(row.CardId, out var dict))
+                langMap[row.CardId] = dict = new();
+            dict[row.Language] = row.Quantity;
+        }
+
+        var toBackfill = ownedMap.Where(kv => kv.Value > 0 && !langMap.ContainsKey(kv.Key)).ToList();
+        if (toBackfill.Count > 0)
+        {
+            foreach (var kv in toBackfill)
+            {
+                langMap[kv.Key] = new() { ["EN"] = kv.Value };
+                _db.OwnedCardLanguages.Add(new OwnedCardLanguage { CardId = kv.Key, SetId = setId, Language = "EN", Quantity = kv.Value });
+            }
+            await _db.SaveChangesAsync();
+        }
+
+        return langMap;
+    }
+
+    private async Task OnCardLanguageBreakdownChangedAsync(CardViewModel card)
+    {
+        if (_isBulkUpdate) return;
+
+        var existing = await _db.OwnedCardLanguages.Where(l => l.CardId == card.CardId).ToDictionaryAsync(l => l.Language);
+        foreach (var row in card.LanguageRows)
+        {
+            if (row.Quantity > 0)
+            {
+                if (existing.TryGetValue(row.Code, out var entry))
+                    entry.Quantity = row.Quantity;
+                else
+                    _db.OwnedCardLanguages.Add(new OwnedCardLanguage { CardId = card.CardId, SetId = card.SetId, Language = row.Code, Quantity = row.Quantity });
+            }
+            else if (existing.TryGetValue(row.Code, out var entry))
+            {
+                _db.OwnedCardLanguages.Remove(entry);
+            }
+        }
+        await _db.SaveChangesAsync();
     }
 
     private void BuildCardViewModels(IEnumerable<CardData> cards, Dictionary<string, int> ownedMap,
         HashSet<string> wantedIds, HashSet<string> excludedIds, SetViewModel set,
+        Dictionary<string, Dictionary<string, int>> langMap,
         Dictionary<string, int>? cardTagMap = null)
     {
         var deckMap = IsDeckBuilderTabActive
             ? DeckBuilder.DeckEntries.GroupBy(e => e.CardId).ToDictionary(g => g.Key, g => g.Sum(e => e.Quantity))
+            : null;
+
+        var isMultiLanguage = _settings.TrackedLanguages.Count > 1;
+        var trackedLanguages = isMultiLanguage
+            ? LanguageCatalog.All.Select(l => l.Code).Where(c => _settings.TrackedLanguages.Contains(c)).ToList()
             : null;
 
         foreach (var card in cards)
@@ -1010,7 +1128,8 @@ public partial class MainViewModel : ObservableObject
                 ownedMap.TryGetValue(card.Id, out var qty) ? qty : 0,
                 wantedIds.Contains(card.Id),
                 excludedIds.Contains(card.Id),
-                _imageCache, card.Supertype, card.Subtypes)
+                _imageCache, card.Supertype, card.Subtypes,
+                trackedLanguages, langMap.GetValueOrDefault(card.Id))
             {
                 CmLow = card.CmLow,
                 TcgLow = card.TcgLow,
@@ -1020,6 +1139,7 @@ public partial class MainViewModel : ObservableObject
                 ShortCode = set.ShortCode,
                 DeckQuantity = deckMap?.GetValueOrDefault(card.Id, 0) ?? 0
             };
+            if (isMultiLanguage) vm.OnLanguageBreakdownChanged = OnCardLanguageBreakdownChangedAsync;
 
             // Set initial tag before wiring OnTagChanged to avoid DB write during init
             if (cardTagMap is not null && cardTagMap.TryGetValue(card.Id, out var tagId))
@@ -1441,6 +1561,27 @@ public partial class MainViewModel : ObservableObject
                     card.IsOwned = false;
             }
 
+            if (_settings.TrackedLanguages.Count > 1)
+            {
+                if (targetState)
+                {
+                    var existingLangIds = (await _db.OwnedCardLanguages
+                        .Where(l => l.SetId == SelectedSet.SetId)
+                        .Select(l => l.CardId)
+                        .ToListAsync()).ToHashSet();
+                    foreach (var card in SelectedSet.Cards)
+                        if (!existingLangIds.Contains(card.CardId))
+                            _db.OwnedCardLanguages.Add(new OwnedCardLanguage { CardId = card.CardId, SetId = card.SetId, Language = "EN", Quantity = 1 });
+                }
+                else
+                {
+                    var toRemoveLang = await _db.OwnedCardLanguages
+                        .Where(l => l.SetId == SelectedSet.SetId)
+                        .ToListAsync();
+                    _db.OwnedCardLanguages.RemoveRange(toRemoveLang);
+                }
+            }
+
             await _db.SaveChangesAsync();
             SelectedSet.NotifyOwnershipChanged();
             RefreshSpecialGroups();
@@ -1561,16 +1702,18 @@ public partial class MainViewModel : ObservableObject
         };
         if (dialog.ShowDialog() != true) return;
 
-        var owned    = await _db.OwnedCards.ToListAsync();
-        var wanted   = await _db.WantedCards.ToListAsync();
-        var favorite = await _db.FavoriteSets.ToListAsync();
+        var owned     = await _db.OwnedCards.ToListAsync();
+        var ownedLang = await _db.OwnedCardLanguages.ToListAsync();
+        var wanted    = await _db.WantedCards.ToListAsync();
+        var favorite  = await _db.FavoriteSets.ToListAsync();
 
         var backup = new BackupFile(
             Version: "1.3",
             ExportedAt: DateTime.UtcNow,
             OwnedCards: owned.Select(o => new BackupOwned(o.CardId, o.SetId, o.Quantity)).ToList(),
             WantedCards: wanted.Select(w => new BackupWanted(w.CardId, w.SetId)).ToList(),
-            FavoriteSets: favorite.Select(f => f.SetId).ToList());
+            FavoriteSets: favorite.Select(f => f.SetId).ToList(),
+            OwnedCardLanguages: ownedLang.Select(o => new BackupOwnedLanguage(o.CardId, o.SetId, o.Language, o.Quantity)).ToList());
 
         var json = JsonSerializer.Serialize(backup, new JsonSerializerOptions { WriteIndented = true });
         await File.WriteAllTextAsync(dialog.FileName, json, Encoding.UTF8);
@@ -1604,12 +1747,17 @@ public partial class MainViewModel : ObservableObject
             if (backup is null) { StatusText = "Restore failed — invalid file."; return; }
 
             await _db.OwnedCards.ExecuteDeleteAsync();
+            await _db.OwnedCardLanguages.ExecuteDeleteAsync();
             await _db.WantedCards.ExecuteDeleteAsync();
             await _db.FavoriteSets.ExecuteDeleteAsync();
 
             if (backup.OwnedCards?.Count > 0)
                 _db.OwnedCards.AddRange(backup.OwnedCards.Select(o =>
                     new OwnedCard { CardId = o.CardId, SetId = o.SetId, Quantity = o.Quantity }));
+
+            if (backup.OwnedCardLanguages?.Count > 0)
+                _db.OwnedCardLanguages.AddRange(backup.OwnedCardLanguages.Select(o =>
+                    new OwnedCardLanguage { CardId = o.CardId, SetId = o.SetId, Language = o.Language, Quantity = o.Quantity }));
 
             if (backup.WantedCards?.Count > 0)
                 _db.WantedCards.AddRange(backup.WantedCards.Select(w =>
@@ -1663,7 +1811,7 @@ public partial class MainViewModel : ObservableObject
         IsSyncing = true;
         try
         {
-            var syncService = new CollectionSyncService(_db, apiKey);
+            var syncService = new CollectionSyncService(_db, _settings, apiKey);
             var remote = await syncService.FetchRemoteStateAsync();
 
             if (remote is not null && remote.Origin != "desktop")
@@ -1711,7 +1859,7 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            var syncService = new CollectionSyncService(_db, apiKey);
+            var syncService = new CollectionSyncService(_db, _settings, apiKey);
             var remote = await syncService.FetchRemoteStateAsync();
             if (remote is null || remote.Origin == "desktop") return;
 
@@ -1783,7 +1931,7 @@ public partial class MainViewModel : ObservableObject
             MessageBoxImage.Warning);
         if (choice != MessageBoxResult.Yes) return;
 
-        var syncService = new CollectionSyncService(_db, string.Empty);
+        var syncService = new CollectionSyncService(_db, _settings, string.Empty);
         await syncService.ApplyCollectionJsonAsync(json);
         await ReloadAfterSyncApplyAsync();
         StatusText = $"Collection restored from backup ({latest.LastWriteTime:dd/MM/yyyy HH:mm}).";
@@ -1791,6 +1939,11 @@ public partial class MainViewModel : ObservableObject
 
     private async Task ReloadAfterSyncApplyAsync()
     {
+        // TrackedLanguages peut avoir été écrasé par ApplyCollectionJsonAsync (synchronisé lui
+        // aussi) — resynchroniser les checkboxes Settings avant de recharger le set ouvert
+        // ci-dessous, qui lira la nouvelle valeur.
+        RefreshLanguageOptionsFromSettings();
+
         var favoriteIds = (await _db.FavoriteSets.Select(f => f.SetId).ToListAsync()).ToHashSet();
         ApplyFavorites(favoriteIds);
         await ApplyOwnedCountsAsync();
@@ -2210,9 +2363,11 @@ public partial class MainViewModel : ObservableObject
         string? CmUrl = null, string? TcgUrl = null, string? Supertype = null, string? Subtypes = null);
 
     private record BackupFile(string Version, DateTime ExportedAt,
-        List<BackupOwned>? OwnedCards, List<BackupWanted>? WantedCards, List<string>? FavoriteSets);
+        List<BackupOwned>? OwnedCards, List<BackupWanted>? WantedCards, List<string>? FavoriteSets,
+        List<BackupOwnedLanguage>? OwnedCardLanguages = null);
     private record BackupOwned(string CardId, string SetId, int Quantity);
     private record BackupWanted(string CardId, string SetId);
+    private record BackupOwnedLanguage(string CardId, string SetId, string Language, int Quantity);
 }
 
 public record TemplateSetEntry(string ShortCode, string Key, string Name, string Series);

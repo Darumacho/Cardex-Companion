@@ -121,9 +121,13 @@
                                         <Style TargetType="StackPanel">
                                             <Setter Property="Visibility" Value="Collapsed"/>
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsOwned}" Value="True">
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding IsOwned}" Value="True"/>
+                                                        <Condition Binding="{Binding IsMultiLanguageMode}" Value="False"/>
+                                                    </MultiDataTrigger.Conditions>
                                                     <Setter Property="Visibility" Value="Visible"/>
-                                                </DataTrigger>
+                                                </MultiDataTrigger>
                                             </Style.Triggers>
                                         </Style>
                                     </StackPanel.Style>
@@ -143,6 +147,84 @@
                                             Width="22" Height="22" FontSize="14" Padding="0"
                                             Content="+"/>
                                 </StackPanel>
+
+                                <!-- Select par langue (remplace le compteur simple quand plusieurs langues sont suivies) -->
+                                <Grid Margin="0,4,0,0" HorizontalAlignment="Left">
+                                    <Grid.Style>
+                                        <Style TargetType="Grid">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsMultiLanguageMode}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Grid.Style>
+
+                                    <Button x:Name="LangSelectTrigger"
+                                            Command="{Binding ToggleSelectCommand}"
+                                            Style="{StaticResource SetButtonStyle}"
+                                            FontSize="10" Padding="6,3" HorizontalContentAlignment="Left">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding TriggerLabel}"/>
+                                            <TextBlock Text="{Binding ChevronGlyph}" FontSize="7"
+                                                       Foreground="{StaticResource BrushSubtext}"
+                                                       Margin="5,0,0,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Popup IsOpen="{Binding SelectOpen}" StaysOpen="False"
+                                           Placement="Bottom" PlacementTarget="{Binding ElementName=LangSelectTrigger}">
+                                        <Border Background="#16213e" BorderBrush="#0f3460" BorderThickness="1"
+                                                CornerRadius="6" Padding="6" MinWidth="170">
+                                            <StackPanel>
+                                                <ItemsControl ItemsSource="{Binding LanguageRows}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate DataType="{x:Type vm:LanguageRowViewModel}">
+                                                            <Grid Margin="2">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <CheckBox Grid.Column="0"
+                                                                          IsChecked="{Binding Checked, Mode=OneWay}"
+                                                                          Command="{Binding ToggleCommand}"
+                                                                          Foreground="{StaticResource BrushText}" Cursor="Hand"/>
+                                                                <TextBlock Grid.Column="1" Text="{Binding Label}"
+                                                                           Foreground="{StaticResource BrushText}"
+                                                                           FontSize="11" VerticalAlignment="Center" Margin="4,0"/>
+                                                                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                                                    <StackPanel.Style>
+                                                                        <Style TargetType="StackPanel">
+                                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding Checked}" Value="True">
+                                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </StackPanel.Style>
+                                                                    <Button Command="{Binding DecrementCommand}"
+                                                                            Style="{StaticResource SetButtonStyle}"
+                                                                            Width="18" Height="18" FontSize="11" Padding="0" Content="−"/>
+                                                                    <TextBlock Text="{Binding Quantity}" Width="18" TextAlignment="Center"
+                                                                               Foreground="{StaticResource BrushHighlight}" FontSize="11"
+                                                                               VerticalAlignment="Center"/>
+                                                                    <Button Command="{Binding IncrementCommand}"
+                                                                            Style="{StaticResource SetButtonStyle}"
+                                                                            Width="18" Height="18" FontSize="11" Padding="0" Content="+"/>
+                                                                </StackPanel>
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <Rectangle Height="1" Fill="#0f3460" Margin="0,4"/>
+                                                <TextBlock Text="{Binding TotalLabel}" Foreground="{StaticResource BrushSubtext}" FontSize="10"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </Popup>
+                                </Grid>
 
                                 <!-- Tag selector -->
                                 <ComboBox ItemsSource="{Binding DataContext.TagsWithNone, RelativeSource={RelativeSource AncestorType=Window}}"

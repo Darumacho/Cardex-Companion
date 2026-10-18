@@ -24,6 +24,11 @@ public class AppSettings
     public DateTime? LastCollectionSyncAt { get; set; }
     public string? LastCollectionSyncOrigin { get; set; }
 
+    // Langues suivies pour le décompte de collection (voir LanguageCatalog). Anglais toujours
+    // présent par défaut ; au-delà d'une langue, le compteur d'exemplaires d'une carte devient un
+    // select par langue plutôt qu'un simple +/-.
+    public List<string> TrackedLanguages { get; set; } = new() { "EN" };
+
     private static readonly JsonSerializerOptions _json = new() { WriteIndented = true };
 
     private static string FilePath => Path.Combine(

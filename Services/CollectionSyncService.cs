@@ -18,11 +18,13 @@ public class CollectionSyncService
 {
     private readonly HttpClient _http;
     private readonly AppDbContext _db;
+    private readonly AppSettings _settings;
     private static readonly JsonSerializerOptions _json = new() { PropertyNameCaseInsensitive = true };
 
-    public CollectionSyncService(AppDbContext db, string apiKey)
+    public CollectionSyncService(AppDbContext db, AppSettings settings, string apiKey)
     {
         _db = db;
+        _settings = settings;
         // Le AAAA de cardex-api.dev pointe vers une IPv6 injoignable (bug DNS côté hébergement,
         // pas de notre ressort) — sur un réseau avec IPv6 actif, laisser le résolveur par défaut
         // choisir fait pendre la connexion jusqu'au timeout avant de retomber sur IPv4. Forcer la
@@ -111,7 +113,10 @@ public class CollectionSyncService
             CardTags: (await _db.CardTags.ToListAsync())
                 .Select(ct => new SyncCardTag(ct.CardId, ct.TagId)).ToList(),
             UnlockedAchievements: (await _db.UnlockedAchievements.ToListAsync())
-                .Select(a => new SyncAchievement(a.Id, a.UnlockedAt)).ToList());
+                .Select(a => new SyncAchievement(a.Id, a.UnlockedAt)).ToList(),
+            OwnedCardLanguages: (await _db.OwnedCardLanguages.ToListAsync())
+                .Select(l => new SyncOwnedCardLanguage(l.CardId, l.SetId, l.Language, l.Quantity)).ToList(),
+            TrackedLanguages: _settings.TrackedLanguages);
 
         return JsonSerializer.Serialize(snapshot);
     }
@@ -122,6 +127,7 @@ public class CollectionSyncService
         if (snapshot is null) return;
 
         await _db.OwnedCards.ExecuteDeleteAsync();
+        await _db.OwnedCardLanguages.ExecuteDeleteAsync();
         await _db.WantedCards.ExecuteDeleteAsync();
         await _db.ExcludedCards.ExecuteDeleteAsync();
         await _db.FavoriteSets.ExecuteDeleteAsync();
@@ -155,8 +161,20 @@ public class CollectionSyncService
         if (snapshot.UnlockedAchievements?.Count > 0)
             _db.UnlockedAchievements.AddRange(snapshot.UnlockedAchievements.Select(a =>
                 new UnlockedAchievement { Id = a.Id, UnlockedAt = a.UnlockedAt }));
+        if (snapshot.OwnedCardLanguages?.Count > 0)
+            _db.OwnedCardLanguages.AddRange(snapshot.OwnedCardLanguages.Select(l =>
+                new OwnedCardLanguage { CardId = l.CardId, SetId = l.SetId, Language = l.Language, Quantity = l.Quantity }));
 
         await _db.SaveChangesAsync();
+
+        // Les langues suivies sont synchronisées elles aussi (décision utilisateur) — l'anglais
+        // reste toujours forcé présent, même règle que Settings → Languages. Sauvegardé ici plutôt
+        // que de compter sur l'appelant : RestoreLastSyncBackupAsync (restauration d'un backup
+        // local) n'appelle jamais _settings.Save() après ApplyCollectionJsonAsync.
+        var langs = (snapshot.TrackedLanguages ?? ["EN"]).ToHashSet();
+        langs.Add("EN");
+        _settings.TrackedLanguages = langs.ToList();
+        _settings.Save();
     }
 
     private record SyncPushResult(string UpdatedAt);
@@ -171,10 +189,13 @@ public record CollectionSnapshot(
     List<string>? FavoriteSets,
     List<SyncTag>? Tags,
     List<SyncCardTag>? CardTags,
-    List<SyncAchievement>? UnlockedAchievements);
+    List<SyncAchievement>? UnlockedAchievements,
+    List<SyncOwnedCardLanguage>? OwnedCardLanguages = null,
+    List<string>? TrackedLanguages = null);
 
 public record SyncOwnedCard(string CardId, string SetId, int Quantity, DateTime OwnedAt);
 public record SyncSimpleCard(string CardId, string SetId);
 public record SyncTag(int Id, string Name, string Color);
 public record SyncCardTag(string CardId, int TagId);
 public record SyncAchievement(string Id, DateTime UnlockedAt);
+public record SyncOwnedCardLanguage(string CardId, string SetId, string Language, int Quantity);

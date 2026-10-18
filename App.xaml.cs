@@ -101,6 +101,14 @@ public partial class App : Application
                 Quantity INTEGER NOT NULL DEFAULT 1,
                 PRIMARY KEY (DeckId, CardId))"); }
         catch { }
+        try { await db.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE IF NOT EXISTS OwnedCardLanguages (
+                CardId   TEXT NOT NULL,
+                SetId    TEXT NOT NULL DEFAULT '',
+                Language TEXT NOT NULL DEFAULT 'EN',
+                Quantity INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (CardId, Language))"); }
+        catch { }
 
         var settings = AppSettings.Load();
         var tcgService = new PokemonTcgService(settings.ApiKey);

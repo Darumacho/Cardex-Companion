@@ -269,6 +269,24 @@
         </TabItem>
 
         <!-- ===== ONGLET SYNC ===== -->
+        <TabItem Header="Languages" Style="{StaticResource TabItemStyle}">
+            <StackPanel Margin="20">
+                <TextBlock Text="Choose which languages to track for your collection. English is always tracked. Once more than one is checked, each card's quantity field becomes a per-language select instead of a simple counter."
+                           Foreground="#8888aa" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,16"/>
+                <ItemsControl ItemsSource="{Binding LanguageOptions}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:LanguageOptionViewModel}">
+                            <CheckBox IsChecked="{Binding IsTracked}"
+                                      IsEnabled="{Binding IsEnabled}"
+                                      Content="{Binding Label}"
+                                      Foreground="#e0e0e0" FontSize="12" Cursor="Hand"
+                                      Margin="0,0,0,10"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </TabItem>
+
         <TabItem Header="Sync" Style="{StaticResource TabItemStyle}">
             <StackPanel Margin="24,20,24,16">
 
