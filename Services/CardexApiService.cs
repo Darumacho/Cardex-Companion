@@ -23,25 +23,46 @@ public class CardexApiService
     {
         try
         {
-            var response = await _http.GetStringAsync("sets?pageSize=250");
-            var page = JsonSerializer.Deserialize<PagedResult<CardexApiSet>>(response, _json);
-            return page?.Items ?? [];
+            var all = new List<CardexApiSet>();
+            var page = 1;
+            while (true)
+            {
+                var response = await _http.GetStringAsync($"sets?pageSize=250&page={page}");
+                var result = JsonSerializer.Deserialize<PagedResult<CardexApiSet>>(response, _json);
+                if (result is null || result.Items.Count == 0) break;
+                all.AddRange(result.Items);
+                if (all.Count >= result.TotalCount) break;
+                page++;
+            }
+            return all;
         }
         catch { return []; }
     }
 
+    // Pagine jusqu'à épuisement (certains sets, ex. swshp avec 307 cartes, dépassent les 250 de
+    // la première page) — sans ça, les cartes au-delà de 250 n'étaient jamais considérées pour le
+    // comblement d'images, silencieusement, puisque GetSetCardsAsync ne demandait que la page 1.
     public async Task<List<CardexApiCard>> GetSetCardsAsync(string setId)
     {
         try
         {
-            var response = await _http.GetStringAsync($"sets/{setId}/cards?pageSize=250");
-            var page = JsonSerializer.Deserialize<PagedResult<CardexApiCard>>(response, _json);
-            return page?.Items ?? [];
+            var all = new List<CardexApiCard>();
+            var page = 1;
+            while (true)
+            {
+                var response = await _http.GetStringAsync($"sets/{setId}/cards?pageSize=250&page={page}");
+                var result = JsonSerializer.Deserialize<PagedResult<CardexApiCard>>(response, _json);
+                if (result is null || result.Items.Count == 0) break;
+                all.AddRange(result.Items);
+                if (all.Count >= result.TotalCount) break;
+                page++;
+            }
+            return all;
         }
         catch { return []; }
     }
 
-    private record PagedResult<T>(List<T> Items);
+    private record PagedResult<T>(List<T> Items, int TotalCount);
 }
 
 public record CardexApiSet(string Id, string Name, string Series, int Total, string ReleaseDate,

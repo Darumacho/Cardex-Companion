@@ -220,7 +220,26 @@ public partial class CardViewModel : ObservableObject
     // redirection de pokemontcg.io, qui ne connaît pas ces cartes) : on retombe sur une recherche
     // par nom plutôt que de ne rien faire au clic.
     // Nom + identifiant du set + numéro (ex: "Lunatone MEP 4") pour cibler la bonne impression.
-    private string CmSearchQuery => Uri.EscapeDataString($"{Name} {SetId.ToUpperInvariant()} {Number}");
+    // Exception : les sets "Trainer Kit" demi-deck partagent un code marketplace avec un suffixe
+    // a/b sur le numéro plutôt que sur le set (voir SetShortCodes.MarketplaceOverrides) — sans ça,
+    // "Bagon TK1A 1" ne donne aucun résultat sur Cardmarket alors que "Bagon TK1 1A" si.
+    private string CmSearchQuery => Uri.EscapeDataString(
+        SetShortCodes.CardmarketCustomOverrides.TryGetValue(SetId, out var cmCustom)
+            ? (cmCustom.Code is null
+                ? $"{Name} {StripNumberPrefix(Number, cmCustom.StripNumberPrefix)}"
+                : $"{Name} {cmCustom.Code} {StripNumberPrefix(Number, cmCustom.StripNumberPrefix)}")
+            : SetShortCodes.MarketplaceOverrides.TryGetValue(SetId, out var cmOverride)
+                ? $"{Name} {cmOverride.Code} {Number}{cmOverride.Suffix}"
+                : SetShortCodes.TrainerKitLetterOverrides.TryGetValue(SetId, out var cmLetterOverride)
+                    ? $"{Name} {cmLetterOverride.Code} {SetShortCodes.FormatTrainerKitNumber(Number, cmLetterOverride.PokemonLetter, cmLetterOverride.Position)}"
+                    : SetShortCodes.CardmarketUsesShortCodeFrom.Contains(SetId)
+                        ? $"{Name} {ShortCode ?? SetId.ToUpperInvariant()} {Number}"
+                        : $"{Name} {SetId.ToUpperInvariant()} {Number}");
+
+    private static string StripNumberPrefix(string number, string? prefix) =>
+        prefix is not null && number.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            ? number[prefix.Length..]
+            : number;
 
     // ShortCode + nom + numéro sur 3 chiffres (ex: "SVP Lunatone 004") — pas de ShortCode pour
     // certains sets de secours (TCGdex), on retombe alors sur le SetId en majuscules.
@@ -228,7 +247,11 @@ public partial class CardViewModel : ObservableObject
         int.TryParse(number, out var n) ? n.ToString("D3") : number;
 
     private string TcgSearchQuery => Uri.EscapeDataString(
-        $"{ShortCode ?? SetId.ToUpperInvariant()} {Name} {PadCardNumber(Number)}");
+        SetShortCodes.MarketplaceOverrides.TryGetValue(SetId, out var tcgOverride)
+            ? $"{tcgOverride.Code} {Name} {Number}{tcgOverride.Suffix}"
+            : SetShortCodes.TrainerKitLetterOverrides.TryGetValue(SetId, out var tcgLetterOverride)
+                ? $"{tcgLetterOverride.Code} {Name} {SetShortCodes.FormatTrainerKitNumber(Number, tcgLetterOverride.PokemonLetter, tcgLetterOverride.Position)}"
+                : $"{ShortCode ?? SetId.ToUpperInvariant()} {Name} {PadCardNumber(Number)}");
 
     [RelayCommand]
     private void OpenCmLink()
