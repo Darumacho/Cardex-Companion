@@ -64,14 +64,14 @@ public static class SetShortCodes
         { "dp6",         "LA"   }, // Legends Awakened
         { "pop8",        "P8"   }, // POP Series 8
         { "dp7",         "STF"  }, // Stormfront
-        { "pl1",         "PLT"  }, // Platinum
+        { "pl1",         "PL"  }, // Platinum
         { "pop9",        "P9"   }, // POP Series 9
         { "pl2",         "RR"   }, // Rising Rivals
-        { "pl3",         "SVC"  }, // Supreme Victors
-        { "pl4",         "ARC"  }, // Arceus
+        { "pl3",         "SV"  }, // Supreme Victors
+        { "pl4",         "AR"  }, // Arceus
         // HGSS era
         { "ru1",         "RMB"  }, // Pokemon Rumble
-        { "hgss1",       "HGSS" }, // HeartGold & SoulSilver
+        { "hgss1",       "HS" }, // HeartGold & SoulSilver
         { "hsp",         "HSP"  }, // HGSS Black Star Promos
         { "hgss2",       "UL"  }, // HS Unleashed
         { "hgss3",       "UD"  }, // HS Undaunted
@@ -79,94 +79,94 @@ public static class SetShortCodes
         { "col1",        "CL"   }, // Call of Legends
         // BW era
         { "bwp",         "BWP"  }, // BW Black Star Promos
-        { "bw1",         "BW"   }, // Black & White
+        { "bw1",         "BLW"   }, // Black & White
         { "mcd11",       "MCD11" }, // McDonalds 2011
-        { "bw2",         "EP"   }, // Emerging Powers
-        { "bw3",         "NV"   }, // Noble Victories
-        { "bw4",         "ND"   }, // Next Destinies
-        { "bw5",         "DE"   }, // Dark Explorers
+        { "bw2",         "EPO"   }, // Emerging Powers
+        { "bw3",         "NVI"   }, // Noble Victories
+        { "bw4",         "NXD"   }, // Next Destinies
+        { "bw5",         "DEX"   }, // Dark Explorers
         { "mcd12",       "MCD12" }, // McDonalds 2012
         { "bw6",         "DRX"  }, // Dragons Exalted
         { "dv1",         "DRV"  }, // Dragon Vault
-        { "bw7",         "BC"   }, // Boundaries Crossed
-        { "bw8",         "PST"  }, // Plasma Storm
-        { "bw9",         "PFZ"  }, // Plasma Freeze
+        { "bw7",         "BCR"   }, // Boundaries Crossed
+        { "bw8",         "PLS"  }, // Plasma Storm
+        { "bw9",         "PLF"  }, // Plasma Freeze
         { "bw10",        "PLB"  }, // Plasma Blast
-        { "xyp",         "XBP"  }, // XY Black Star Promos
-        { "bw11",        "LT"   }, // Legendary Treasures
+        { "xyp",         "XYPR"  }, // XY Black Star Promos
+        { "bw11",        "LTR"   }, // Legendary Treasures
         // XY era
         { "xy0",         "KSS"  }, // Kalos Starter Set
         { "xy1",         "XY"   }, // XY
-        { "xy2",         "FF"   }, // Flashfire
+        { "xy2",         "FLF"   }, // Flashfire
         { "mcd14",       "MCD14" }, // McDonalds 2014
-        { "xy3",         "FRF"  }, // Furious Fists
+        { "xy3",         "FFI"  }, // Furious Fists
         { "xy4",         "PHF"  }, // Phantom Forces
-        { "xy5",         "PC"   }, // Primal Clash
+        { "xy5",         "PRC"   }, // Primal Clash
         { "dc1",         "DCR"  }, // Double Crisis
         { "xy6",         "ROS"  }, // Roaring Skies
         { "xy7",         "AO"   }, // Ancient Origins
-        { "xy8",         "BRK"  }, // BREAKthrough
+        { "xy8",         "BKT"  }, // BREAKthrough
         { "mcd15",       "MCD15" }, // McDonalds 2015
-        { "xy9",         "BRP"  }, // BREAKpoint
+        { "xy9",         "BKP"  }, // BREAKpoint
         { "g1",          "GEN"  }, // Generations
-        { "xy10",        "FC"   }, // Fates Collide
+        { "xy10",        "FCO"   }, // Fates Collide
         { "xy11",        "STM"  }, // Steam Siege
         { "mcd16",       "MCD16" }, // McDonalds 2016
-        { "xy12",        "EVL"  }, // Evolutions
+        { "xy12",        "EVO"  }, // Evolutions
         // SM era
         { "smp",         "SBP"  }, // SM Black Star Promos
         { "sm1",         "SM"   }, // Sun & Moon
         { "sm2",         "GRI"  }, // Guardians Rising
         { "sm3",         "BSH"  }, // Burning Shadows
         { "sm35",        "SHL"  }, // Shining Legends
-        { "sm4",         "CINV" }, // Crimson Invasion
+        { "sm4",         "CIN" }, // Crimson Invasion
         { "mcd17",       "MCD17" }, // McDonalds 2017
         { "sm5",         "UPR"  }, // Ultra Prism
-        { "sm6",         "FBL"  }, // Forbidden Light
-        { "sm7",         "CST"  }, // Celestial Storm
-        { "sm75",        "DRJ"  }, // Dragon Majesty
+        { "sm6",         "FLI"  }, // Forbidden Light
+        { "sm7",         "CES"  }, // Celestial Storm
+        { "sm75",        "DRM"  }, // Dragon Majesty
         { "mcd18",       "MCD18" }, // McDonalds 2018
-        { "sm8",         "LTH"  }, // Lost Thunder
-        { "sm9",         "TUP"  }, // Team Up
+        { "sm8",         "LOT"  }, // Lost Thunder
+        { "sm9",         "TEU"  }, // Team Up
         { "det1",        "DEP"  }, // Detective Pikachu
-        { "sm10",        "UBN"  }, // Unbroken Bonds
-        { "sm11",        "UMN"  }, // Unified Minds
-        { "sm115",       "HFT"  }, // Hidden Fates
-        { "sma",         "HFSV" }, // Hidden Fates Shiny Vault
+        { "sm10",        "UNB"  }, // Unbroken Bonds
+        { "sm11",        "UNM"  }, // Unified Minds
+        { "sm115",       "HIF"  }, // Hidden Fates
+        { "sma",         "HIF" }, // Hidden Fates Shiny Vault
         { "mcd19",       "MCD19" }, // McDonalds 2019
-        { "sm12",        "CE"   }, // Cosmic Eclipse
+        { "sm12",        "CEC"   }, // Cosmic Eclipse
         // SWSH era
         { "swshp",       "SWP"  }, // SWSH Black Star Promos
         { "swsh1",       "SWSH" }, // Sword & Shield
         { "swsh2",       "RCL"  }, // Rebel Clash
-        { "swsh3",       "DAB"  }, // Darkness Ablaze
-        { "fut20",       "FCL"  }, // Futsal Collection
-        { "swsh35",      "CHP"  }, // Champions Path
-        { "swsh4",       "VV"   }, // Vivid Voltage
+        { "swsh3",       "DAA"  }, // Darkness Ablaze
+        { "fut20",       "FUT20"  }, // Futsal Collection
+        { "swsh35",      "CPA"  }, // Champions Path
+        { "swsh4",       "VIV"   }, // Vivid Voltage
         { "mcd21",       "MCD21" }, // McDonalds 2021
-        { "swsh45sv",    "SFSV" }, // Shining Fates Shiny Vault
+        { "swsh45sv",    "SHF" }, // Shining Fates Shiny Vault
         { "swsh45",      "SHF"  }, // Shining Fates
         { "swsh5",       "BST"  }, // Battle Styles
-        { "swsh6",       "CHR"  }, // Chilling Reign
+        { "swsh6",       "CRE"  }, // Chilling Reign
         { "swsh7",       "EVS"  }, // Evolving Skies
-        { "cel25c",      "CLSC" }, // Celebrations Classic Collection
+        { "cel25c",      "CEL" }, // Celebrations Classic Collection
         { "cel25",       "CEL"  }, // Celebrations
         { "swsh8",       "FST"  }, // Fusion Strike
         { "swsh9",       "BRS"  }, // Brilliant Stars
-        { "swsh9tg",     "BRTG" }, // Brilliant Stars Trainer Gallery
+        { "swsh9tg",     "BRS" }, // Brilliant Stars Trainer Gallery
         { "swsh10",      "ASR"  }, // Astral Radiance
-        { "swsh10tg",    "ARTG" }, // Astral Radiance Trainer Gallery
+        { "swsh10tg",    "ASR" }, // Astral Radiance Trainer Gallery
         { "pgo",         "PGO"  }, // Pokemon GO
         { "mcd22",       "MCD22" }, // McDonalds 2022
         { "swsh11",      "LOR"  }, // Lost Origin
-        { "swsh11tg",    "LOTG" }, // Lost Origin Trainer Gallery
-        { "swsh12",      "SVT"  }, // Silver Tempest
-        { "swsh12tg",    "SVTG" }, // Silver Tempest Trainer Gallery
+        { "swsh11tg",    "LOR" }, // Lost Origin Trainer Gallery
+        { "swsh12",      "SIT"  }, // Silver Tempest
+        { "swsh12tg",    "SIT" }, // Silver Tempest Trainer Gallery
         { "svp",         "SVP"  }, // Scarlet & Violet Black Star Promos
-        { "swsh12pt5",   "CZ"   }, // Crown Zenith
-        { "swsh12pt5gg", "CZGG" }, // Crown Zenith Galarian Gallery
+        { "swsh12pt5",   "CRZ"   }, // Crown Zenith
+        { "swsh12pt5gg", "CRZ" }, // Crown Zenith Galarian Gallery
         // SV era
-        { "sv1",         "SV1"   }, // Scarlet & Violet
+        { "sv1",         "SVI"   }, // Scarlet & Violet
         { "sve",         "SVE"  }, // Scarlet & Violet Energies
         { "sv2",         "PAL"  }, // Paldea Evolved
         { "sv3",         "OBF"  }, // Obsidian Flames
