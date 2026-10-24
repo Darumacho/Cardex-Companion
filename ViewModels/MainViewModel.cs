@@ -21,6 +21,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ImageCacheService _imageCache;
     private readonly AppDbContext _db;
     private readonly UpdateService _updateService = new();
+    private readonly PokeSpriteService _pokeSprite = new();
     private readonly AppSettings _settings;
 
     public ObservableCollection<LanguageOptionViewModel> LanguageOptions { get; } = [];
@@ -77,12 +78,14 @@ public partial class MainViewModel : ObservableObject
 
     public DeckBuilderViewModel DeckBuilder { get; }
     [ObservableProperty] private bool _showMyCollection = true;
+    [ObservableProperty] private bool _showStats = true;
     [ObservableProperty] private bool _showLegalityCheck = true;
     [ObservableProperty] private int  _totalOwnedCards;
     [ObservableProperty] private bool _isFavoritesSectionExpanded    = true;
     [ObservableProperty] private bool _isMyCollectionSectionExpanded = true;
     [ObservableProperty] private bool _isDuplicatesSectionExpanded   = true;
     [ObservableProperty] private bool _isWantedSectionExpanded       = true;
+    [ObservableProperty] private bool _isStatsSectionExpanded        = false;
     [ObservableProperty] private bool _isApiAnnouncementVisible      = true;
     [ObservableProperty] private string _newTagName    = "";
     [ObservableProperty] private string _pendingTagColor = "#3a7fc1";
@@ -145,6 +148,12 @@ public partial class MainViewModel : ObservableObject
         RefreshSpecialGroups();
     }
 
+    partial void OnShowStatsChanged(bool value)
+    {
+        _settings.ShowStats = value;
+        _settings.Save();
+    }
+
     private void OnLanguageOptionPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(LanguageOptionViewModel.IsTracked))
@@ -202,6 +211,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand] private void ToggleMyCollectionSection() => IsMyCollectionSectionExpanded = !IsMyCollectionSectionExpanded;
     [RelayCommand] private void ToggleDuplicatesSection()   => IsDuplicatesSectionExpanded   = !IsDuplicatesSectionExpanded;
     [RelayCommand] private void ToggleWantedSection()       => IsWantedSectionExpanded       = !IsWantedSectionExpanded;
+    [RelayCommand] private void ToggleStatsSection()        => IsStatsSectionExpanded        = !IsStatsSectionExpanded;
 
     partial void OnIsFavoritesSectionExpandedChanged(bool value)
     {
@@ -218,6 +228,12 @@ public partial class MainViewModel : ObservableObject
     partial void OnIsDuplicatesSectionExpandedChanged(bool value)
     {
         _settings.HomeDuplicatesExpanded = value;
+        _settings.Save();
+    }
+
+    partial void OnIsStatsSectionExpandedChanged(bool value)
+    {
+        _settings.HomeStatsExpanded = value;
         _settings.Save();
     }
 
@@ -385,6 +401,7 @@ public partial class MainViewModel : ObservableObject
         _isMyCollectionSectionExpanded = _settings.HomeMyCollectionExpanded;
         _isDuplicatesSectionExpanded = _settings.HomeDuplicatesExpanded;
         _isWantedSectionExpanded = _settings.HomeWantedExpanded;
+        _isStatsSectionExpanded = _settings.HomeStatsExpanded;
         _isApiAnnouncementVisible = !_settings.ApiAnnouncementDismissed;
         ApplyBorderColor(_settings.CollectionBorderColor);
 
@@ -667,7 +684,8 @@ public partial class MainViewModel : ObservableObject
             _ = LoadWantedCardsAsync();
             _ = LoadDuplicateCardsAsync();
             _ = LoadTagsAsync();
-            _ = LoadAchievementsAsync();
+            await LoadAchievementsAsync();
+            _ = RefreshStatsAsync();
 
             _preloadCts?.Cancel();
             _preloadCts = new CancellationTokenSource();
@@ -1635,9 +1653,132 @@ public partial class MainViewModel : ObservableObject
             _settingsWindow.Close();
             return;
         }
+        _ = RefreshStatsAsync();
         _settingsWindow = new Views.SettingsWindow { DataContext = this };
         _settingsWindow.Closed += (_, _) => _settingsWindow = null;
         _settingsWindow.Show();
+    }
+
+    [ObservableProperty] private CollectionStatsViewModel? _stats;
+
+    // Recalculé à chaque ouverture de Settings (pas mis en cache, pas abonné aux changements —
+    // un décompte légèrement périmé si on possède/déspossède une carte pendant que Settings est
+    // déjà ouvert est acceptable pour une page de stats consultative). Le prix (Cardmarket/
+    // TCGPlayer) est délibérément exclu : les cartes venant du fallback TCGdex (Ascended Heroes,
+    // promos SWSH/SV...) n'ont jamais de prix récupéré, un classement "cartes les plus chères"
+    // les exclurait silencieusement plutôt que de signaler l'absence de donnée.
+    private async Task RefreshStatsAsync()
+    {
+        var allSets = Series.Where(s => s.IsRealSeriesGroup)
+            .SelectMany(s => s.Sets)
+            .Where(s => !s.IsIgnored)
+            .ToList();
+        var setsBegun = allSets.Count(s => s.OwnedCount > 0);
+        var setsComplete = allSets.Count(s => s.IsComplete);
+
+        var ownedRows = await _db.OwnedCards
+            .Where(o => o.Quantity > 0)
+            .Join(_db.CachedCards, o => o.CardId, c => c.CardId, (o, c) => new { o.Quantity, c.Name, c.Rarity })
+            .ToListAsync();
+
+        var totalOwned = ownedRows.Count;
+
+        // Regroupe par nom d'espèce nettoyé des décorations TCG (voir CleanSpeciesName) : sans
+        // ça, "Lugia", "Shining Lugia", "Lugia V", "Lugia VSTAR"... sont comptés séparément et
+        // aucune variante individuelle ne ressort comme "la plus collectée" même en en possédant
+        // beaucoup au total.
+        var topPokemon = ownedRows
+            .GroupBy(r => PokeSpriteService.CleanSpeciesName(r.Name))
+            .Select(g => new { Name = g.Key, Count = g.Sum(r => r.Quantity) })
+            .OrderByDescending(g => g.Count)
+            .FirstOrDefault();
+
+        var rarityBreakdown = ownedRows
+            .GroupBy(r => string.IsNullOrEmpty(r.Rarity) ? "Unknown" : r.Rarity!)
+            .Select(g => new { Rarity = g.Key, Count = g.Count() })
+            .OrderByDescending(g => g.Count)
+            .Select(g => new RarityStat(g.Rarity, g.Count,
+                totalOwned > 0 ? $"{g.Count * 100.0 / totalOwned:F1}%" : "0%"))
+            .ToList();
+
+        var topCategories = Series.Where(s => s.IsRealSeriesGroup)
+            .Select(s =>
+            {
+                var sets = s.Sets.Where(set => !set.IsIgnored).ToList();
+                return new { s.SeriesName, Owned = sets.Sum(set => set.EffectiveOwned), Total = sets.Sum(set => set.EffectiveTotal) };
+            })
+            .Where(x => x.Total > 0)
+            .OrderByDescending(x => (double)x.Owned / x.Total)
+            .ThenByDescending(x => x.Owned)
+            .Take(3)
+            .Select(x => new SeriesCompletionStat(x.SeriesName, $"{x.Owned * 100.0 / x.Total:F0}%", x.Owned, x.Total))
+            .ToList();
+
+        // Best-effort : nom non reconnu par PokeAPI (carte Trainer/Energy, forme trop exotique) ou
+        // API indisponible -> pas de sprite, l'UI masque simplement l'image dans ce cas.
+        ImageSource? topPokemonSprite = null;
+        if (topPokemon is not null)
+        {
+            var spriteUrl = await _pokeSprite.GetSpriteUrlAsync(topPokemon.Name);
+            if (spriteUrl is not null)
+            {
+                var raw = await _imageCache.GetImageAsync(spriteUrl, $"pokesprite-{topPokemon.Name}");
+                // Les icônes "box" PokeAPI (Sword/Shield, Gen 7, Scarlet/Violet) ont un gros
+                // padding transparent autour du sprite réel (ex. ~20x20px de dessin dans un
+                // canevas 68x68) — sans ce recadrage, l'icône affichée minuscule dans un
+                // conteneur petit paraît quasi invisible.
+                if (raw is not null) topPokemonSprite = CropTransparentPadding(raw);
+            }
+        }
+
+        Stats = new CollectionStatsViewModel
+        {
+            TotalOwnedCards = totalOwned,
+            TotalSets = allSets.Count,
+            SetsBegun = setsBegun,
+            SetsComplete = setsComplete,
+            TopPokemonName = topPokemon?.Name,
+            TopPokemonCount = topPokemon?.Count ?? 0,
+            TopPokemonSprite = topPokemonSprite,
+            RarityBreakdown = rarityBreakdown,
+            TopCategories = topCategories,
+            UnlockedAchievements = Achievements.Count(a => a.IsUnlocked),
+            TotalAchievements = Achievements.Count,
+        };
+    }
+
+    // Les icônes "box" PokeAPI sont fournies sur un canevas bien plus grand que le dessin réel
+    // (padding transparent, ex. ~20x20px utiles dans un fichier 68x68) — on scanne les pixels pour
+    // retrouver le rectangle non-transparent et recadrer dessus, sinon l'icône affichée en petit
+    // paraît quasi invisible. Retombe sur l'image d'origine si elle est entièrement transparente
+    // (ne devrait pas arriver avec un vrai sprite).
+    private static ImageSource CropTransparentPadding(BitmapSource source)
+    {
+        var converted = new FormatConvertedBitmap(source, PixelFormats.Pbgra32, null, 0);
+        int width = converted.PixelWidth, height = converted.PixelHeight;
+        int stride = width * 4;
+        var pixels = new byte[height * stride];
+        converted.CopyPixels(pixels, stride, 0);
+
+        int minX = width, minY = height, maxX = -1, maxY = -1;
+        for (var y = 0; y < height; y++)
+        {
+            for (var x = 0; x < width; x++)
+            {
+                var alpha = pixels[y * stride + x * 4 + 3];
+                if (alpha <= 10) continue;
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
+        }
+
+        if (maxX < minX || maxY < minY) return source;
+
+        var cropped = new CroppedBitmap(converted, new Int32Rect(minX, minY, maxX - minX + 1, maxY - minY + 1));
+        cropped.Freeze();
+        return cropped;
     }
 
     [RelayCommand]

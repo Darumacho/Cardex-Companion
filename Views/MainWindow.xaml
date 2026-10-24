@@ -862,6 +862,7 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <!-- Barre de recherche globale -->
@@ -1010,8 +1011,150 @@
                     </StackPanel>
                 </Border>
 
+                <!-- Stats -->
+                <Border Grid.Row="3"
+                        Background="{StaticResource BrushPanel}"
+                        BorderBrush="{StaticResource BrushAccent}" BorderThickness="0,0,0,1">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Stats}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding ShowStats}" Value="False">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel>
+                        <Button Command="{Binding ToggleStatsSectionCommand}"
+                                Background="Transparent" BorderThickness="0"
+                                Padding="12,10,12,10" HorizontalContentAlignment="Stretch"
+                                Cursor="Hand">
+                            <Grid>
+                                <TextBlock Text="📊  Stats"
+                                           Foreground="#4ecdc4"
+                                           FontSize="12" FontWeight="Bold"
+                                           HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
+                                           Foreground="{StaticResource BrushSubtext}" FontSize="11">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="▼"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsStatsSectionExpanded}" Value="False">
+                                                    <Setter Property="Text" Value="►"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                        </Button>
+                        <StackPanel DataContext="{Binding Stats}"
+                                    Visibility="{Binding DataContext.IsStatsSectionExpanded, RelativeSource={RelativeSource AncestorType=Border}, Converter={StaticResource BoolToVis}}"
+                                    Margin="12,0,12,12">
+
+                            <TextBlock FontSize="12" Foreground="#e0e0e0" Margin="0,0,0,6" TextWrapping="Wrap">
+                                <Run Text="You have"/>
+                                <Run Text="{Binding TotalOwnedCards, Mode=OneWay}" FontWeight="Bold" Foreground="#ffd700"/>
+                                <Run Text="total cards, spread across"/>
+                                <Run Text="{Binding TotalSets, Mode=OneWay}" FontWeight="Bold" Foreground="#ffd700"/>
+                                <Run Text="sets."/>
+                            </TextBlock>
+
+                            <TextBlock FontSize="12" Foreground="#e0e0e0" Margin="0,0,0,6" TextWrapping="Wrap">
+                                <Run Text="Out of the"/>
+                                <Run Text="{Binding SetsBegun, Mode=OneWay}" FontWeight="Bold" Foreground="#ffd700"/>
+                                <Run Text="sets you've begun,"/>
+                                <Run Text="{Binding SetsComplete, Mode=OneWay}" FontWeight="Bold" Foreground="#ffd700"/>
+                                <Run Text="are complete."/>
+                            </TextBlock>
+
+                            <TextBlock FontSize="12" Foreground="#e0e0e0" TextWrapping="Wrap" Margin="0,0,0,6">
+                                <Run Text="Your most-collected Pokémon is"/>
+                                <InlineUIContainer BaselineAlignment="Center">
+                                    <Image Source="{Binding TopPokemonSprite}" Width="28" Height="28"
+                                           Margin="2,0,2,0"
+                                           RenderOptions.BitmapScalingMode="NearestNeighbor">
+                                        <Image.Style>
+                                            <Style TargetType="Image">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding HasTopPokemonSprite}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Image.Style>
+                                    </Image>
+                                </InlineUIContainer>
+                                <Run Text="{Binding TopPokemonName, Mode=OneWay}" FontWeight="Bold" Foreground="#ffd700"/>
+                                <Run Text="with"/>
+                                <Run Text="{Binding TopPokemonCount, Mode=OneWay}" FontWeight="Bold" Foreground="#ffd700"/>
+                                <Run Text="cards."/>
+                            </TextBlock>
+
+                            <TextBlock FontSize="12" Foreground="#e0e0e0" Margin="0,0,0,10" TextWrapping="Wrap">
+                                <Run Text="You've unlocked"/>
+                                <Run Text="{Binding UnlockedAchievements, Mode=OneWay}" FontWeight="Bold" Foreground="#ffd700"/>
+                                <Run Text="achievements out of"/>
+                                <Run Text="{Binding TotalAchievements, Mode=OneWay}" FontWeight="Bold" Foreground="#ffd700"/>
+                                <Run Text="."/>
+                            </TextBlock>
+
+                            <TextBlock Text="MOST-COMPLETED SERIES" Foreground="{StaticResource BrushSubtext}" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+                            <ItemsControl ItemsSource="{Binding TopCategories}" Margin="0,0,0,10">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:SeriesCompletionStat}">
+                                        <Grid Margin="0,0,0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding SeriesName}" Foreground="#e0e0e0" FontSize="11"/>
+                                            <TextBlock Grid.Column="1" FontSize="11" Foreground="#ffd700" FontWeight="SemiBold">
+                                                <Run Text="{Binding PercentText, Mode=OneWay}"/>
+                                                <Run Text=" ("/>
+                                                <Run Text="{Binding Owned, Mode=OneWay}"/>
+                                                <Run Text="/"/>
+                                                <Run Text="{Binding Total, Mode=OneWay}"/>
+                                                <Run Text=")"/>
+                                            </TextBlock>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <TextBlock Text="COLLECTION BY RARITY" Foreground="{StaticResource BrushSubtext}" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+                            <ItemsControl ItemsSource="{Binding RarityBreakdown}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:RarityStat}">
+                                        <Grid Margin="0,0,0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Rarity}" Foreground="#e0e0e0" FontSize="11"/>
+                                            <TextBlock Grid.Column="1" FontSize="11" Foreground="{StaticResource BrushHighlight}" FontWeight="SemiBold">
+                                                <Run Text="{Binding Count, Mode=OneWay}"/>
+                                                <Run Text=" ("/>
+                                                <Run Text="{Binding PercentText, Mode=OneWay}"/>
+                                                <Run Text=")"/>
+                                            </TextBlock>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
                 <!-- Résultats de recherche globale -->
-                <Border Grid.Row="3" Background="{StaticResource BrushBg}">
+                <Border Grid.Row="4" Background="{StaticResource BrushBg}">
                     <Border.Style>
                         <Style TargetType="Border">
                             <Setter Property="Visibility" Value="Visible"/>
@@ -1033,7 +1176,7 @@
                 </Border>
 
                 <!-- Duplicates + Wanted Cards -->
-                <Border Grid.Row="3" Background="{StaticResource BrushBg}">
+                <Border Grid.Row="4" Background="{StaticResource BrushBg}">
                     <Border.Style>
                         <Style TargetType="Border">
                             <Setter Property="Visibility" Value="Collapsed"/>
@@ -1205,7 +1348,7 @@
                 </Border>
 
                 <!-- Message de bienvenue -->
-                <StackPanel Grid.Row="3"
+                <StackPanel Grid.Row="4"
                             HorizontalAlignment="Center" VerticalAlignment="Center">
                     <StackPanel.Style>
                         <Style TargetType="StackPanel">
