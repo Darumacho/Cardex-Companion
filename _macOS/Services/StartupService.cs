@@ -5,7 +5,6 @@ using System.IO;
 using System.Reflection;
 using System.Text.Json;
 using Avalonia.Media.Imaging;
-using SkiaSharp;
 
 namespace Cardex.Services;
 
@@ -651,32 +650,7 @@ public static class StartupService
     public static Bitmap? LoadCroppedResource(string resourceName)
     {
         using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName);
-        if (stream is null) return null;
-        using var source = SKBitmap.Decode(stream);
-        if (source is null) return null;
-
-        int w = source.Width, h = source.Height;
-        int left = w, right = 0, top = h, bottom = 0;
-        for (int y = 0; y < h; y++)
-            for (int x = 0; x < w; x++)
-                if (source.GetPixel(x, y).Alpha > 10)
-                {
-                    if (x < left)   left   = x;
-                    if (x > right)  right  = x;
-                    if (y < top)    top    = y;
-                    if (y > bottom) bottom = y;
-                }
-
-        using var cropped = new SKBitmap();
-        var area = left >= right || top >= bottom
-            ? new SKRectI(0, 0, w, h)
-            : new SKRectI(left, top, right + 1, bottom + 1);
-        if (!source.ExtractSubset(cropped, area)) return null;
-
-        using var image = SKImage.FromBitmap(cropped);
-        using var png = image.Encode(SKEncodedImageFormat.Png, 100);
-        using var ms = new MemoryStream(png.ToArray());
-        return new Bitmap(ms);
+        return stream is null ? null : Platform.ImageCrop.CropTransparentPadding(stream);
     }
 
     public static Bitmap? LoadResource(string resourceName)

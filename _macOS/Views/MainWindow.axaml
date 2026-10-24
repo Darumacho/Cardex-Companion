@@ -678,7 +678,7 @@
                                     ToolTip.Tip="Dismiss forever"/>
                         </Grid>
                     </Border>
-                    <Grid RowDefinitions="Auto,Auto,Auto,Auto">
+                    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto">
 
                         <!-- Barre de recherche globale -->
                         <Border Grid.Row="0" Background="{StaticResource BrushAccent}" Padding="12,8">
@@ -764,8 +764,89 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Stats -->
+                        <Border Grid.Row="3"
+                                Background="{StaticResource BrushPanel}"
+                                BorderBrush="{StaticResource BrushAccent}" BorderThickness="0,0,0,1">
+                            <Border.IsVisible>
+                                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                    <Binding Path="Stats" Converter="{x:Static ObjectConverters.IsNotNull}"/>
+                                    <Binding Path="ShowStats"/>
+                                </MultiBinding>
+                            </Border.IsVisible>
+                            <StackPanel>
+                                <Button Command="{Binding ToggleStatsSectionCommand}"
+                                        Theme="{StaticResource SectionHeaderButton}"
+                                        Padding="12,10,12,10">
+                                    <Grid>
+                                        <TextBlock Text="📊  Stats"
+                                                   Foreground="#4ecdc4"
+                                                   FontSize="12" FontWeight="Bold"
+                                                   HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                   Foreground="{StaticResource BrushSubtext}" FontSize="11"
+                                                   Text="{Binding IsStatsSectionExpanded, Converter={StaticResource BoolToStr}, ConverterParameter='▼|►'}"/>
+                                    </Grid>
+                                </Button>
+                                <StackPanel DataContext="{Binding Stats}"
+                                            x:DataType="vm:CollectionStatsViewModel"
+                                            IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsStatsSectionExpanded}"
+                                            Margin="12,0,12,12">
+
+                                    <!-- Espaces explicites dans les Run : Avalonia ne les insère pas entre deux Run comme WPF -->
+                                    <TextBlock FontSize="12" Foreground="#e0e0e0" Margin="0,0,0,6" TextWrapping="Wrap">
+                                        <Run Text="You have "/><Run Text="{Binding TotalOwnedCards}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" total cards, spread across "/><Run Text="{Binding TotalSets}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" sets."/>
+                                    </TextBlock>
+
+                                    <TextBlock FontSize="12" Foreground="#e0e0e0" Margin="0,0,0,6" TextWrapping="Wrap">
+                                        <Run Text="Out of the "/><Run Text="{Binding SetsBegun}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" sets you've begun, "/><Run Text="{Binding SetsComplete}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" are complete."/>
+                                    </TextBlock>
+
+                                    <TextBlock FontSize="12" Foreground="#e0e0e0" TextWrapping="Wrap" Margin="0,0,0,6">
+                                        <Run Text="Your most-collected Pokémon is "/><InlineUIContainer BaselineAlignment="Center"><Image Source="{Binding TopPokemonSprite}" Width="28" Height="28"
+                                                   Margin="2,0,2,0"
+                                                   RenderOptions.BitmapInterpolationMode="None"
+                                                   IsVisible="{Binding HasTopPokemonSprite}"/></InlineUIContainer><Run Text="{Binding TopPokemonName}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" with "/><Run Text="{Binding TopPokemonCount}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" cards."/>
+                                    </TextBlock>
+
+                                    <TextBlock FontSize="12" Foreground="#e0e0e0" Margin="0,0,0,10" TextWrapping="Wrap">
+                                        <Run Text="You've unlocked "/><Run Text="{Binding UnlockedAchievements}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" achievements out of "/><Run Text="{Binding TotalAchievements}" FontWeight="Bold" Foreground="#ffd700"/><Run Text="."/>
+                                    </TextBlock>
+
+                                    <TextBlock Text="MOST-COMPLETED SERIES" Foreground="{StaticResource BrushSubtext}" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+                                    <ItemsControl ItemsSource="{Binding TopCategories}" Margin="0,0,0,10">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:SeriesCompletionStat">
+                                                <Grid Margin="0,0,0,4" ColumnDefinitions="*,Auto">
+                                                    <TextBlock Grid.Column="0" Text="{Binding SeriesName}" Foreground="#e0e0e0" FontSize="11"/>
+                                                    <TextBlock Grid.Column="1" FontSize="11" Foreground="#ffd700" FontWeight="SemiBold">
+                                                        <Run Text="{Binding PercentText}"/><Run Text=" ("/><Run Text="{Binding Owned}"/><Run Text="/"/><Run Text="{Binding Total}"/><Run Text=")"/>
+                                                    </TextBlock>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <TextBlock Text="COLLECTION BY RARITY" Foreground="{StaticResource BrushSubtext}" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+                                    <ItemsControl ItemsSource="{Binding RarityBreakdown}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:RarityStat">
+                                                <Grid Margin="0,0,0,4" ColumnDefinitions="*,Auto">
+                                                    <TextBlock Grid.Column="0" Text="{Binding Rarity}" Foreground="#e0e0e0" FontSize="11"/>
+                                                    <TextBlock Grid.Column="1" FontSize="11" Foreground="{StaticResource BrushHighlight}" FontWeight="SemiBold">
+                                                        <Run Text="{Binding Count}"/><Run Text=" ("/><Run Text="{Binding PercentText}"/><Run Text=")"/>
+                                                    </TextBlock>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
                         <!-- Résultats de recherche globale -->
-                        <Border Grid.Row="3" Background="{StaticResource BrushBg}"
+                        <Border Grid.Row="4" Background="{StaticResource BrushBg}"
                                 IsVisible="{Binding GlobalSearch, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                             <ItemsControl ItemsSource="{Binding SearchResults}"
                                           ItemTemplate="{StaticResource SearchResultTemplate}">
@@ -778,7 +859,7 @@
                         </Border>
 
                         <!-- Duplicates + Wanted Cards -->
-                        <Border Grid.Row="3" Background="{StaticResource BrushBg}">
+                        <Border Grid.Row="4" Background="{StaticResource BrushBg}">
                             <Border.IsVisible>
                                 <MultiBinding Converter="{x:Static BoolConverters.And}">
                                     <Binding Path="GlobalSearch" Converter="{x:Static StringConverters.IsNullOrEmpty}"/>
@@ -883,7 +964,7 @@
                         </Border>
 
                         <!-- Message de bienvenue -->
-                        <StackPanel Grid.Row="3"
+                        <StackPanel Grid.Row="4"
                                     HorizontalAlignment="Center" VerticalAlignment="Center">
                             <StackPanel.IsVisible>
                                 <MultiBinding Converter="{x:Static BoolConverters.And}">

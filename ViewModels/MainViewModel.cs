@@ -396,6 +396,7 @@ public partial class MainViewModel : ObservableObject
         _settings = AppSettings.Load();
         DeckBuilder = new DeckBuilderViewModel(db, imageCache);
         _showMyCollection = _settings.ShowMyCollection;
+        _showStats = _settings.ShowStats;
         _showLegalityCheck = _settings.ShowLegalityCheck;
         _isFavoritesSectionExpanded = _settings.HomeFavoritesExpanded;
         _isMyCollectionSectionExpanded = _settings.HomeMyCollectionExpanded;
