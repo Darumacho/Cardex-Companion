@@ -36,3 +36,5 @@ API project/
 
 # Clé API Cardex (secret local, jamais commité)
 cardex-api-key.txt
+# macOS
+.DS_Store

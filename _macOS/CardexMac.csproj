@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <Version>2.7.3</Version>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Mêmes noms que le projet WPF : namespaces Cardex.*, ressources Cardex.*, Cardex.app -->
+    <AssemblyName>Cardex</AssemblyName>
+    <RootNamespace>Cardex</RootNamespace>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <SatelliteResourceLanguages>fr</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <!-- Code partagé avec le projet WPF (C# pur, sans dépendance Windows) -->
+  <ItemGroup>
+    <Compile Include="..\Models\**\*.cs" Link="Shared\Models\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\Data\**\*.cs" Link="Shared\Data\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\Services\**\*.cs" Link="Shared\Services\%(RecursiveDir)%(Filename)%(Extension)"
+             Exclude="..\Services\ImageCacheService.cs;..\Services\UpdateService.cs" />
+  </ItemGroup>
+
+  <!-- Ressources embarquées : mêmes LogicalName que Cardex.csproj -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\cardex-api-key.txt" LogicalName="Cardex.cardex-api-key.txt" Condition="Exists('..\cardex-api-key.txt')" />
+    <EmbeddedResource Include="..\Logo.png" LogicalName="Cardex.Logo.png" />
+    <EmbeddedResource Include="..\Name.png" LogicalName="Cardex.Name.png" />
+    <EmbeddedResource Include="..\SeedData\sets.json" LogicalName="Cardex.SeedData.sets.json" />
+    <EmbeddedResource Include="..\SeedData\cards.json" LogicalName="Cardex.SeedData.cards.json" />
+    <EmbeddedResource Include="..\SeedData\supertypes.json" LogicalName="Cardex.SeedData.supertypes.json" Condition="Exists('..\SeedData\supertypes.json')" />
+    <EmbeddedResource Include="..\SeedData\tcgdex_sets.json" LogicalName="Cardex.SeedData.tcgdex_sets.json" />
+    <EmbeddedResource Include="..\SeedData\tcgdex_cards.json" LogicalName="Cardex.SeedData.tcgdex_cards.json" />
+    <EmbeddedResource Include="..\SeedData\tcgdex_completion_cards.json" LogicalName="Cardex.SeedData.tcgdex_completion_cards.json" />
+  </ItemGroup>
+
+  <!-- Images et sons, accessibles via avares://Cardex/Assets/... -->
+  <ItemGroup>
+    <AvaloniaResource Include="..\Assets\**" Link="Assets\%(RecursiveDir)%(Filename)%(Extension)" />
+    <AvaloniaResource Include="..\Logo.png" Link="Assets\Logo.png" />
+    <AvaloniaResource Include="..\Name.png" Link="Assets\Name.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
+    <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3">
+      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <!-- Rasterisation des symboles de sets SVG (remplace SharpVectors.Wpf) ; 5.1.x = SkiaSharp 3.119, comme Avalonia 12 -->
+    <PackageReference Include="Svg.Skia" Version="5.1.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.11" />
+  </ItemGroup>
+
+</Project>

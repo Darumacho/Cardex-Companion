@@ -31,9 +31,7 @@ public class AppSettings
 
     private static readonly JsonSerializerOptions _json = new() { WriteIndented = true };
 
-    private static string FilePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "Cardex", "settings.json");
+    private static string FilePath => Path.Combine(AppPaths.DataFolder, "settings.json");
 
     public static AppSettings Load()
     {

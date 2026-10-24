@@ -1,5 +1,6 @@
 using System.IO;
 using Cardex.Models;
+using Cardex.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace Cardex.Data;
@@ -28,9 +29,7 @@ public class AppDbContext : DbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder options)
     {
-        var folder = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Cardex");
+        var folder = AppPaths.DataFolder;
         Directory.CreateDirectory(folder);
         options.UseSqlite($"Data Source={Path.Combine(folder, "collection.db")}");
     }

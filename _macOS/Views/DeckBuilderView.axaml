@@ -1,0 +1,376 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Cardex.ViewModels"
+             xmlns:conv="using:Cardex.Converters"
+             xmlns:p="using:Cardex.Platform"
+             x:Class="Cardex.Views.DeckBuilderView"
+             x:DataType="vm:DeckBuilderViewModel"
+             Background="{StaticResource BrushBg}">
+
+    <!-- Portage de Views/DeckBuilderView.xaml (WPF) -->
+    <UserControl.Resources>
+        <conv:WrapRowWidthConverter x:Key="WrapRowWidthConverter"/>
+
+        <!-- Compact dark button -->
+        <ControlTheme x:Key="DkBtn" TargetType="Button">
+            <Setter Property="Background"      Value="#0f3460"/>
+            <Setter Property="Foreground"      Value="#e0e0e0"/>
+            <Setter Property="BorderBrush"     Value="#1a4a80"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding"         Value="10,4"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="FontSize"        Value="11"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="4" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          Foreground="{TemplateBinding Foreground}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:pointerover">
+                <Setter Property="Background" Value="#1a4a80"/>
+            </Style>
+            <Style Selector="^:disabled">
+                <Setter Property="Opacity" Value="0.4"/>
+            </Style>
+        </ControlTheme>
+
+        <!-- Admin icon button -->
+        <ControlTheme x:Key="AdminBtn" TargetType="Button" BasedOn="{StaticResource DkBtn}">
+            <Setter Property="Width"   Value="26"/>
+            <Setter Property="Height"  Value="22"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="FontSize" Value="12"/>
+        </ControlTheme>
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <!-- Chip badge -->
+        <Style Selector="Border.chip">
+            <Setter Property="CornerRadius"    Value="3"/>
+            <Setter Property="Padding"         Value="5,2"/>
+            <Setter Property="Margin"          Value="0,0,4,0"/>
+            <Setter Property="Background"      Value="#0f1629"/>
+        </Style>
+
+        <!-- Carte du navigateur : bordure dorée si déjà dans le deck -->
+        <Style Selector="Border.browserCard"><Setter Property="BorderBrush" Value="Transparent"/></Style>
+        <Style Selector="Border.browserCard.inDeck"><Setter Property="BorderBrush" Value="#ffd700"/></Style>
+
+        <!-- Filtre par set : les en-têtes de série ne sont pas sélectionnables -->
+        <Style Selector="ComboBox.setFilter ComboBoxItem" x:DataType="vm:SetFilterItem">
+            <Setter Property="IsEnabled" Value="{Binding !IsHeader}"/>
+        </Style>
+        <Style Selector="TextBlock.setHeader">
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{StaticResource BrushSubtext}"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid ColumnDefinitions="*,1,240">
+
+        <!-- ══════════════════════════════════════════════════════════════════ -->
+        <!-- LEFT (of this view) : Recherche de cartes                        -->
+        <!-- ══════════════════════════════════════════════════════════════════ -->
+        <Grid Grid.Column="0" Background="{StaticResource BrushBg}" RowDefinitions="Auto,Auto,*">
+
+            <!-- Search bar -->
+            <Border Grid.Row="0" Background="{StaticResource BrushAccent}" Padding="10,8">
+                <Grid ColumnDefinitions="*,Auto">
+                    <Grid Grid.Column="0">
+                        <TextBox Text="{Binding CardSearch}"
+                                 Theme="{StaticResource DarkTextBoxStyle}"
+                                 Padding="8,5" FontSize="12">
+                            <TextBox.KeyBindings>
+                                <KeyBinding Gesture="Enter" Command="{Binding SearchCardsCommand}"/>
+                            </TextBox.KeyBindings>
+                        </TextBox>
+                        <TextBlock Text="Search cards by name…"
+                                   Foreground="{StaticResource BrushSubtext}"
+                                   FontSize="12" IsHitTestVisible="False"
+                                   Margin="10,0,0,0" VerticalAlignment="Center"
+                                   IsVisible="{Binding CardSearch, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                    </Grid>
+                    <Button Grid.Column="1" Command="{Binding SearchCardsCommand}"
+                            Theme="{StaticResource DkBtn}" Margin="6,0,0,0"
+                            Content="🔍 Search"/>
+                </Grid>
+            </Border>
+
+            <!-- Filters -->
+            <Border Grid.Row="1" Background="{StaticResource BrushPanel}" Padding="10,6"
+                    BorderBrush="{StaticResource BrushAccent}" BorderThickness="0,0,0,1">
+                <StackPanel Orientation="Horizontal">
+                    <!-- Supertype filter -->
+                    <ComboBox ItemsSource="{x:Static vm:DeckBuilderViewModel.SupertypeOptions}"
+                              SelectedItem="{Binding SupertypeFilter}"
+                              Width="90" FontSize="11" Margin="0,0,6,0"/>
+                    <!-- Subtype filter -->
+                    <ComboBox ItemsSource="{x:Static vm:DeckBuilderViewModel.SubtypeOptions}"
+                              SelectedItem="{Binding SubtypeFilter}"
+                              Width="110" FontSize="11" Margin="0,0,6,0"/>
+                    <!-- Set filter -->
+                    <ComboBox Classes="setFilter"
+                              ItemsSource="{Binding SetOptions}"
+                              SelectedValueBinding="{Binding Value, x:DataType=vm:SetFilterItem}"
+                              SelectedValue="{Binding SetFilter}"
+                              Width="140" FontSize="11" Margin="0,0,6,0">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:SetFilterItem">
+                                <TextBlock Text="{Binding Display}" Classes.setHeader="{Binding IsHeader}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <!-- Tag filter -->
+                    <ComboBox ItemsSource="{Binding TagOptions}"
+                              DisplayMemberBinding="{Binding Display, x:DataType=vm:TagFilterItem}"
+                              SelectedValueBinding="{Binding Value, x:DataType=vm:TagFilterItem}"
+                              SelectedValue="{Binding TagFilter}"
+                              Width="120" FontSize="11" Margin="0,0,6,0"/>
+                    <!-- Only owned -->
+                    <CheckBox IsChecked="{Binding OnlyOwned}"
+                              Content="Owned only"
+                              Foreground="{StaticResource BrushText}"
+                              FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <!-- Status -->
+                    <TextBlock Text="{Binding BrowserStatus}"
+                               Foreground="{StaticResource BrushSubtext}"
+                               FontSize="10" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Results : grille de cartes façon collection -->
+            <ScrollViewer Grid.Row="2" x:Name="ResultsScroll"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding BrowserCards}" Margin="0,6"
+                              HorizontalAlignment="Center"
+                              Width="{Binding #ResultsScroll.Viewport.Width,
+                                      Converter={StaticResource WrapRowWidthConverter}, ConverterParameter=148}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:DeckBrowserCardVm">
+                            <Border Classes="browserCard" Classes.inDeck="{Binding InDeck}"
+                                    Width="138" Margin="5" CornerRadius="8"
+                                    Background="{StaticResource BrushPanel}"
+                                    BorderThickness="2">
+                                <StackPanel>
+                                    <!-- Image carte -->
+                                    <Grid Height="188" Background="#111122" Cursor="Hand">
+                                        <TextBlock Text="…" Foreground="{StaticResource BrushSubtext}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   FontSize="22"
+                                                   IsVisible="{Binding IsLoadingImage}"/>
+                                        <TextBlock Text="No image returned by API" Foreground="{StaticResource BrushSubtext}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   FontSize="11" TextAlignment="Center" TextWrapping="Wrap" Width="110"
+                                                   IsVisible="{Binding HasNoImage}"/>
+                                        <Image Stretch="Uniform"
+                                               RenderOptions.BitmapInterpolationMode="HighQuality"
+                                               p:RemoteImage.DecodeWidth="300"
+                                               p:RemoteImage.Url="{Binding ImageUrl}"/>
+                                        <Button Command="{Binding ShowZoomCommand}"
+                                                Theme="{StaticResource ZoomButtonStyle}"
+                                                Cursor="{DynamicResource MagnifierCursor}"
+                                                ToolTip.Tip="View full size"/>
+
+                                        <!-- Deck qty badge -->
+                                        <Border CornerRadius="9" Background="#0f3460"
+                                                Padding="6,2" Margin="4" VerticalAlignment="Top"
+                                                HorizontalAlignment="Right" IsHitTestVisible="False"
+                                                IsVisible="{Binding !!DeckQuantity}">
+                                            <TextBlock Text="{Binding DeckQuantity, StringFormat='×{0}'}"
+                                                       Foreground="#ffd700" FontSize="10" FontWeight="Bold"/>
+                                        </Border>
+
+                                        <!-- Owned badge -->
+                                        <TextBlock Text="✓ owned" Foreground="#4ecdc4" FontSize="9"
+                                                   FontWeight="Bold" Margin="4"
+                                                   VerticalAlignment="Bottom" HorizontalAlignment="Left"
+                                                   IsHitTestVisible="False"
+                                                   IsVisible="{Binding IsOwned}"/>
+                                    </Grid>
+
+                                    <!-- Infos -->
+                                    <Grid Margin="6,5,6,8">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Name}"
+                                                       Foreground="{StaticResource BrushText}"
+                                                       FontSize="11" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip.Tip="{Binding Name}"/>
+                                            <TextBlock Foreground="{StaticResource BrushSubtext}" FontSize="9"
+                                                       TextTrimming="CharacterEllipsis">
+                                                <TextBlock.Text>
+                                                    <MultiBinding StringFormat="{}{0}  · {1}">
+                                                        <Binding Path="SetName"/>
+                                                        <Binding Path="Number"/>
+                                                    </MultiBinding>
+                                                </TextBlock.Text>
+                                            </TextBlock>
+                                            <StackPanel Orientation="Horizontal" Margin="0,6,0,3">
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,6,0"
+                                                            IsVisible="{Binding CmLow, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                                    <Image Source="avares://Cardex/Assets/cardmarket.png"
+                                                           Width="11" Height="11" Margin="0,0,3,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding CmLow, StringFormat='{}{0:F2}€'}"
+                                                               Foreground="#aaaacc" FontSize="10" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal"
+                                                            IsVisible="{Binding TcgLow, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                                    <Image Source="avares://Cardex/Assets/tcgplayer.png"
+                                                           Width="11" Height="11" Margin="0,0,3,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding TcgLow, StringFormat='${0:F2}'}"
+                                                               Foreground="#aaaacc" FontSize="10" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                            <Button Command="{Binding $parent[UserControl].((vm:DeckBuilderViewModel)DataContext).AddCardToDeckCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Theme="{StaticResource DkBtn}"
+                                                    HorizontalAlignment="Stretch"
+                                                    Margin="0,5,0,0"
+                                                    ToolTip.Tip="Add to deck"
+                                                    Content="+ Deck"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- Vertical separator -->
+        <Border Grid.Column="1" Background="{StaticResource BrushAccent}"/>
+
+        <!-- ══════════════════════════════════════════════════════════════════ -->
+        <!-- RIGHT : Admin panel                                               -->
+        <!-- ══════════════════════════════════════════════════════════════════ -->
+        <Grid Grid.Column="2" Background="#0a0e1a" RowDefinitions="Auto,*">
+
+            <!-- Header -->
+            <Border Grid.Row="0" Background="{StaticResource BrushAccent}" Padding="12,10">
+                <Grid>
+                    <TextBlock Text="Saved Decks"
+                               Foreground="{StaticResource BrushText}"
+                               FontSize="13" FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Command="{Binding ImportPtcgoTextCommand}"
+                                Theme="{StaticResource DkBtn}"
+                                Margin="0,0,4,0"
+                                ToolTip.Tip="Paste a decklist copied from Limitless TCG, TCGPlayer, PTCGL, etc."
+                                Content="📋 Paste"/>
+                        <Button Command="{Binding ImportPtcgoDeckCommand}"
+                                Theme="{StaticResource DkBtn}"
+                                ToolTip.Tip="Import a PTCGO/Live .txt deck file"
+                                Content="⬆ File"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Decks list -->
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding SavedDecks}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:DeckSummaryVm">
+                            <Border BorderThickness="0,0,0,1" BorderBrush="#111830" Padding="10,8">
+                                <StackPanel>
+
+                                    <!-- Name row : TextBlock OR TextBox -->
+                                    <Grid Margin="0,0,0,3">
+                                        <TextBlock Text="{Binding Name}"
+                                                   Foreground="{StaticResource BrushText}"
+                                                   FontSize="12" FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   IsVisible="{Binding !IsEditing}"/>
+                                        <TextBox Text="{Binding EditingName}"
+                                                 Theme="{StaticResource DarkTextBoxStyle}"
+                                                 CornerRadius="0"
+                                                 Padding="4,3" FontSize="12"
+                                                 IsVisible="{Binding IsEditing}">
+                                            <TextBox.KeyBindings>
+                                                <KeyBinding Gesture="Enter"
+                                                            Command="{Binding $parent[UserControl].((vm:DeckBuilderViewModel)DataContext).CommitRenameCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                <KeyBinding Gesture="Escape"
+                                                            Command="{Binding $parent[UserControl].((vm:DeckBuilderViewModel)DataContext).CancelRenameCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                            </TextBox.KeyBindings>
+                                        </TextBox>
+                                    </Grid>
+
+                                    <!-- Chips Pk/Tr/En/Total -->
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                        <Border Classes="chip">
+                                            <TextBlock Foreground="#7a9abf" FontSize="9">
+                                                <Run Text="🔵 "/><Run Text="{Binding PokemonCount}" FontWeight="Bold"/><Run Text=" Pk"/>
+                                            </TextBlock>
+                                        </Border>
+                                        <Border Classes="chip">
+                                            <TextBlock Foreground="#c49a3a" FontSize="9">
+                                                <Run Text="🟡 "/><Run Text="{Binding TrainerCount}" FontWeight="Bold"/><Run Text=" Tr"/>
+                                            </TextBlock>
+                                        </Border>
+                                        <Border Classes="chip">
+                                            <TextBlock Foreground="#aa5555" FontSize="9">
+                                                <Run Text="⚡ "/><Run Text="{Binding EnergyCount}" FontWeight="Bold"/><Run Text=" En"/>
+                                            </TextBlock>
+                                        </Border>
+                                        <Border Classes="chip">
+                                            <TextBlock Foreground="{StaticResource BrushSubtext}" FontSize="9">
+                                                <Run Text="{Binding TotalCards}" FontWeight="Bold"/><Run Text="/60"/>
+                                            </TextBlock>
+                                        </Border>
+                                    </StackPanel>
+
+                                    <!-- Date + action buttons -->
+                                    <Grid>
+                                        <TextBlock Text="{Binding UpdatedAt, StringFormat='{}{0:dd/MM/yy}'}"
+                                                   Foreground="{StaticResource BrushSubtext}"
+                                                   FontSize="9" VerticalAlignment="Center"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <Button Command="{Binding $parent[UserControl].((vm:DeckBuilderViewModel)DataContext).LoadDeckCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Theme="{StaticResource AdminBtn}"
+                                                    ToolTip.Tip="Load this deck" Margin="0,0,3,0" Content="📂"/>
+                                            <Button Command="{Binding $parent[UserControl].((vm:DeckBuilderViewModel)DataContext).BeginRenameCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Theme="{StaticResource AdminBtn}"
+                                                    ToolTip.Tip="Rename" Margin="0,0,3,0" Content="✏️"
+                                                    IsVisible="{Binding !IsEditing}"/>
+                                            <Button Command="{Binding $parent[UserControl].((vm:DeckBuilderViewModel)DataContext).CommitRenameCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Theme="{StaticResource AdminBtn}"
+                                                    ToolTip.Tip="Confirm rename" Margin="0,0,3,0" Content="✔"
+                                                    IsVisible="{Binding IsEditing}"/>
+                                            <Button Command="{Binding $parent[UserControl].((vm:DeckBuilderViewModel)DataContext).DuplicateDeckCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Theme="{StaticResource AdminBtn}"
+                                                    ToolTip.Tip="Duplicate deck" Margin="0,0,3,0" Content="⧉"/>
+                                            <Button Command="{Binding $parent[UserControl].((vm:DeckBuilderViewModel)DataContext).DeleteDeckCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Theme="{StaticResource AdminBtn}"
+                                                    Foreground="#aa4444"
+                                                    ToolTip.Tip="Delete deck" Content="✕"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

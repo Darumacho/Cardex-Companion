@@ -1,0 +1,54 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Cardex.Views.PasteDeckDialog"
+        Title="Import decklist"
+        Width="440" Height="480"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="#1a1a2e"
+        Foreground="#e0e0e0">
+
+    <!-- Portage de Views/PasteDeckDialog.xaml (WPF) -->
+    <Grid Margin="24,20,24,16" RowDefinitions="Auto,Auto,Auto,*,Auto">
+
+        <TextBlock Grid.Row="0" Text="Deck name"
+                   Foreground="#8888aa" FontSize="12"
+                   Margin="0,0,0,6"/>
+        <TextBox x:Name="DeckNameBox" Grid.Row="1"
+                 Theme="{StaticResource DarkTextBoxStyle}"
+                 Text="Imported Deck"
+                 CornerRadius="0"
+                 Padding="8,5" FontSize="12"
+                 Margin="0,0,0,14"/>
+
+        <TextBlock Grid.Row="2"
+                   Text="Paste a decklist copied from Limitless TCG, TCGPlayer, Pokémon TCG Live, etc. (PTCGO/PTCGL text format)"
+                   Foreground="#8888aa" FontSize="11" TextWrapping="Wrap"
+                   Margin="0,0,0,8"/>
+
+        <!-- Consolas n'existe pas sur macOS : Menlo est la police à chasse fixe du système -->
+        <TextBox x:Name="DeckTextBox" Grid.Row="3"
+                 Theme="{StaticResource DarkTextBoxStyle}"
+                 AcceptsReturn="True" AcceptsTab="True"
+                 TextWrapping="NoWrap"
+                 VerticalContentAlignment="Top"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                 CornerRadius="0"
+                 Padding="8,6" FontSize="12" FontFamily="Menlo, Consolas, monospace"/>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Cancel" Width="80" Height="30"
+                    Margin="0,0,8,0" IsCancel="True"
+                    Theme="{StaticResource DialogButtonStyle}"
+                    Background="#0f3460"
+                    Click="Cancel_Click"/>
+            <Button Content="Import" Width="80" Height="30"
+                    IsDefault="True"
+                    Theme="{StaticResource DialogButtonStyle}"
+                    Background="#27ae60"
+                    Click="Import_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,1221 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Cardex.ViewModels"
+        xmlns:conv="using:Cardex.Converters"
+        xmlns:views="using:Cardex.Views"
+        xmlns:p="using:Cardex.Platform"
+        x:Class="Cardex.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="Cardex — Pokémon TCG Collection Companion"
+        Icon="avares://Cardex/Assets/Logo.png"
+        Width="1280" Height="800"
+        MinWidth="900" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BrushBg}">
+
+    <!-- Portage de Views/MainWindow.xaml (WPF). Raccourcis : Ctrl → ⌘ (Meta) sur macOS.
+         ⌘E / ⌘B / ⌘R sont portés par la barre de menus ci-dessous (un raccourci de menu macOS
+         intercepte la touche : le garder aussi ici le déclencherait en double). -->
+    <Window.KeyBindings>
+        <!-- Hors menu : ⌘A doit rester « tout sélectionner » dans les champs de texte -->
+        <KeyBinding Gesture="Meta+A" Command="{Binding ToggleAllOwnedCommand}"/>
+    </Window.KeyBindings>
+
+    <!-- Barre de menus macOS (en haut de l'écran) : pas d'équivalent côté WPF, les mêmes actions y
+         sont des boutons. -->
+    <NativeMenu.Menu>
+        <NativeMenu>
+            <NativeMenuItem Header="File">
+                <NativeMenu>
+                    <NativeMenuItem Header="Backup Collection…" Gesture="Meta+B" Click="MenuBackup_Click"/>
+                    <NativeMenuItem Header="Restore Collection…" Gesture="Meta+R" Click="MenuRestore_Click"/>
+                    <NativeMenuItemSeparator/>
+                    <NativeMenuItem Header="Import Cards…" Click="MenuImport_Click"/>
+                    <NativeMenuItem Header="Save Import Template…" Click="MenuImportTemplate_Click"/>
+                    <NativeMenuItem Header="Export CSV…" Gesture="Meta+E" Click="MenuExportCsv_Click"/>
+                    <NativeMenuItemSeparator/>
+                    <NativeMenuItem Header="Sync Collection" Click="MenuSync_Click"/>
+                    <NativeMenuItem Header="Refresh Database" Click="MenuRefreshDatabase_Click"/>
+                </NativeMenu>
+            </NativeMenuItem>
+            <NativeMenuItem Header="Deck">
+                <NativeMenu>
+                    <NativeMenuItem Header="New Deck" Click="MenuNewDeck_Click"/>
+                    <NativeMenuItem Header="Save Deck" Click="MenuSaveDeck_Click"/>
+                    <NativeMenuItemSeparator/>
+                    <NativeMenuItem Header="Import Deck from File…" Click="MenuImportDeckFile_Click"/>
+                    <NativeMenuItem Header="Paste Decklist…" Click="MenuPasteDeck_Click"/>
+                    <NativeMenuItem Header="Export Deck…" Click="MenuExportDeck_Click"/>
+                </NativeMenu>
+            </NativeMenuItem>
+            <NativeMenuItem Header="View">
+                <NativeMenu>
+                    <NativeMenuItem Header="Home" Click="MenuHome_Click"/>
+                    <NativeMenuItem Header="Deck Builder" Click="MenuDeckBuilder_Click"/>
+                    <NativeMenuItemSeparator/>
+                    <NativeMenuItem Header="Toggle List / Binder View" Click="MenuToggleBinder_Click"/>
+                    <NativeMenuItem Header="Find" Gesture="Meta+F" Click="MenuFind_Click"/>
+                </NativeMenu>
+            </NativeMenuItem>
+            <NativeMenuItem Header="Help">
+                <NativeMenu>
+                    <NativeMenuItem Header="Keyboard Shortcuts" Click="MenuShortcuts_Click"/>
+                    <NativeMenuItemSeparator/>
+                    <NativeMenuItem Header="Cardex API Website" Click="MenuApiWebsite_Click"/>
+                    <NativeMenuItem Header="Cardex Mobile Releases" Click="MenuMobileReleases_Click"/>
+                </NativeMenu>
+            </NativeMenuItem>
+        </NativeMenu>
+    </NativeMenu.Menu>
+
+    <Window.Resources>
+        <conv:StringEqualsConverter x:Key="StrEq"/>
+        <conv:BoolToStringConverter x:Key="BoolToStr"/>
+
+        <!-- Template carte -->
+        <DataTemplate x:Key="CardTemplate" x:DataType="vm:CardViewModel">
+            <Border Classes="card" Width="170" Margin="6" CornerRadius="8"
+                    Background="{StaticResource BrushPanel}"
+                    BorderThickness="2"
+                    Classes.wanted="{Binding IsWanted}"
+                    Classes.owned="{Binding IsOwned}">
+                <Grid>
+                    <StackPanel>
+                        <!-- Image carte -->
+                        <Grid Height="230" Background="#111122" Cursor="Hand">
+                            <TextBlock Text="…" Foreground="{StaticResource BrushSubtext}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       FontSize="24"
+                                       IsVisible="{Binding IsLoadingImage}"/>
+                            <TextBlock Text="No image returned by API" Foreground="{StaticResource BrushSubtext}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       FontSize="11" TextAlignment="Center" TextWrapping="Wrap" Width="120"
+                                       IsVisible="{Binding HasNoImage}"/>
+                            <Image Source="{Binding CardImage}" Stretch="Uniform"
+                                   RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                            <Button Command="{Binding ShowZoomCommand}"
+                                    Theme="{StaticResource ZoomButtonStyle}"
+                                    Cursor="{DynamicResource MagnifierCursor}"
+                                    ToolTip.Tip="View full size"/>
+                        </Grid>
+
+                        <!-- Infos -->
+                        <Grid Margin="6,4,6,6" ColumnDefinitions="*,24">
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="{Binding Name}"
+                                           Foreground="{StaticResource BrushText}"
+                                           FontSize="11" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip.Tip="{Binding Name}"/>
+                                <TextBlock Foreground="{StaticResource BrushSubtext}" FontSize="10">
+                                    <TextBlock.Text>
+                                        <MultiBinding StringFormat="N°{0} · {1}">
+                                            <Binding Path="Number"/>
+                                            <Binding Path="Rarity"/>
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
+                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                    <Button Theme="{StaticResource BareButtonStyle}"
+                                            Command="{Binding OpenCmLinkCommand}"
+                                            ToolTip.Tip="{Binding CmTooltip}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Image Source="avares://Cardex/Assets/cardmarket.png" Width="14" Height="14" Margin="0,0,2,0"
+                                                   RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                                            <TextBlock Text="{Binding CmLowText}" Foreground="{StaticResource BrushText}" FontSize="9"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Theme="{StaticResource BareButtonStyle}"
+                                            Command="{Binding OpenTcgLinkCommand}"
+                                            ToolTip.Tip="{Binding TcgTooltip}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Image Source="avares://Cardex/Assets/tcgplayer.png" Width="14" Height="14" Margin="6,0,2,0"
+                                                   RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                                            <TextBlock Text="{Binding TcgLowText}" Foreground="{StaticResource BrushText}" FontSize="9"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+
+                                <!-- Checkbox Owned + compteur d'exemplaires -->
+                                <CheckBox Margin="0,4,0,0"
+                                          IsChecked="{Binding IsOwned}"
+                                          Foreground="{StaticResource BrushText}"
+                                          FontSize="11"
+                                          Content="Owned"
+                                          Cursor="Hand"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                    <StackPanel.IsVisible>
+                                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                            <Binding Path="IsOwned"/>
+                                            <Binding Path="!IsMultiLanguageMode"/>
+                                        </MultiBinding>
+                                    </StackPanel.IsVisible>
+                                    <Button Command="{Binding DecrementCommand}"
+                                            Theme="{StaticResource SetButtonStyle}"
+                                            Width="22" Height="22" FontSize="14" Padding="0"
+                                            HorizontalContentAlignment="Center"
+                                            Content="−"/>
+                                    <Border Width="30" Background="#111122" CornerRadius="3" Margin="3,0">
+                                        <TextBlock Text="{Binding Quantity}"
+                                                   Foreground="{StaticResource BrushHighlight}"
+                                                   FontWeight="Bold" FontSize="12"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
+                                    </Border>
+                                    <Button Command="{Binding IncrementCommand}"
+                                            Theme="{StaticResource SetButtonStyle}"
+                                            Width="22" Height="22" FontSize="14" Padding="0"
+                                            HorizontalContentAlignment="Center"
+                                            Content="+"/>
+                                </StackPanel>
+
+                                <!-- Select par langue (remplace le compteur simple quand plusieurs langues sont suivies) -->
+                                <Grid Margin="0,4,0,0" HorizontalAlignment="Left"
+                                      IsVisible="{Binding IsMultiLanguageMode}">
+                                    <Button x:Name="LangSelectTrigger"
+                                            Command="{Binding ToggleSelectCommand}"
+                                            Theme="{StaticResource SetButtonStyle}"
+                                            FontSize="10" Padding="6,3" HorizontalContentAlignment="Left">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding TriggerLabel}"/>
+                                            <TextBlock Text="{Binding ChevronGlyph}" FontSize="7"
+                                                       Foreground="{StaticResource BrushSubtext}"
+                                                       Margin="5,0,0,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Popup IsOpen="{Binding SelectOpen, Mode=TwoWay}" IsLightDismissEnabled="True"
+                                           Placement="Bottom" PlacementTarget="{Binding #LangSelectTrigger}">
+                                        <Border Background="#16213e" BorderBrush="#0f3460" BorderThickness="1"
+                                                CornerRadius="6" Padding="6" MinWidth="170">
+                                            <StackPanel>
+                                                <ItemsControl ItemsSource="{Binding LanguageRows}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate x:DataType="vm:LanguageRowViewModel">
+                                                            <Grid Margin="2" ColumnDefinitions="Auto,*,Auto">
+                                                                <CheckBox Grid.Column="0"
+                                                                          IsChecked="{Binding Checked, Mode=OneWay}"
+                                                                          Command="{Binding ToggleCommand}"
+                                                                          Foreground="{StaticResource BrushText}" Cursor="Hand"/>
+                                                                <TextBlock Grid.Column="1" Text="{Binding Label}"
+                                                                           Foreground="{StaticResource BrushText}"
+                                                                           FontSize="11" VerticalAlignment="Center" Margin="4,0"/>
+                                                                <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                                                            IsVisible="{Binding Checked}">
+                                                                    <Button Command="{Binding DecrementCommand}"
+                                                                            Theme="{StaticResource SetButtonStyle}"
+                                                                            HorizontalContentAlignment="Center"
+                                                                            Width="18" Height="18" FontSize="11" Padding="0" Content="−"/>
+                                                                    <TextBlock Text="{Binding Quantity}" Width="18" TextAlignment="Center"
+                                                                               Foreground="{StaticResource BrushHighlight}" FontSize="11"
+                                                                               VerticalAlignment="Center"/>
+                                                                    <Button Command="{Binding IncrementCommand}"
+                                                                            Theme="{StaticResource SetButtonStyle}"
+                                                                            HorizontalContentAlignment="Center"
+                                                                            Width="18" Height="18" FontSize="11" Padding="0" Content="+"/>
+                                                                </StackPanel>
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <Rectangle Height="1" Fill="#0f3460" Margin="0,4"/>
+                                                <TextBlock Text="{Binding TotalLabel}" Foreground="{StaticResource BrushSubtext}" FontSize="10"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </Popup>
+                                </Grid>
+
+                                <!-- Tag selector -->
+                                <ComboBox ItemsSource="{Binding $parent[Window].((vm:MainViewModel)DataContext).TagsWithNone}"
+                                          SelectedItem="{Binding SelectedTag}"
+                                          Theme="{StaticResource DarkComboBoxStyle}"
+                                          HorizontalAlignment="Stretch"
+                                          Margin="0,5,0,0" FontSize="10" Padding="6,3"
+                                          IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).HasTags}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:TagViewModel">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Border Width="9" Height="9" CornerRadius="2" Margin="0,0,5,0"
+                                                        Background="{Binding Brush}" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Name}" FontSize="10" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </StackPanel>
+
+                            <!-- Étoile Wants + ⊘ Exclude -->
+                            <StackPanel Grid.Column="1" VerticalAlignment="Top" Margin="2,2,0,0">
+                                <ToggleButton IsChecked="{Binding IsWanted}"
+                                              Theme="{StaticResource StarButtonStyle}"
+                                              FontSize="18"
+                                              ToolTip.Tip="Mark as wanted"/>
+                                <ToggleButton IsChecked="{Binding IsExcluded}"
+                                              Theme="{StaticResource ExcludeButtonStyle}"
+                                              FontSize="16"
+                                              ToolTip.Tip="Exclude from set completion"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <!-- Template set dans la sidebar -->
+        <DataTemplate x:Key="SetItemTemplate" x:DataType="vm:SetViewModel">
+            <Button Theme="{StaticResource SetButtonStyle}"
+                    Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SelectSetCommand}"
+                    CommandParameter="{Binding}"
+                    IsVisible="{Binding IsVisibleInSidebar}"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch">
+                <Border Classes="setItem" BorderThickness="1" CornerRadius="3"
+                        Classes.owned="{Binding HasOwnedCards}"
+                        Classes.complete="{Binding IsComplete}"
+                        Classes.selected="{Binding IsSelected}">
+                    <Grid Margin="4,3" ColumnDefinitions="18,20,*,Auto">
+                        <!-- Étoile favori -->
+                        <ToggleButton Grid.Column="0"
+                                      IsChecked="{Binding IsFavorite}"
+                                      Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ToggleFavoriteCommand}"
+                                      CommandParameter="{Binding}"
+                                      Theme="{StaticResource StarButtonStyle}"
+                                      FontSize="13"
+                                      VerticalAlignment="Center"/>
+                        <!-- Symbole du set -->
+                        <Image Grid.Column="1"
+                               Source="{Binding SymbolImage}"
+                               Width="16" Height="16"
+                               Stretch="Uniform"
+                               RenderOptions.BitmapInterpolationMode="HighQuality"
+                               VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="2"
+                                   Text="{Binding Name}"
+                                   Foreground="{StaticResource BrushText}"
+                                   FontSize="11"
+                                   TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center"
+                                   Margin="4,0,0,0"/>
+                        <!-- Complétion ou badge Completed -->
+                        <StackPanel Grid.Column="3" VerticalAlignment="Center" Margin="6,0,0,0">
+                            <TextBlock Text="{Binding CompletionText}"
+                                       Foreground="{StaticResource BrushSubtext}"
+                                       FontSize="10"
+                                       IsVisible="{Binding !IsComplete}"/>
+                            <TextBlock Text="✓ Completed !"
+                                       Foreground="#ffd700"
+                                       FontSize="10" FontWeight="SemiBold"
+                                       IsVisible="{Binding IsComplete}"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Button>
+        </DataTemplate>
+
+        <!-- Template tuile favoris (écran d'accueil) -->
+        <DataTemplate x:Key="HomeFavoriteTileTemplate" x:DataType="vm:SetViewModel">
+            <Button Theme="{StaticResource SetButtonStyle}"
+                    Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SelectSetCommand}"
+                    CommandParameter="{Binding}"
+                    Margin="4">
+                <Border Classes="homeTile" Width="120" CornerRadius="6" BorderThickness="2" Cursor="Hand"
+                        Classes.complete="{Binding IsComplete}"
+                        Classes.selected="{Binding IsSelected}">
+                    <StackPanel>
+                        <Grid Height="48" Background="#111122">
+                            <Image Source="{Binding SymbolImage}" Width="32" Height="32"
+                                   Stretch="Uniform" HorizontalAlignment="Center"
+                                   RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                        </Grid>
+                        <StackPanel Margin="6,4,6,6">
+                            <TextBlock Text="{Binding Name}"
+                                       Foreground="{StaticResource BrushText}"
+                                       FontSize="10" FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{Binding Name}"/>
+                            <TextBlock Foreground="{StaticResource BrushSubtext}" FontSize="9"
+                                       Text="{Binding CompletionText}"/>
+                            <TextBlock Text="✓ Completed!"
+                                       Foreground="#ffd700"
+                                       FontSize="9" FontWeight="SemiBold"
+                                       IsVisible="{Binding IsComplete}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Button>
+        </DataTemplate>
+
+        <!-- Template binder (vue classeur) : clic = possédée, ⇧+clic = voulue, ⌘+clic = exclue -->
+        <DataTemplate x:Key="BinderCardTemplate" x:DataType="vm:CardViewModel">
+            <Border Classes="binder" Width="118" Margin="3" CornerRadius="6" BorderThickness="2"
+                    Background="Transparent"
+                    Cursor="Hand"
+                    ToolTip.Tip="{Binding Name}"
+                    Classes.owned="{Binding IsOwned}"
+                    Classes.wanted="{Binding IsWanted}"
+                    Tapped="BinderCard_Tapped">
+                <Grid>
+                    <Border Background="#111122" CornerRadius="4"/>
+                    <TextBlock Text="…" Foreground="{StaticResource BrushSubtext}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="20"
+                               IsVisible="{Binding IsLoadingImage}"/>
+                    <TextBlock Text="No image returned by API" Foreground="{StaticResource BrushSubtext}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               FontSize="10" TextAlignment="Center" TextWrapping="Wrap" Width="100"
+                               IsVisible="{Binding HasNoImage}"/>
+                    <Image Source="{Binding CardImage}" Stretch="Uniform" Height="162"
+                           RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                    <!-- Badge quantité (×N si >1) -->
+                    <Border CornerRadius="4" Background="{StaticResource BrushHighlight}"
+                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                            Margin="0,4,4,0" Padding="4,2"
+                            IsVisible="{Binding HasMultiple}">
+                        <TextBlock Text="{Binding Quantity, StringFormat='×{0}'}"
+                                   Foreground="{StaticResource BrushBg}"
+                                   FontSize="10" FontWeight="Bold"/>
+                    </Border>
+                    <!-- Badge wanted -->
+                    <TextBlock Text="★" Foreground="#ffd700" FontSize="13" FontWeight="Bold"
+                               HorizontalAlignment="Left" VerticalAlignment="Top" Margin="5,4,0,0"
+                               IsVisible="{Binding IsWanted}"/>
+                    <!-- Badge excluded -->
+                    <TextBlock Text="⊘" Foreground="#cc0000" FontSize="64" FontWeight="Bold"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Opacity="0.85"
+                               IsVisible="{Binding IsExcluded}"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <!-- Template résultat de recherche globale -->
+        <DataTemplate x:Key="SearchResultTemplate" x:DataType="vm:SearchResultViewModel">
+            <Button Theme="{StaticResource SetButtonStyle}"
+                    Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).OpenSearchResultCommand}"
+                    CommandParameter="{Binding}">
+                <Border Classes="searchResult" Width="140" Margin="6" CornerRadius="8"
+                        Background="{StaticResource BrushPanel}"
+                        BorderThickness="2"
+                        Classes.notOwned="{Binding !OwnedQuantity}">
+                    <StackPanel>
+                        <Grid Height="185" Background="#111122">
+                            <TextBlock Text="…" Foreground="{StaticResource BrushSubtext}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       FontSize="24"
+                                       IsVisible="{Binding IsLoadingImage}"/>
+                            <TextBlock Text="No image returned by API" Foreground="{StaticResource BrushSubtext}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       FontSize="11" TextAlignment="Center" TextWrapping="Wrap" Width="110"
+                                       IsVisible="{Binding HasNoImage}"/>
+                            <Image Source="{Binding CardImage}" Stretch="Uniform"
+                                   RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                            <Border CornerRadius="4" Background="{StaticResource BrushHighlight}"
+                                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                                    Margin="0,4,4,0" Padding="4,2"
+                                    IsVisible="{Binding !!OwnedQuantity}">
+                                <TextBlock Text="{Binding OwnedQuantity}"
+                                           Foreground="{StaticResource BrushBg}"
+                                           FontSize="10" FontWeight="Bold"/>
+                            </Border>
+                        </Grid>
+                        <StackPanel Margin="6,4,6,6">
+                            <TextBlock Text="{Binding Name}"
+                                       Foreground="{StaticResource BrushText}"
+                                       FontSize="11" FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{Binding Name}"/>
+                            <TextBlock Text="{Binding SetName}"
+                                       Foreground="{StaticResource BrushHighlight}"
+                                       FontSize="10"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Foreground="{StaticResource BrushSubtext}" FontSize="10">
+                                <TextBlock.Text>
+                                    <MultiBinding StringFormat="N°{0}  ·  {1}">
+                                        <Binding Path="Number"/>
+                                        <Binding Path="Rarity"/>
+                                    </MultiBinding>
+                                </TextBlock.Text>
+                            </TextBlock>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Button>
+        </DataTemplate>
+
+        <!-- Bouton d'en-tête de section repliable (écran d'accueil) -->
+        <ControlTheme x:Key="SectionHeaderButton" TargetType="Button" BasedOn="{StaticResource BareButtonStyle}">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        </ControlTheme>
+    </Window.Resources>
+
+    <!-- Équivalents des DataTrigger de couleur/opacité du WPF (l'ordre compte : le dernier style
+         qui s'applique l'emporte, comme le dernier trigger côté WPF). -->
+    <Window.Styles>
+        <!-- Carte (vue liste) -->
+        <Style Selector="Border.card"><Setter Property="BorderBrush" Value="Transparent"/></Style>
+        <Style Selector="Border.card.wanted"><Setter Property="BorderBrush" Value="#ffd700"/></Style>
+        <Style Selector="Border.card.owned"><Setter Property="BorderBrush" Value="{StaticResource BrushHighlight}"/></Style>
+
+        <!-- Set dans la sidebar -->
+        <Style Selector="Border.setItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+        <Style Selector="Border.setItem.owned"><Setter Property="BorderBrush" Value="{DynamicResource CollectionBorderBrush}"/></Style>
+        <Style Selector="Border.setItem.complete"><Setter Property="BorderBrush" Value="#ffd700"/></Style>
+        <Style Selector="Border.setItem.selected"><Setter Property="Background" Value="{StaticResource BrushHighlight}"/></Style>
+
+        <!-- Tuile set (accueil) -->
+        <Style Selector="Border.homeTile">
+            <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+        </Style>
+        <Style Selector="Border.homeTile.complete"><Setter Property="BorderBrush" Value="#ffd700"/></Style>
+        <Style Selector="Border.homeTile.selected"><Setter Property="BorderBrush" Value="{StaticResource BrushHighlight}"/></Style>
+
+        <!-- Carte (vue classeur) -->
+        <Style Selector="Border.binder">
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Opacity" Value="0.3"/>
+        </Style>
+        <Style Selector="Border.binder.owned">
+            <Setter Property="BorderBrush" Value="{StaticResource BrushHighlight}"/>
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <Style Selector="Border.binder.wanted">
+            <Setter Property="BorderBrush" Value="#ffd700"/>
+            <Setter Property="Opacity" Value="0.7"/>
+        </Style>
+        <Style Selector="Border.binder.owned.wanted">
+            <Setter Property="BorderBrush" Value="#ffd700"/>
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+
+        <!-- Résultat de recherche -->
+        <Style Selector="Border.searchResult"><Setter Property="BorderBrush" Value="{StaticResource BrushHighlight}"/></Style>
+        <Style Selector="Border.searchResult.notOwned"><Setter Property="BorderBrush" Value="Transparent"/></Style>
+
+        <!-- Titre de série dans la sidebar -->
+        <Style Selector="TextBlock.seriesName"><Setter Property="Foreground" Value="{StaticResource BrushHighlight}"/></Style>
+        <Style Selector="TextBlock.seriesName.favorite"><Setter Property="Foreground" Value="#ffd700"/></Style>
+        <Style Selector="TextBlock.seriesName.myCollection"><Setter Property="Foreground" Value="#4ecdc4"/></Style>
+
+        <!-- Bouton Deck Builder actif -->
+        <Style Selector="Button.deckTab.active /template/ Border#Bd">
+            <Setter Property="Background" Value="{StaticResource BrushHighlight}"/>
+        </Style>
+
+        <!-- Boutons du bandeau d'annonce -->
+        <Style Selector="Button.announce">
+            <Setter Property="Background" Value="#111122"/>
+            <Setter Property="Foreground" Value="{StaticResource BrushText}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="8,3"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="Margin" Value="10,0,0,0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto,28" ColumnDefinitions="280,*">
+
+        <!-- ===== BANNIÈRE MISE À JOUR ===== -->
+        <Border Grid.Row="0" Grid.ColumnSpan="2"
+                Background="#1a5c32" Padding="14,8"
+                IsVisible="{Binding HasUpdate}">
+            <Grid>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Foreground="White" FontSize="12" VerticalAlignment="Center"
+                               Text="A new version is available : "/>
+                    <TextBlock Foreground="White" FontSize="12" VerticalAlignment="Center" FontWeight="Bold"
+                               Text="{Binding PendingUpdate.Version, FallbackValue=''}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <ProgressBar Width="140" Height="6" MinHeight="6" Value="{Binding UpdateProgress}" Maximum="100"
+                                 Margin="0,0,8,0" VerticalAlignment="Center"
+                                 IsVisible="{Binding IsUpdating}"/>
+                    <TextBlock Foreground="White" FontSize="11" Margin="0,0,12,0" VerticalAlignment="Center"
+                               IsVisible="{Binding IsUpdating}"
+                               Text="{Binding UpdateProgress, StringFormat='{}{0} %'}"/>
+                    <!-- Télécharge Cardex-macOS-<arch>.zip, remplace Cardex.app et relance (voir UpdateService) -->
+                    <Button Command="{Binding InstallUpdateCommand}" FontSize="12" Padding="12,4"
+                            Theme="{StaticResource SetButtonStyle}"
+                            Content="{Binding IsUpdating, Converter={StaticResource BoolToStr}, ConverterParameter='Downloading...|⬇ Install'}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ===== EN-TÊTE SIDEBAR (toujours visible, même en Deck Builder) ===== -->
+        <Border Grid.Row="1" Grid.Column="0"
+                Background="{StaticResource BrushAccent}"
+                BorderBrush="{StaticResource BrushAccent}"
+                BorderThickness="0,0,1,0"
+                Padding="12,10">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
+                            VerticalAlignment="Center">
+                    <Button Command="{Binding ToggleSettingsCommand}"
+                            ToolTip.Tip="Settings"
+                            Padding="6,4" Margin="0,0,2,0"
+                            VerticalContentAlignment="Center"
+                            Theme="{StaticResource SetButtonStyle}">
+                        <Image Source="avares://Cardex/Assets/SettingsIcon.png" Width="20" Height="20"
+                               RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                    </Button>
+                    <Button Command="{Binding GoHomeCommand}"
+                            ToolTip.Tip="Home"
+                            Padding="6,4" Margin="0,0,2,0"
+                            VerticalContentAlignment="Center"
+                            Theme="{StaticResource SetButtonStyle}">
+                        <Image Source="avares://Cardex/Assets/HomeIcon.png" Width="20" Height="20"
+                               RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                    </Button>
+                    <Button Command="{Binding SwitchToDeckBuilderCommand}"
+                            ToolTip.Tip="Deck Builder"
+                            Padding="6,4"
+                            VerticalContentAlignment="Center"
+                            Theme="{StaticResource SetButtonStyle}"
+                            Classes="deckTab"
+                            Classes.active="{Binding IsDeckBuilderTabActive}">
+                        <Image Source="avares://Cardex/Assets/DeckbuilderIcon.png" Width="20" Height="20"
+                               RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                    </Button>
+                </StackPanel>
+                <!-- Logo fills remaining space in DockPanel -->
+                <DockPanel VerticalAlignment="Center">
+                    <Image DockPanel.Dock="Left" Source="{Binding AppLogo}" Width="36" Height="36"
+                           Margin="0,0,4,0" RenderOptions.BitmapInterpolationMode="HighQuality"
+                           VerticalAlignment="Center"/>
+                    <Image Source="{Binding AppName}" Height="36" Stretch="Uniform"
+                           RenderOptions.BitmapInterpolationMode="HighQuality"
+                           VerticalAlignment="Center"/>
+                </DockPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ===== SIDEBAR contenu (liste sets) ===== -->
+        <Border Grid.Row="2" Grid.Column="0"
+                Background="{StaticResource BrushPanel}"
+                BorderBrush="{StaticResource BrushAccent}"
+                BorderThickness="0,0,1,0">
+            <!-- Liste des séries / sets -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          IsVisible="{Binding IsCollectionTabActive}">
+                <ItemsControl ItemsSource="{Binding Series}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SeriesViewModel">
+                            <StackPanel IsVisible="{Binding HasVisibleSets}">
+                                <!-- Label de section "All Sets" avec toggle -->
+                                <Border Padding="8,10,8,2" IsVisible="{Binding IsAllSetsHeader}">
+                                    <Button Theme="{StaticResource SetButtonStyle}"
+                                            Padding="2,0"
+                                            HorizontalAlignment="Stretch"
+                                            HorizontalContentAlignment="Left"
+                                            Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ToggleAllSeriesCommand}">
+                                        <TextBlock FontSize="9" FontWeight="Bold"
+                                                   Foreground="{StaticResource BrushSubtext}"
+                                                   Text="{Binding $parent[Window].((vm:MainViewModel)DataContext).AllSeriesExpanded, Converter={StaticResource BoolToStr}, ConverterParameter='▾  ALL SETS|▸  ALL SETS'}"/>
+                                    </Button>
+                                </Border>
+
+                                <!-- Expander normal (Favorites, My Collection, séries) -->
+                                <Expander IsExpanded="{Binding IsExpanded}"
+                                          Margin="4,2"
+                                          Theme="{StaticResource SeriesExpanderStyle}"
+                                          IsVisible="{Binding !IsAllSetsHeader}">
+                                    <Expander.Header>
+                                        <TextBlock Classes="seriesName"
+                                                   Classes.favorite="{Binding IsFavoriteGroup}"
+                                                   Classes.myCollection="{Binding IsMyCollectionGroup}"
+                                                   Text="{Binding SeriesName}"
+                                                   FontSize="11" FontWeight="Bold"
+                                                   Margin="2,0"/>
+                                    </Expander.Header>
+                                    <ItemsControl ItemsSource="{Binding Sets}"
+                                                  ItemTemplate="{StaticResource SetItemTemplate}"
+                                                  Margin="8,0,0,0"
+                                                  FontWeight="Normal"/>
+                                </Expander>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+
+        <!-- ===== ZONE PRINCIPALE ===== -->
+        <Grid Grid.Row="1" Grid.RowSpan="2" Grid.Column="1">
+
+            <!-- Écran d'accueil -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          IsVisible="{Binding IsHomeVisible}">
+                <StackPanel>
+                    <!-- Bandeau annonces (API Cardex + appli mobile) -->
+                    <Border Background="{StaticResource BrushAccent}" Padding="12,9"
+                            IsVisible="{Binding IsApiAnnouncementVisible}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="Check out the Cardex API !"
+                                           Foreground="{StaticResource BrushText}" FontSize="12"
+                                           VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                <Button Classes="announce" Content="cardex-api.dev ↗"
+                                        Command="{Binding OpenApiWebsiteCommand}"/>
+                                <TextBlock Text="Download the mobile app !"
+                                           Foreground="{StaticResource BrushText}" FontSize="12"
+                                           VerticalAlignment="Center" TextWrapping="Wrap" Margin="24,0,0,0"/>
+                                <Button Classes="announce" Content="Get the APK ↗"
+                                        Command="{Binding OpenMobileAppReleasesCommand}"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="✕"
+                                    Command="{Binding DismissApiAnnouncementCommand}"
+                                    Theme="{StaticResource IconButtonStyle}"
+                                    Foreground="{StaticResource BrushText}"
+                                    FontSize="13" Padding="8,2" VerticalAlignment="Center"
+                                    ToolTip.Tip="Dismiss forever"/>
+                        </Grid>
+                    </Border>
+                    <Grid RowDefinitions="Auto,Auto,Auto,Auto">
+
+                        <!-- Barre de recherche globale -->
+                        <Border Grid.Row="0" Background="{StaticResource BrushAccent}" Padding="12,8">
+                            <Grid>
+                                <TextBox x:Name="GlobalSearchBox"
+                                         Theme="{StaticResource DarkTextBoxStyle}"
+                                         Text="{Binding GlobalSearch}"
+                                         Padding="7,5"
+                                         FontSize="12"/>
+                                <TextBlock Text="Search all cards across all sets…"
+                                           Foreground="{StaticResource BrushSubtext}"
+                                           FontSize="12" IsHitTestVisible="False"
+                                           Margin="12,0,0,0" VerticalAlignment="Center"
+                                           IsVisible="{Binding GlobalSearch, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Sets favoris -->
+                        <Border Grid.Row="1"
+                                Background="{StaticResource BrushPanel}"
+                                BorderBrush="{StaticResource BrushAccent}" BorderThickness="0,0,0,1"
+                                IsVisible="{Binding !!HomeFavorites.Count}">
+                            <StackPanel>
+                                <Button Command="{Binding ToggleFavoritesSectionCommand}"
+                                        Theme="{StaticResource SectionHeaderButton}"
+                                        Padding="12,10,12,10">
+                                    <Grid>
+                                        <TextBlock Text="★  Favorite Sets"
+                                                   Foreground="#ffd700"
+                                                   FontSize="12" FontWeight="Bold"
+                                                   HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                   Foreground="{StaticResource BrushSubtext}" FontSize="11"
+                                                   Text="{Binding IsFavoritesSectionExpanded, Converter={StaticResource BoolToStr}, ConverterParameter='▼|►'}"/>
+                                    </Grid>
+                                </Button>
+                                <ItemsControl ItemsSource="{Binding HomeFavorites}"
+                                              ItemTemplate="{StaticResource HomeFavoriteTileTemplate}"
+                                              IsVisible="{Binding IsFavoritesSectionExpanded}"
+                                              Margin="12,0,12,10">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Ma Collection -->
+                        <Border Grid.Row="2"
+                                Background="{StaticResource BrushPanel}"
+                                BorderBrush="{StaticResource BrushAccent}" BorderThickness="0,0,0,1"
+                                IsVisible="{Binding !!HomeCollection.Count}">
+                            <StackPanel>
+                                <Button Command="{Binding ToggleMyCollectionSectionCommand}"
+                                        Theme="{StaticResource SectionHeaderButton}"
+                                        Padding="12,10,12,10">
+                                    <Grid>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                            <TextBlock Text="📦  My Collection"
+                                                       Foreground="#4ecdc4"
+                                                       FontSize="12" FontWeight="Bold"/>
+                                            <TextBlock Foreground="{StaticResource BrushSubtext}" FontSize="11" Margin="8,0,0,0"
+                                                       VerticalAlignment="Center"
+                                                       Text="{Binding TotalOwnedCards, StringFormat='{}{0} cards'}"/>
+                                        </StackPanel>
+                                        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                   Foreground="{StaticResource BrushSubtext}" FontSize="11"
+                                                   Text="{Binding IsMyCollectionSectionExpanded, Converter={StaticResource BoolToStr}, ConverterParameter='▼|►'}"/>
+                                    </Grid>
+                                </Button>
+                                <ItemsControl ItemsSource="{Binding HomeCollection}"
+                                              ItemTemplate="{StaticResource HomeFavoriteTileTemplate}"
+                                              IsVisible="{Binding IsMyCollectionSectionExpanded}"
+                                              Margin="12,0,12,10">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Résultats de recherche globale -->
+                        <Border Grid.Row="3" Background="{StaticResource BrushBg}"
+                                IsVisible="{Binding GlobalSearch, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <ItemsControl ItemsSource="{Binding SearchResults}"
+                                          ItemTemplate="{StaticResource SearchResultTemplate}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" Margin="6"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </Border>
+
+                        <!-- Duplicates + Wanted Cards -->
+                        <Border Grid.Row="3" Background="{StaticResource BrushBg}">
+                            <Border.IsVisible>
+                                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                    <Binding Path="GlobalSearch" Converter="{x:Static StringConverters.IsNullOrEmpty}"/>
+                                    <Binding Path="HasHomeContent"/>
+                                </MultiBinding>
+                            </Border.IsVisible>
+                            <StackPanel>
+                                <!-- Doublons -->
+                                <StackPanel IsVisible="{Binding HasDuplicates}">
+                                    <Button Command="{Binding ToggleDuplicatesSectionCommand}"
+                                            Theme="{StaticResource SectionHeaderButton}"
+                                            Padding="16,10,16,6">
+                                        <Grid>
+                                            <TextBlock Text="⊕  Duplicate Cards"
+                                                       Foreground="#4ecdc4"
+                                                       FontSize="12" FontWeight="Bold"
+                                                       HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                            <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                       Foreground="{StaticResource BrushSubtext}" FontSize="11"
+                                                       Text="{Binding IsDuplicatesSectionExpanded, Converter={StaticResource BoolToStr}, ConverterParameter='▼|►'}"/>
+                                        </Grid>
+                                    </Button>
+                                    <ItemsControl ItemsSource="{Binding DuplicateCards}"
+                                                  ItemTemplate="{StaticResource SearchResultTemplate}"
+                                                  IsVisible="{Binding IsDuplicatesSectionExpanded}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel Orientation="Horizontal" Margin="6"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                    </ItemsControl>
+                                </StackPanel>
+
+                                <!-- Cartes wanted -->
+                                <StackPanel IsVisible="{Binding HasWantedCards}">
+                                    <Button Command="{Binding ToggleWantedSectionCommand}"
+                                            Theme="{StaticResource SectionHeaderButton}"
+                                            Padding="16,10,16,6">
+                                        <Grid>
+                                            <TextBlock Text="★  Wanted Cards"
+                                                       Foreground="#ffd700"
+                                                       FontSize="12" FontWeight="Bold"
+                                                       HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                            <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                       Foreground="{StaticResource BrushSubtext}" FontSize="11"
+                                                       Text="{Binding IsWantedSectionExpanded, Converter={StaticResource BoolToStr}, ConverterParameter='▼|►'}"/>
+                                        </Grid>
+                                    </Button>
+                                    <ItemsControl ItemsSource="{Binding WantedCards}"
+                                                  ItemTemplate="{StaticResource SearchResultTemplate}"
+                                                  IsVisible="{Binding IsWantedSectionExpanded}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel Orientation="Horizontal" Margin="6"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                    </ItemsControl>
+                                </StackPanel>
+
+                                <!-- Sections tags dynamiques -->
+                                <ItemsControl ItemsSource="{Binding TagSections}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:TagSectionViewModel">
+                                            <StackPanel>
+                                                <Button Command="{Binding ToggleExpandedCommand}"
+                                                        Theme="{StaticResource SectionHeaderButton}"
+                                                        Padding="16,10,16,6">
+                                                    <Grid>
+                                                        <StackPanel Orientation="Horizontal"
+                                                                    HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                            <Border Width="10" Height="10" CornerRadius="2"
+                                                                    Background="{Binding Tag.Brush}"
+                                                                    Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="{Binding Tag.Name}"
+                                                                       Foreground="{StaticResource BrushText}"
+                                                                       FontSize="12" FontWeight="Bold"
+                                                                       VerticalAlignment="Center"/>
+                                                            <TextBlock Foreground="{StaticResource BrushSubtext}"
+                                                                       FontSize="11" Margin="8,0,0,0"
+                                                                       VerticalAlignment="Center"
+                                                                       Text="{Binding Cards.Count, StringFormat='( {0} )'}"/>
+                                                        </StackPanel>
+                                                        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                                   Foreground="{StaticResource BrushSubtext}" FontSize="11"
+                                                                   Text="{Binding IsExpanded, Converter={StaticResource BoolToStr}, ConverterParameter='▼|►'}"/>
+                                                    </Grid>
+                                                </Button>
+                                                <ItemsControl ItemsSource="{Binding Cards}"
+                                                              ItemTemplate="{StaticResource SearchResultTemplate}"
+                                                              IsVisible="{Binding IsExpanded}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <WrapPanel Orientation="Horizontal" Margin="6"/>
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Message de bienvenue -->
+                        <StackPanel Grid.Row="3"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <StackPanel.IsVisible>
+                                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                    <Binding Path="GlobalSearch" Converter="{x:Static StringConverters.IsNullOrEmpty}"/>
+                                    <Binding Path="!HasHomeContent"/>
+                                </MultiBinding>
+                            </StackPanel.IsVisible>
+                            <TextBlock Text="Select a set from the sidebar"
+                                       Foreground="{StaticResource BrushSubtext}" FontSize="16"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Text="or search for cards across all sets above"
+                                       Foreground="{StaticResource BrushSubtext}" FontSize="12"
+                                       HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </ScrollViewer>
+
+
+            <!-- Vue set -->
+            <Grid RowDefinitions="Auto,Auto,*" IsVisible="{Binding IsSetViewVisible}">
+
+                <!-- En-tête set sélectionné -->
+                <Border Grid.Row="0" MinHeight="90" ClipToBounds="True">
+                    <Grid>
+                        <!-- Fond de base -->
+                        <Border Background="{StaticResource BrushAccent}"/>
+
+                        <!-- Logo du set en filigrane au centre -->
+                        <Image Source="{Binding SelectedSet.LogoImage, FallbackValue={x:Null}}"
+                               Stretch="Uniform"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               MaxHeight="80"
+                               Opacity="0.35"
+                               Margin="0,8"
+                               RenderOptions.BitmapInterpolationMode="HighQuality"/>
+
+                        <!-- Dégradé des deux côtés pour lisibilité du texte -->
+                        <Border>
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                                    <GradientStop Color="#FF0f3460" Offset="0.0"/>
+                                    <GradientStop Color="#AA0f3460" Offset="0.2"/>
+                                    <GradientStop Color="#000f3460" Offset="0.5"/>
+                                    <GradientStop Color="#AA0f3460" Offset="0.8"/>
+                                    <GradientStop Color="#FF0f3460" Offset="1.0"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                        </Border>
+
+                        <!-- Contenu -->
+                        <Grid Margin="16,10" ColumnDefinitions="*,Auto">
+
+                            <!-- Nom du set + boutons filtres -->
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding SelectedSet.Name, FallbackValue=''}"
+                                           FontSize="20" FontWeight="Bold"
+                                           Foreground="{StaticResource BrushText}"
+                                           IsVisible="{Binding SelectedSet, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                <TextBlock Text="{Binding SelectedSet.Series, FallbackValue=''}"
+                                           FontSize="11"
+                                           Foreground="{StaticResource BrushSubtext}"
+                                           IsVisible="{Binding SelectedSet, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                <Grid Margin="0,6,0,0" ColumnDefinitions="Auto,Auto" RowDefinitions="Auto,Auto"
+                                      IsVisible="{Binding !SelectedSet.IsLoading, FallbackValue=False}">
+                                    <ToggleButton Grid.Row="0" Grid.Column="0"
+                                                  IsChecked="{Binding SelectedSet.ShowWantsOnly}"
+                                                  FontSize="12" Margin="0,0,4,4"
+                                                  Theme="{StaticResource ToggleButtonStyle}" Content="★ Wants"/>
+                                    <ToggleButton Grid.Row="0" Grid.Column="1"
+                                                  IsChecked="{Binding SelectedSet.ShowDupesOnly}"
+                                                  FontSize="12" Margin="0,0,0,4"
+                                                  Theme="{StaticResource ToggleButtonStyle}" Content="Dupes"/>
+                                    <ToggleButton Grid.Row="1" Grid.Column="0"
+                                                  IsChecked="{Binding SelectedSet.ShowOwnedOnly}"
+                                                  FontSize="12" Margin="0,0,4,0"
+                                                  Theme="{StaticResource ToggleButtonStyle}" Content="Owned"/>
+                                    <ToggleButton Grid.Row="1" Grid.Column="1"
+                                                  IsChecked="{Binding SelectedSet.ShowMissingOnly}"
+                                                  FontSize="12"
+                                                  Theme="{StaticResource ToggleButtonStyle}" Content="Missing"/>
+                                </Grid>
+                            </StackPanel>
+
+                            <!-- Droite : bouton + compteur -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                        HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <!-- Toggle vue binder / liste -->
+                                <ToggleButton IsChecked="{Binding IsBinderView}"
+                                              FontSize="12" Padding="10,6" Margin="0,0,10,0"
+                                              VerticalAlignment="Center"
+                                              Theme="{StaticResource ToggleButtonStyle}"
+                                              Content="{Binding IsBinderView, Converter={StaticResource BoolToStr}, ConverterParameter='⊞ Binder|≡ List'}"
+                                              ToolTip.Tip="Switch between list and binder view"/>
+                                <!-- Refresh set -->
+                                <Button Command="{Binding RefreshSelectedSetCommand}"
+                                        ToolTip.Tip="Refresh this set from API"
+                                        FontSize="12" Padding="10,6"
+                                        Margin="0,0,6,0"
+                                        VerticalAlignment="Center"
+                                        Theme="{StaticResource SetButtonStyle}"
+                                        Content="↻"
+                                        IsVisible="{Binding !SelectedSet.IsLoading, FallbackValue=False}"/>
+                                <!-- Check / Uncheck all -->
+                                <Button Content="{Binding SelectedSet.ToggleAllLabel, FallbackValue=''}"
+                                        Command="{Binding ToggleAllOwnedCommand}"
+                                        FontSize="12" Padding="12,6"
+                                        Margin="0,0,16,0"
+                                        VerticalAlignment="Center"
+                                        Theme="{StaticResource SetButtonStyle}"
+                                        IsVisible="{Binding !SelectedSet.IsLoading, FallbackValue=False}"/>
+
+                                <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding SelectedSet.CompletionText, FallbackValue=''}"
+                                               Foreground="{StaticResource BrushHighlight}"
+                                               FontSize="22" FontWeight="Bold"/>
+                                    <TextBlock Text="cards owned"
+                                               Foreground="{StaticResource BrushSubtext}"
+                                               FontSize="10" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <!-- Barre de filtres -->
+                <Border Grid.Row="1"
+                        Background="{StaticResource BrushPanel}"
+                        BorderBrush="{StaticResource BrushAccent}"
+                        BorderThickness="0,0,0,1"
+                        Padding="10,6"
+                        IsVisible="{Binding !SelectedSet.IsLoading, FallbackValue=False}">
+                    <Grid ColumnDefinitions="*,170">
+
+                        <!-- Champ texte libre avec placeholder -->
+                        <Grid Grid.Column="0">
+                            <TextBox x:Name="SetSearchBox"
+                                     Theme="{StaticResource DarkTextBoxStyle}"
+                                     Text="{Binding SelectedSet.SearchText, FallbackValue=''}"
+                                     Padding="8,5"
+                                     FontSize="12"/>
+                            <TextBlock Text="Search by name or number…"
+                                       Foreground="{StaticResource BrushSubtext}"
+                                       FontSize="12" IsHitTestVisible="False"
+                                       Margin="10,0,0,0" VerticalAlignment="Center"
+                                       IsVisible="{Binding SelectedSet.SearchText, Converter={x:Static StringConverters.IsNullOrEmpty}, FallbackValue=False}"/>
+                        </Grid>
+
+                        <!-- Sélecteur de rareté -->
+                        <ComboBox Grid.Column="1"
+                                  x:Name="RarityFilter"
+                                  ItemsSource="{Binding SelectedSet.AvailableRarities, FallbackValue={x:Null}}"
+                                  SelectedItem="{Binding SelectedSet.SelectedRarity, Mode=OneWay, FallbackValue={x:Null}}"
+                                  SelectionChanged="RarityFilter_SelectionChanged"
+                                  HorizontalAlignment="Stretch"
+                                  FontSize="12"
+                                  Margin="8,0,0,0"/>
+                    </Grid>
+                </Border>
+
+                <!-- Indicateur chargement -->
+                <StackPanel Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Center"
+                            IsVisible="{Binding SelectedSet.IsLoading, FallbackValue=False}">
+                    <TextBlock Text="Loading cards…"
+                               Foreground="{StaticResource BrushSubtext}"
+                               FontSize="16"/>
+                </StackPanel>
+
+                <!-- Vue liste (défaut) -->
+                <ScrollViewer Grid.Row="2"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Background="{StaticResource BrushBg}"
+                              x:Name="CardsScrollViewer"
+                              ScrollChanged="CardsScrollViewer_ScrollChanged"
+                              IsVisible="{Binding !IsBinderView}">
+                    <ItemsControl ItemsSource="{Binding SelectedSet.FilteredCards, FallbackValue={x:Null}}"
+                                  ItemTemplate="{StaticResource CardTemplate}"
+                                  x:Name="CardsItemsControl"
+                                  Loaded="CardsItemsControl_Loaded">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" Margin="6"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- Vue binder (classeur) -->
+                <ScrollViewer Grid.Row="2"
+                              x:Name="BinderScrollViewer"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Background="{StaticResource BrushBg}"
+                              ScrollChanged="BinderScrollViewer_ScrollChanged"
+                              IsVisible="{Binding IsBinderView}">
+                    <ItemsControl ItemsSource="{Binding SelectedSet.Cards, FallbackValue={x:Null}}"
+                                  ItemTemplate="{StaticResource BinderCardTemplate}"
+                                  Loaded="BinderItemsControl_Loaded">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" Margin="8"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid><!-- fin Vue set -->
+        </Grid>
+
+        <!-- Le « PANNEAU PARAMÈTRES » du WPF (Grid.Row 3) est toujours masqué (Visibility="Collapsed"
+             en dur, remplacé par SettingsWindow) : non porté. -->
+
+        <!-- ===== VUE DECK BUILDER : panneau deck (colonne sidebar) ===== -->
+        <Panel Grid.Row="2" Grid.Column="0" IsVisible="{Binding IsDeckBuilderTabActive}">
+            <views:DeckPanelView DataContext="{Binding DeckBuilder}"/>
+        </Panel>
+
+        <!-- ===== VUE DECK BUILDER : browser + admin (zone principale, pleine hauteur) ===== -->
+        <Panel Grid.Row="1" Grid.RowSpan="2" Grid.Column="1" IsVisible="{Binding IsDeckBuilderTabActive}">
+            <views:DeckBuilderView DataContext="{Binding DeckBuilder}"/>
+        </Panel>
+
+        <!-- ===== TOAST DECK BUILDER (règles de construction) ===== -->
+        <Border Grid.Row="1" Grid.RowSpan="2" Grid.Column="0" Grid.ColumnSpan="2"
+                Background="#1e1e3a" BorderBrush="#ffd700" BorderThickness="1.5"
+                CornerRadius="8" Padding="14,9"
+                HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                Margin="0,0,0,30"
+                IsHitTestVisible="False"
+                IsVisible="{Binding DeckBuilder.HasToast}">
+            <TextBlock Text="{Binding DeckBuilder.ToastMessage}"
+                       Foreground="#ffd700" FontSize="12" FontWeight="SemiBold"/>
+        </Border>
+
+        <!-- ===== BARRE DE STATUT ===== -->
+        <Border Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+                Background="{StaticResource BrushAccent}"
+                Padding="10,0">
+            <Grid>
+                <TextBlock Text="{Binding StatusText}"
+                           Foreground="{StaticResource BrushSubtext}"
+                           FontSize="11"
+                           VerticalAlignment="Center"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button VerticalAlignment="Center"
+                            Command="{Binding SyncNowCommand}"
+                            ToolTip.Tip="Sync collection with the Cardex mobile app (key in Settings → Sync)"
+                            FontSize="11" Padding="6,2" Margin="0,0,6,0"
+                            Theme="{StaticResource SetButtonStyle}"
+                            Content="🔄 Sync collection"/>
+                    <Button VerticalAlignment="Center"
+                            Command="{Binding BackupCollectionCommand}"
+                            ToolTip.Tip="Backup collection to .cardex file  (⌘B)"
+                            FontSize="11" Padding="6,2" Margin="0,0,6,0"
+                            Theme="{StaticResource SetButtonStyle}"
+                            Content="💾 Backup"/>
+                    <Button VerticalAlignment="Center"
+                            Command="{Binding RestoreCollectionCommand}"
+                            ToolTip.Tip="Restore collection from .cardex file  (⌘R)"
+                            FontSize="11" Padding="6,2" Margin="0,0,6,0"
+                            Theme="{StaticResource SetButtonStyle}"
+                            Content="📂 Restore"/>
+                    <Button VerticalAlignment="Center"
+                            Command="{Binding ImportCollectionCommand}"
+                            ToolTip.Tip="Import cards from a text file (CODE-NUMBER format)"
+                            FontSize="11" Padding="6,2" Margin="0,0,4,0"
+                            Theme="{StaticResource SetButtonStyle}"
+                            Content="⬆ Import"/>
+                    <Border Width="15" Height="15" CornerRadius="8"
+                            Background="#0f3460" VerticalAlignment="Center"
+                            Margin="0,0,6,0" Cursor="Help"
+                            ToolTip.Tip="Import templates (set keys, format examples) are available in Settings → Templates">
+                        <TextBlock Text="i" Foreground="#8888aa" FontSize="9" FontWeight="Bold"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <Button VerticalAlignment="Center"
+                            Command="{Binding ExportCsvCommand}"
+                            ToolTip.Tip="Export owned cards to CSV  (⌘E)"
+                            FontSize="11" Padding="6,2" Margin="0,0,6,0"
+                            Theme="{StaticResource SetButtonStyle}"
+                            Content="⬇ CSV Export"/>
+                    <Button VerticalAlignment="Center"
+                            Command="{Binding RefreshSetsCommand}"
+                            ToolTip.Tip="Refresh from API (clears cache)"
+                            FontSize="13" Padding="6,2"
+                            Theme="{StaticResource SetButtonStyle}"
+                            Content="↻ Refresh Database"/>
+                    <TextBlock Text="{Binding AppVersion}"
+                               Foreground="{StaticResource BrushSubtext}"
+                               FontSize="10" VerticalAlignment="Center"
+                               Margin="10,0,0,0" Opacity="0.6"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ===== TOAST ACHIEVEMENT ===== -->
+        <Grid Grid.Row="0" Grid.RowSpan="5" Grid.Column="0" Grid.ColumnSpan="2"
+              IsHitTestVisible="False">
+            <Border x:Name="AchievementToast"
+                    Background="#1e1e3a" BorderBrush="#ffd700" BorderThickness="2"
+                    CornerRadius="10" Padding="18,14"
+                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                    Margin="0,0,24,50" Width="240"
+                    RenderTransform="translateX(320px)">
+                <Border.Transitions>
+                    <Transitions>
+                        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.35" Easing="CubicEaseOut"/>
+                    </Transitions>
+                </Border.Transitions>
+                <StackPanel>
+                    <Grid HorizontalAlignment="Center" Margin="0,0,0,6">
+                        <TextBlock x:Name="ToastEmoji"
+                                   FontSize="30" HorizontalAlignment="Center"/>
+                        <Image x:Name="ToastIcon"
+                               Width="40" Height="40"
+                               RenderOptions.BitmapInterpolationMode="HighQuality"
+                               IsVisible="False"/>
+                    </Grid>
+                    <TextBlock Text="Achievement Unlocked!"
+                               Foreground="#ffd700" FontSize="10" FontWeight="Bold"
+                               HorizontalAlignment="Center" Margin="0,0,0,4"
+                               TextAlignment="Center"/>
+                    <TextBlock x:Name="ToastName"
+                               Foreground="#e0e0e0" FontSize="13" FontWeight="SemiBold"
+                               HorizontalAlignment="Center" TextAlignment="Center"/>
+                    <TextBlock x:Name="ToastDesc"
+                               Foreground="#8888aa" FontSize="10"
+                               HorizontalAlignment="Center" TextAlignment="Center"
+                               Margin="0,3,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

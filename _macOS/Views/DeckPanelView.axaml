@@ -1,0 +1,307 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Cardex.ViewModels"
+             xmlns:conv="using:Cardex.Converters"
+             xmlns:p="using:Cardex.Platform"
+             x:Class="Cardex.Views.DeckPanelView"
+             x:DataType="vm:DeckBuilderViewModel"
+             Background="#0d1225">
+
+    <!-- Portage de Views/DeckPanelView.xaml (WPF) -->
+    <UserControl.Resources>
+        <conv:RatioWidthConverter x:Key="RatioWidth"/>
+        <conv:BoolToStringConverter x:Key="BoolToStr"/>
+
+        <!-- Compact dark button -->
+        <ControlTheme x:Key="DkBtn" TargetType="Button">
+            <Setter Property="Background"      Value="#0f3460"/>
+            <Setter Property="Foreground"      Value="#e0e0e0"/>
+            <Setter Property="BorderBrush"     Value="#1a4a80"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding"         Value="10,4"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="FontSize"        Value="11"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="4" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          Foreground="{TemplateBinding Foreground}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:pointerover">
+                <Setter Property="Background" Value="#1a4a80"/>
+            </Style>
+            <Style Selector="^:disabled">
+                <Setter Property="Opacity" Value="0.4"/>
+            </Style>
+        </ControlTheme>
+
+        <!-- Mini +/- button -->
+        <ControlTheme x:Key="QtyBtn" TargetType="Button" BasedOn="{StaticResource DkBtn}">
+            <Setter Property="Width"    Value="22"/>
+            <Setter Property="Height"   Value="22"/>
+            <Setter Property="Padding"  Value="0"/>
+            <Setter Property="FontSize" Value="14"/>
+        </ControlTheme>
+
+        <!-- Ligne de la liste du deck (ListViewItem WPF : pas de surlignage de sélection, survol #111830) -->
+        <ControlTheme x:Key="DeckEntryItem" TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Background="{TemplateBinding Background}"
+                                      Padding="{TemplateBinding Padding}"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:pointerover">
+                <Setter Property="Background" Value="#111830"/>
+            </Style>
+        </ControlTheme>
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <Style Selector="TextBlock.deckStatus"><Setter Property="Foreground" Value="{StaticResource BrushSubtext}"/></Style>
+        <Style Selector="TextBlock.deckStatus.valid"><Setter Property="Foreground" Value="#5aaa66"/></Style>
+
+        <Style Selector="Border.legality"><Setter Property="Background" Value="#3a2020"/></Style>
+        <Style Selector="Border.legality.legal"><Setter Property="Background" Value="#1a4a2e"/></Style>
+        <Style Selector="TextBlock.legality"><Setter Property="Foreground" Value="#cc6666"/></Style>
+        <Style Selector="TextBlock.legality.legal"><Setter Property="Foreground" Value="#6ecb8f"/></Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- Deck name + actions -->
+        <Border Grid.Row="0" Background="{StaticResource BrushAccent}" Padding="12,10">
+            <StackPanel>
+                <!-- Deck title row -->
+                <Grid Margin="0,0,0,6" ColumnDefinitions="*,Auto,Auto">
+                    <TextBox Grid.Column="0"
+                             Theme="{StaticResource DarkTextBoxStyle}"
+                             Text="{Binding DeckName}"
+                             CornerRadius="0"
+                             Padding="8,5" FontSize="12" FontWeight="SemiBold"/>
+                    <Button Grid.Column="1" Command="{Binding SaveDeckCommand}"
+                            Theme="{StaticResource DkBtn}"
+                            Margin="4,0,0,0" ToolTip.Tip="Save deck"
+                            Content="{Binding IsSaving, Converter={StaticResource BoolToStr}, ConverterParameter='⏳|💾'}"
+                            IsEnabled="{Binding !IsSaving}"/>
+                    <Button Grid.Column="2" Command="{Binding NewDeckCommand}"
+                            Theme="{StaticResource DkBtn}" Margin="3,0,0,0"
+                            ToolTip.Tip="New empty deck"
+                            Content="🆕"/>
+                </Grid>
+
+                <!-- Composition bar + stats -->
+                <Grid RowDefinitions="Auto,Auto,Auto">
+
+                    <!-- Segmented Pokémon/Trainer/Energy composition bar -->
+                    <Grid Grid.Row="0" Height="8" Margin="0,0,0,5">
+                        <Border Background="#1a1a2e" CornerRadius="4"/>
+                        <Border CornerRadius="4" ClipToBounds="True">
+                            <StackPanel Orientation="Horizontal">
+                                <Border Background="#3a7fc1">
+                                    <Border.Width>
+                                        <MultiBinding Converter="{StaticResource RatioWidth}">
+                                            <Binding Path="PokemonCount"/>
+                                            <Binding RelativeSource="{RelativeSource AncestorType=Grid}" Path="Bounds.Width"/>
+                                        </MultiBinding>
+                                    </Border.Width>
+                                </Border>
+                                <Border Background="#c49a3a">
+                                    <Border.Width>
+                                        <MultiBinding Converter="{StaticResource RatioWidth}">
+                                            <Binding Path="TrainerCount"/>
+                                            <Binding RelativeSource="{RelativeSource AncestorType=Grid}" Path="Bounds.Width"/>
+                                        </MultiBinding>
+                                    </Border.Width>
+                                </Border>
+                                <Border Background="#aa5555">
+                                    <Border.Width>
+                                        <MultiBinding Converter="{StaticResource RatioWidth}">
+                                            <Binding Path="EnergyCount"/>
+                                            <Binding RelativeSource="{RelativeSource AncestorType=Grid}" Path="Bounds.Width"/>
+                                        </MultiBinding>
+                                    </Border.Width>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <TextBlock Foreground="#7a9abf" FontSize="9">
+                                <Run Text="🔵 Pk "/><Run Text="{Binding PokemonCount}" FontWeight="Bold"/>
+                            </TextBlock>
+                            <TextBlock Foreground="#8888aa" FontSize="9" Margin="6,0" Text="·"/>
+                            <TextBlock Foreground="#c49a3a" FontSize="9">
+                                <Run Text="🟡 Tr "/><Run Text="{Binding TrainerCount}" FontWeight="Bold"/>
+                            </TextBlock>
+                            <TextBlock Foreground="#8888aa" FontSize="9" Margin="6,0" Text="·"/>
+                            <TextBlock Foreground="#aa5555" FontSize="9">
+                                <Run Text="⚡ En "/><Run Text="{Binding EnergyCount}" FontWeight="Bold"/>
+                            </TextBlock>
+                            <TextBlock Foreground="#8888aa" FontSize="9" Margin="6,0" Text="·"
+                                       IsVisible="{Binding HasUnknown}"/>
+                            <TextBlock Foreground="#666688" FontSize="9"
+                                       IsVisible="{Binding HasUnknown}">
+                                <Run Text="? "/><Run Text="{Binding UnknownCount}" FontWeight="Bold"/>
+                            </TextBlock>
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" FontSize="11" FontWeight="Bold"
+                                   Classes="deckStatus" Classes.valid="{Binding IsValidDeck}"
+                                   Text="{Binding DeckStatus}"/>
+                    </Grid>
+
+                    <!-- Format legality badges -->
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,5,0,0"
+                                IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).ShowLegalityCheck}">
+                        <Border CornerRadius="3" Padding="5,2" Margin="0,0,4,0"
+                                Classes="legality" Classes.legal="{Binding IsStandardLegal}"
+                                ToolTip.Tip="{Binding StandardLegalTooltip}">
+                            <TextBlock FontSize="9" FontWeight="Bold"
+                                       Classes="legality" Classes.legal="{Binding IsStandardLegal}"
+                                       Text="{Binding IsStandardLegal, Converter={StaticResource BoolToStr}, ConverterParameter='✓ Standard|✕ Standard'}"/>
+                        </Border>
+                        <Border CornerRadius="3" Padding="5,2"
+                                Classes="legality" Classes.legal="{Binding IsExpandedLegal}"
+                                ToolTip.Tip="{Binding ExpandedLegalTooltip}">
+                            <TextBlock FontSize="9" FontWeight="Bold"
+                                       Classes="legality" Classes.legal="{Binding IsExpandedLegal}"
+                                       Text="{Binding IsExpandedLegal, Converter={StaticResource BoolToStr}, ConverterParameter='✓ Expanded|✕ Expanded'}"/>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- Deck card list -->
+        <ListBox Grid.Row="1"
+                 ItemsSource="{Binding DeckEntries}"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 ItemContainerTheme="{StaticResource DeckEntryItem}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:DeckEntryVm">
+                    <Border BorderThickness="0,0,0,1" BorderBrush="#0f1629" Padding="8,6">
+                        <Grid ColumnDefinitions="40,*,Auto">
+
+                            <!-- Thumbnail (click = zoom) -->
+                            <Border Grid.Column="0" Width="36" Height="49"
+                                    Background="#0a0e1a" CornerRadius="2" Margin="0,0,7,0"
+                                    Cursor="Hand">
+                                <Button Command="{Binding ShowZoomCommand}"
+                                        Theme="{StaticResource BareButtonStyle}"
+                                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                    <Grid>
+                                        <Image Stretch="Uniform"
+                                               RenderOptions.BitmapInterpolationMode="HighQuality"
+                                               p:RemoteImage.DecodeWidth="72"
+                                               p:RemoteImage.Url="{Binding ImageUrl}"/>
+                                        <TextBlock Text="🚫" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   ToolTip.Tip="No image returned by API"
+                                                   IsVisible="{Binding HasNoImage}"/>
+                                    </Grid>
+                                </Button>
+                            </Border>
+
+                            <!-- Info -->
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Name}"
+                                           Foreground="{StaticResource BrushText}"
+                                           FontSize="13" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Foreground="{StaticResource BrushSubtext}" FontSize="11">
+                                    <TextBlock.Text>
+                                        <MultiBinding StringFormat="{}{0}  · {1}">
+                                            <Binding Path="SetName"/>
+                                            <Binding Path="Number"/>
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
+                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,7,0"
+                                                IsVisible="{Binding LineCmPrice, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                        <Image Source="avares://Cardex/Assets/cardmarket.png"
+                                               Width="11" Height="11" Margin="0,0,3,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding LineCmPrice, StringFormat='{}{0:F2}€'}"
+                                                   Foreground="#aaaacc" FontSize="10" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal"
+                                                IsVisible="{Binding LineTcgPrice, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                        <Image Source="avares://Cardex/Assets/tcgplayer.png"
+                                               Width="11" Height="11" Margin="0,0,3,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding LineTcgPrice, StringFormat='${0:F2}'}"
+                                                   Foreground="#aaaacc" FontSize="10" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Qty + buttons -->
+                            <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                        VerticalAlignment="Center">
+                                <Button Command="{Binding $parent[UserControl].((vm:DeckBuilderViewModel)DataContext).DecreaseDeckEntryCommand}"
+                                        CommandParameter="{Binding}"
+                                        Theme="{StaticResource QtyBtn}" Content="−"/>
+                                <Border Width="28" Background="#0a0e1a" CornerRadius="3" Margin="3,0">
+                                    <TextBlock Text="{Binding Quantity}"
+                                               Foreground="#ffd700"
+                                               FontWeight="Bold" FontSize="13"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                                <Button Command="{Binding $parent[UserControl].((vm:DeckBuilderViewModel)DataContext).IncreaseDeckEntryCommand}"
+                                        CommandParameter="{Binding}"
+                                        Theme="{StaticResource QtyBtn}" Content="+"/>
+                                <Button Command="{Binding $parent[UserControl].((vm:DeckBuilderViewModel)DataContext).RemoveFromDeckCommand}"
+                                        CommandParameter="{Binding}"
+                                        Theme="{StaticResource QtyBtn}"
+                                        Foreground="#aa4444" Margin="4,0,0,0"
+                                        ToolTip.Tip="Remove from deck" Content="✕"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <!-- Price footer + Export -->
+        <Border Grid.Row="2" Background="{StaticResource BrushAccent}" Padding="10,7">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="Price estimate" Foreground="{StaticResource BrushSubtext}"
+                               FontSize="9" Margin="0,0,0,2"/>
+                    <StackPanel Orientation="Horizontal">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,10,0">
+                            <Image Source="avares://Cardex/Assets/cardmarket.png"
+                                   Width="12" Height="12" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding TotalCmPriceText}"
+                                       Foreground="#ffd700" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Image Source="avares://Cardex/Assets/tcgplayer.png"
+                                   Width="12" Height="12" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding TotalTcgPriceText}"
+                                       Foreground="#ffd700" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+                <Button Grid.Column="1" Command="{Binding ExportDeckAsPtcgoCommand}"
+                        Theme="{StaticResource DkBtn}" ToolTip.Tip="Export to PTCGO Live format"
+                        Content="📤 Export"/>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

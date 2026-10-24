@@ -1,0 +1,418 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Cardex.App"
+             Name="Cardex"
+             RequestedThemeVariant="Dark">
+
+    <!-- Portage de App.xaml (WPF). Les styles WPF à clé avec template deviennent des ControlTheme
+         (mêmes clés) : Style="{StaticResource X}" côté WPF  →  Theme="{StaticResource X}" ici. -->
+
+    <!-- Menu de l'application (« Cardex », à côté du logo Apple). macOS y ajoute lui-même
+         Services, Masquer, Quitter (⌘Q)… -->
+    <NativeMenu.Menu>
+        <NativeMenu>
+            <NativeMenuItem Header="About Cardex" Click="About_Click"/>
+            <NativeMenuItemSeparator/>
+            <NativeMenuItem Header="Settings…" Gesture="Meta+OemComma" Click="Settings_Click"/>
+        </NativeMenu>
+    </NativeMenu.Menu>
+
+    <Application.Styles>
+        <FluentTheme />
+
+        <!-- Taille de texte par défaut du WPF (12) ; le thème Fluent est à 14. -->
+        <Style Selector="Window">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+    </Application.Styles>
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <x:Double x:Key="ControlContentThemeFontSize">12</x:Double>
+
+            <!-- Palette -->
+            <Color x:Key="ColorBg">#1a1a2e</Color>
+            <Color x:Key="ColorPanel">#16213e</Color>
+            <Color x:Key="ColorAccent">#0f3460</Color>
+            <Color x:Key="ColorHighlight">#e94560</Color>
+            <Color x:Key="ColorText">#e0e0e0</Color>
+            <Color x:Key="ColorSubtext">#8888aa</Color>
+
+            <SolidColorBrush x:Key="BrushBg" Color="{StaticResource ColorBg}"/>
+            <SolidColorBrush x:Key="BrushPanel" Color="{StaticResource ColorPanel}"/>
+            <SolidColorBrush x:Key="BrushAccent" Color="{StaticResource ColorAccent}"/>
+            <SolidColorBrush x:Key="BrushHighlight" Color="{StaticResource ColorHighlight}"/>
+            <SolidColorBrush x:Key="BrushText" Color="{StaticResource ColorText}"/>
+            <SolidColorBrush x:Key="BrushSubtext" Color="{StaticResource ColorSubtext}"/>
+            <!-- Remplacée à l'exécution par MainViewModel.ApplyBorderColor (DynamicResource) -->
+            <SolidColorBrush x:Key="CollectionBorderBrush" Color="#3a7fc1"/>
+
+            <!-- Button style : set sidebar -->
+            <ControlTheme x:Key="SetButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Foreground" Value="{StaticResource BrushText}"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                <Setter Property="Padding" Value="8,4"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Border Name="Bd" Background="{TemplateBinding Background}"
+                                CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              Foreground="{TemplateBinding Foreground}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter>
+                <Style Selector="^:pointerover /template/ Border#Bd">
+                    <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
+                </Style>
+            </ControlTheme>
+
+            <!-- ToggleButton (Show dupes only) -->
+            <ControlTheme x:Key="ToggleButtonStyle" TargetType="ToggleButton">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Foreground" Value="{StaticResource BrushText}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="BorderBrush" Value="{StaticResource BrushSubtext}"/>
+                <Setter Property="Padding" Value="10,5"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Border Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              Foreground="{TemplateBinding Foreground}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter>
+                <!-- Même ordre que les triggers WPF : le survol l'emporte sur l'état coché pour le fond -->
+                <Style Selector="^:checked /template/ Border#Bd">
+                    <Setter Property="Background" Value="{StaticResource BrushHighlight}"/>
+                    <Setter Property="BorderBrush" Value="{StaticResource BrushHighlight}"/>
+                </Style>
+                <Style Selector="^:pointerover /template/ Border#Bd">
+                    <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
+                </Style>
+            </ControlTheme>
+
+            <!-- ToggleButton étoile (Wants) -->
+            <ControlTheme x:Key="StarButtonStyle" TargetType="ToggleButton">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Padding" Value="2"/>
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                            <TextBlock Name="Star" Text="★"
+                                       FontSize="{TemplateBinding FontSize}"
+                                       Foreground="#44445a"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter>
+                <Style Selector="^:checked /template/ TextBlock#Star">
+                    <Setter Property="Foreground" Value="#ffd700"/>
+                </Style>
+                <Style Selector="^:pointerover:not(:checked) /template/ TextBlock#Star">
+                    <Setter Property="Foreground" Value="#888899"/>
+                </Style>
+                <Style Selector="^:pointerover:checked /template/ TextBlock#Star">
+                    <Setter Property="Foreground" Value="#ffe74a"/>
+                </Style>
+            </ControlTheme>
+
+            <!-- ToggleButton exclusion (⊘) -->
+            <ControlTheme x:Key="ExcludeButtonStyle" TargetType="ToggleButton">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Padding" Value="2"/>
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                            <TextBlock Name="Icon" Text="⊘"
+                                       FontSize="{TemplateBinding FontSize}"
+                                       Foreground="#44445a"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter>
+                <Style Selector="^:checked /template/ TextBlock#Icon">
+                    <Setter Property="Foreground" Value="#ff8c00"/>
+                </Style>
+                <Style Selector="^:pointerover:not(:checked) /template/ TextBlock#Icon">
+                    <Setter Property="Foreground" Value="#888899"/>
+                </Style>
+                <Style Selector="^:pointerover:checked /template/ TextBlock#Icon">
+                    <Setter Property="Foreground" Value="#ffaa33"/>
+                </Style>
+            </ControlTheme>
+
+            <!-- Bouton icône transparent (ex : ajout au deck) -->
+            <ControlTheme x:Key="IconButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Padding" Value="2"/>
+                <Setter Property="Foreground" Value="#44445a"/>
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              Foreground="{TemplateBinding Foreground}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter>
+                <Style Selector="^:pointerover">
+                    <Setter Property="Foreground" Value="#888899"/>
+                </Style>
+            </ControlTheme>
+
+            <!-- ComboBox sombre : items -->
+            <ControlTheme x:Key="DarkComboBoxItemStyle" TargetType="ComboBoxItem">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Foreground" Value="{StaticResource BrushText}"/>
+                <Setter Property="Padding" Value="8,5"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Border Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              Foreground="{TemplateBinding Foreground}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter>
+                <Style Selector="^:pointerover /template/ Border#Bd">
+                    <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
+                </Style>
+                <Style Selector="^:selected /template/ Border#Bd">
+                    <Setter Property="Background" Value="{StaticResource BrushHighlight}"/>
+                </Style>
+            </ControlTheme>
+
+            <!-- ComboBox sombre : contrôle complet -->
+            <ControlTheme x:Key="DarkComboBoxStyle" TargetType="ComboBox">
+                <Setter Property="Background" Value="#111122"/>
+                <Setter Property="Foreground" Value="{StaticResource BrushText}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="Padding" Value="6,4"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="FocusAdorner" Value="{x:Null}"/>
+                <Setter Property="ItemContainerTheme" Value="{StaticResource DarkComboBoxItemStyle}"/>
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Panel>
+                            <!-- Visuel : bordure + contenu sélectionné (le ComboBox Avalonia gère
+                                 lui-même le clic d'ouverture, pas besoin du ToggleButton du WPF) -->
+                            <Border Name="Bd"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="4">
+                                <Grid Margin="{TemplateBinding Padding}" ColumnDefinitions="*,16">
+                                    <ContentControl Grid.Column="0"
+                                                    Content="{TemplateBinding SelectionBoxItem}"
+                                                    ContentTemplate="{TemplateBinding ItemTemplate}"
+                                                    VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="▾"
+                                               Foreground="{StaticResource BrushSubtext}"
+                                               VerticalAlignment="Center"
+                                               HorizontalAlignment="Center"
+                                               FontSize="10"/>
+                                </Grid>
+                            </Border>
+
+                            <Popup Name="PART_Popup"
+                                   IsOpen="{TemplateBinding IsDropDownOpen, Mode=TwoWay}"
+                                   MinWidth="{Binding Bounds.Width, RelativeSource={RelativeSource TemplatedParent}}"
+                                   PlacementTarget="Bd"
+                                   Placement="Bottom"
+                                   IsLightDismissEnabled="True"
+                                   InheritsTransform="True">
+                                <Border Background="#111122"
+                                        BorderBrush="{StaticResource BrushAccent}"
+                                        BorderThickness="1"
+                                        CornerRadius="4">
+                                    <ScrollViewer MaxHeight="200" VerticalScrollBarVisibility="Auto">
+                                        <ItemsPresenter Name="PART_ItemsPresenter"
+                                                        ItemsPanel="{TemplateBinding ItemsPanel}"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Panel>
+                    </ControlTemplate>
+                </Setter>
+                <Style Selector="^:pointerover /template/ Border#Bd">
+                    <Setter Property="BorderBrush" Value="{StaticResource BrushHighlight}"/>
+                </Style>
+                <Style Selector="^:dropdownopen /template/ Border#Bd">
+                    <Setter Property="BorderBrush" Value="{StaticResource BrushHighlight}"/>
+                </Style>
+            </ControlTheme>
+
+            <!-- Bouton zoom image (transparent + contour au survol) -->
+            <ControlTheme x:Key="ZoomButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="2"/>
+                <Setter Property="BorderBrush" Value="Transparent"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="FocusAdorner" Value="{x:Null}"/>
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Border Name="Bd"
+                                Background="Transparent"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter>
+                <Style Selector="^:pointerover /template/ Border#Bd">
+                    <Setter Property="BorderBrush" Value="#66ffffff"/>
+                </Style>
+            </ControlTheme>
+
+            <!-- ── Ajouts Avalonia (pas d'équivalent nommé côté WPF) ────────────────── -->
+
+            <!-- Bouton sans aucun visuel : remplace les MouseBinding WPF (image/texte cliquable). -->
+            <ControlTheme x:Key="BareButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="FocusAdorner" Value="{x:Null}"/>
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <ContentPresenter Background="{TemplateBinding Background}"
+                                          Padding="{TemplateBinding Padding}"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          Foreground="{TemplateBinding Foreground}"
+                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                    </ControlTemplate>
+                </Setter>
+            </ControlTheme>
+
+            <!-- Bouton des boîtes de dialogue (Cancel / Export / Import) : fond plein, sans le
+                 changement de fond du survol Fluent. Background à fixer sur chaque bouton. -->
+            <ControlTheme x:Key="DialogButtonStyle" TargetType="Button">
+                <Setter Property="Foreground" Value="#e0e0e0"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Border Name="Bd" Background="{TemplateBinding Background}" CornerRadius="3">
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              Foreground="{TemplateBinding Foreground}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter>
+                <Style Selector="^:pointerover /template/ Border#Bd">
+                    <Setter Property="Opacity" Value="0.85"/>
+                </Style>
+            </ControlTheme>
+
+            <!-- Champ de saisie sombre (fond #111122, coins 4) : le TextBox Fluent change de fond
+                 au survol et au focus, ce que le TextBox WPF de l'app ne fait pas. -->
+            <ControlTheme x:Key="DarkTextBoxStyle" TargetType="TextBox"
+                          BasedOn="{StaticResource {x:Type TextBox}}">
+                <Setter Property="Background" Value="#111122"/>
+                <Setter Property="Foreground" Value="{StaticResource BrushText}"/>
+                <Setter Property="CaretBrush" Value="{StaticResource BrushText}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="4"/>
+                <Setter Property="MinHeight" Value="0"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Style Selector="^:pointerover /template/ Border#PART_BorderElement">
+                    <Setter Property="Background" Value="#111122"/>
+                    <Setter Property="BorderBrush" Value="{StaticResource BrushSubtext}"/>
+                </Style>
+                <Style Selector="^:focus /template/ Border#PART_BorderElement">
+                    <Setter Property="Background" Value="#111122"/>
+                    <Setter Property="BorderBrush" Value="{StaticResource BrushHighlight}"/>
+                    <Setter Property="BorderThickness" Value="1"/>
+                </Style>
+                <Style Selector="^:pointerover">
+                    <Setter Property="Foreground" Value="{StaticResource BrushText}"/>
+                </Style>
+                <Style Selector="^:focus">
+                    <Setter Property="Foreground" Value="{StaticResource BrushText}"/>
+                </Style>
+            </ControlTheme>
+
+            <!-- Style Expander série. Le WPF n'a pas de template et hérite de l'Expander Windows
+                 (cercle blanc + flèche à gauche du titre, sans cadre) : reproduit ici, car
+                 l'Expander Fluent d'Avalonia est une boîte encadrée avec chevron à droite. -->
+            <ControlTheme x:Key="SeriesExpanderStyle" TargetType="Expander">
+                <Setter Property="Foreground" Value="{StaticResource BrushHighlight}"/>
+                <Setter Property="FontWeight" Value="Bold"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <DockPanel Background="{TemplateBinding Background}">
+                            <ToggleButton Name="HeaderToggle" DockPanel.Dock="Top"
+                                          IsChecked="{TemplateBinding IsExpanded, Mode=TwoWay}"
+                                          Cursor="Hand" Focusable="False">
+                                <!-- Template nu : le cercle et la flèche sont dans le contenu, pour
+                                     rester atteignables par les sélecteurs /template/ ci-dessous. -->
+                                <ToggleButton.Template>
+                                    <ControlTemplate>
+                                        <ContentPresenter Content="{TemplateBinding Content}" Background="Transparent"/>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                                <StackPanel Orientation="Horizontal">
+                                    <Panel Width="19" Height="19" VerticalAlignment="Center">
+                                        <Ellipse Name="Circle" Fill="White" Stroke="DarkGray" StrokeThickness="1"/>
+                                        <Path Name="Arrow" Data="M 1,1.5 L 4.5,5 L 8,1.5"
+                                              Stroke="#333333" StrokeThickness="2"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Panel>
+                                    <ContentPresenter Content="{TemplateBinding Header}"
+                                                      ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                                      Foreground="{TemplateBinding Foreground}"
+                                                      Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </ToggleButton>
+                            <ContentPresenter Name="PART_ContentPresenter"
+                                              Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              IsVisible="{TemplateBinding IsExpanded}"/>
+                        </DockPanel>
+                    </ControlTemplate>
+                </Setter>
+                <Style Selector="^:expanded /template/ Path#Arrow">
+                    <Setter Property="Data" Value="M 1,4.5 L 4.5,1 L 8,4.5"/>
+                </Style>
+                <Style Selector="^ /template/ ToggleButton#HeaderToggle:pointerover Ellipse#Circle">
+                    <Setter Property="Stroke" Value="#5593ff"/>
+                    <Setter Property="Fill" Value="#f3f9ff"/>
+                </Style>
+                <Style Selector="^ /template/ ToggleButton#HeaderToggle:pointerover Path#Arrow">
+                    <Setter Property="Stroke" Value="#000000"/>
+                </Style>
+            </ControlTheme>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

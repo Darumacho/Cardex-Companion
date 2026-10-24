@@ -1,0 +1,40 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Cardex.Views.CardZoomWindow"
+        Title="Card Zoom"
+        SizeToContent="WidthAndHeight"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="#111122">
+
+    <!-- Portage de Views/CardZoomWindow.xaml (WPF) -->
+    <StackPanel Margin="16">
+        <!-- Image -->
+        <Border CornerRadius="8" ClipToBounds="True">
+            <Grid>
+                <TextBlock x:Name="LoadingText" Text="Loading…"
+                           Foreground="#8888aa" FontSize="16"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Margin="40"/>
+                <Image x:Name="CardImage"
+                       MaxWidth="480" MaxHeight="670"
+                       Stretch="Uniform"
+                       RenderOptions.BitmapInterpolationMode="HighQuality"/>
+            </Grid>
+        </Border>
+
+        <!-- Infos -->
+        <StackPanel Margin="0,10,0,0" HorizontalAlignment="Center">
+            <TextBlock x:Name="CardName"
+                       Foreground="#e0e0e0" FontSize="14" FontWeight="SemiBold"
+                       HorizontalAlignment="Center"/>
+            <TextBlock x:Name="CardDetails"
+                       Foreground="#8888aa" FontSize="11"
+                       HorizontalAlignment="Center" Margin="0,2,0,0"/>
+        </StackPanel>
+
+        <TextBlock Text="Click anywhere or press Esc to close"
+                   Foreground="#44445a" FontSize="10"
+                   HorizontalAlignment="Center" Margin="0,8,0,0"/>
+    </StackPanel>
+</Window>

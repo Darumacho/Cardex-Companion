@@ -21,6 +21,10 @@
     <Compile Remove="CardexCore\**" />
     <Compile Remove="Tools\**" />
     <None Remove="Tools\**" />
+    <!-- Portage macOS (Avalonia), projet séparé -->
+    <Compile Remove="_macOS\**" />
+    <None Remove="_macOS\**" />
+    <EmbeddedResource Remove="_macOS\**" />
   </ItemGroup>
 
   <ItemGroup>

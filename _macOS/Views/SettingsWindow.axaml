@@ -1,0 +1,705 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Cardex.ViewModels"
+        xmlns:conv="using:Cardex.Converters"
+        x:Class="Cardex.Views.SettingsWindow"
+        x:DataType="vm:MainViewModel"
+        Title="Settings"
+        Width="520" Height="480"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="#1a1a2e"
+        Foreground="#e0e0e0">
+
+    <!-- Portage de Views/SettingsWindow.xaml (WPF). Raccourcis affichés : Ctrl → ⌘ sur macOS. -->
+    <Window.Resources>
+        <conv:StringEqualsConverter x:Key="StrEq"/>
+
+        <ControlTheme x:Key="TabItemStyle" TargetType="TabItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#8888aa"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" Padding="{TemplateBinding Padding}"
+                            Background="Transparent" BorderThickness="0,0,0,2"
+                            BorderBrush="Transparent">
+                        <ContentPresenter Name="PART_ContentPresenter"
+                                          Content="{TemplateBinding Header}"
+                                          ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                          Foreground="{TemplateBinding Foreground}"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:selected">
+                <Setter Property="Foreground" Value="#e0e0e0"/>
+            </Style>
+            <Style Selector="^:selected /template/ Border#Bd">
+                <Setter Property="BorderBrush" Value="#16213e"/>
+            </Style>
+            <Style Selector="^:pointerover">
+                <Setter Property="Foreground" Value="#e0e0e0"/>
+            </Style>
+        </ControlTheme>
+
+        <!-- Barre d'onglets sur fond #0f3460 (TabPanel WPF), contenu de l'onglet en dessous -->
+        <ControlTheme x:Key="SettingsTabControl" TargetType="TabControl">
+            <Setter Property="ItemContainerTheme" Value="{StaticResource TabItemStyle}"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <DockPanel>
+                        <Border DockPanel.Dock="Top" Background="#0f3460">
+                            <ItemsPresenter Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}"/>
+                        </Border>
+                        <ContentPresenter Name="PART_SelectedContentHost"
+                                          Content="{TemplateBinding SelectedContent}"
+                                          ContentTemplate="{TemplateBinding SelectedContentTemplate}"/>
+                    </DockPanel>
+                </ControlTemplate>
+            </Setter>
+            <Setter Property="ItemsPanel">
+                <ItemsPanelTemplate>
+                    <WrapPanel/>
+                </ItemsPanelTemplate>
+            </Setter>
+        </ControlTheme>
+
+        <ControlTheme x:Key="SwatchBtnStyle" TargetType="Button" BasedOn="{StaticResource BareButtonStyle}"/>
+
+        <!-- Boutons pleins des onglets (Sync now, Add, Save template…) -->
+        <ControlTheme x:Key="PanelBtn" TargetType="Button">
+            <Setter Property="Background" Value="#16213e"/>
+            <Setter Property="Foreground" Value="#e0e0e0"/>
+            <Setter Property="BorderBrush" Value="#0f3460"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          Foreground="{TemplateBinding Foreground}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:pointerover /template/ Border#Bd">
+                <Setter Property="Background" Value="#1d2b50"/>
+            </Style>
+            <Style Selector="^:disabled">
+                <Setter Property="Opacity" Value="0.5"/>
+            </Style>
+        </ControlTheme>
+    </Window.Resources>
+
+    <Window.Styles>
+        <Style Selector="Border.swatch"><Setter Property="BorderBrush" Value="Transparent"/></Style>
+        <Style Selector="Border.swatch.selected"><Setter Property="BorderBrush" Value="White"/></Style>
+
+        <Style Selector="Border.soundChoice">
+            <Setter Property="Background" Value="#111122"/>
+            <Setter Property="BorderBrush" Value="#0f3460"/>
+        </Style>
+        <Style Selector="Border.soundChoice.selected"><Setter Property="BorderBrush" Value="#ffd700"/></Style>
+
+        <Style Selector="Border.achievement">
+            <Setter Property="Background" Value="#111122"/>
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+        <Style Selector="Border.achievement.unlocked">
+            <Setter Property="Background" Value="#1a1a3a"/>
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+
+        <Style Selector="Border.shortcutKey">
+            <Setter Property="Background" Value="#0f3460"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="8,3"/>
+            <Setter Property="Margin" Value="0,0,4,0"/>
+        </Style>
+    </Window.Styles>
+
+    <TabControl x:Name="Tabs" Theme="{StaticResource SettingsTabControl}" Margin="0,8,0,0">
+
+        <!-- ===== ONGLET OPTIONS ===== -->
+        <TabItem Header="Options">
+            <StackPanel Margin="24,20,24,16">
+
+                <TextBlock Text="Collection border color"
+                           Foreground="#8888aa" FontSize="12"
+                           Margin="0,0,0,12"/>
+
+                <WrapPanel Orientation="Horizontal" Margin="0,0,0,20">
+                    <Button Command="{Binding SetBorderColorCommand}" CommandParameter="#3a7fc1" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                        <Border Classes="swatch" Width="28" Height="28" CornerRadius="5" Background="#3a7fc1" BorderThickness="2" ToolTip.Tip="Sky Blue"
+                                Classes.selected="{Binding CollectionBorderColor, Converter={StaticResource StrEq}, ConverterParameter=#3a7fc1}"/>
+                    </Button>
+                    <Button Command="{Binding SetBorderColorCommand}" CommandParameter="#1565c0" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                        <Border Classes="swatch" Width="28" Height="28" CornerRadius="5" Background="#1565c0" BorderThickness="2" ToolTip.Tip="Navy Blue"
+                                Classes.selected="{Binding CollectionBorderColor, Converter={StaticResource StrEq}, ConverterParameter=#1565c0}"/>
+                    </Button>
+                    <Button Command="{Binding SetBorderColorCommand}" CommandParameter="#3f51b5" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                        <Border Classes="swatch" Width="28" Height="28" CornerRadius="5" Background="#3f51b5" BorderThickness="2" ToolTip.Tip="Indigo"
+                                Classes.selected="{Binding CollectionBorderColor, Converter={StaticResource StrEq}, ConverterParameter=#3f51b5}"/>
+                    </Button>
+                    <Button Command="{Binding SetBorderColorCommand}" CommandParameter="#00bcd4" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                        <Border Classes="swatch" Width="28" Height="28" CornerRadius="5" Background="#00bcd4" BorderThickness="2" ToolTip.Tip="Cyan"
+                                Classes.selected="{Binding CollectionBorderColor, Converter={StaticResource StrEq}, ConverterParameter=#00bcd4}"/>
+                    </Button>
+                    <Button Command="{Binding SetBorderColorCommand}" CommandParameter="#4ecdc4" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                        <Border Classes="swatch" Width="28" Height="28" CornerRadius="5" Background="#4ecdc4" BorderThickness="2" ToolTip.Tip="Teal"
+                                Classes.selected="{Binding CollectionBorderColor, Converter={StaticResource StrEq}, ConverterParameter=#4ecdc4}"/>
+                    </Button>
+                    <Button Command="{Binding SetBorderColorCommand}" CommandParameter="#27ae60" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                        <Border Classes="swatch" Width="28" Height="28" CornerRadius="5" Background="#27ae60" BorderThickness="2" ToolTip.Tip="Green"
+                                Classes.selected="{Binding CollectionBorderColor, Converter={StaticResource StrEq}, ConverterParameter=#27ae60}"/>
+                    </Button>
+                    <Button Command="{Binding SetBorderColorCommand}" CommandParameter="#8bc34a" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                        <Border Classes="swatch" Width="28" Height="28" CornerRadius="5" Background="#8bc34a" BorderThickness="2" ToolTip.Tip="Lime"
+                                Classes.selected="{Binding CollectionBorderColor, Converter={StaticResource StrEq}, ConverterParameter=#8bc34a}"/>
+                    </Button>
+                    <Button Command="{Binding SetBorderColorCommand}" CommandParameter="#f1c40f" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                        <Border Classes="swatch" Width="28" Height="28" CornerRadius="5" Background="#f1c40f" BorderThickness="2" ToolTip.Tip="Yellow"
+                                Classes.selected="{Binding CollectionBorderColor, Converter={StaticResource StrEq}, ConverterParameter=#f1c40f}"/>
+                    </Button>
+                    <Button Command="{Binding SetBorderColorCommand}" CommandParameter="#e67e22" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                        <Border Classes="swatch" Width="28" Height="28" CornerRadius="5" Background="#e67e22" BorderThickness="2" ToolTip.Tip="Orange"
+                                Classes.selected="{Binding CollectionBorderColor, Converter={StaticResource StrEq}, ConverterParameter=#e67e22}"/>
+                    </Button>
+                    <Button Command="{Binding SetBorderColorCommand}" CommandParameter="#e74c3c" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                        <Border Classes="swatch" Width="28" Height="28" CornerRadius="5" Background="#e74c3c" BorderThickness="2" ToolTip.Tip="Red"
+                                Classes.selected="{Binding CollectionBorderColor, Converter={StaticResource StrEq}, ConverterParameter=#e74c3c}"/>
+                    </Button>
+                    <Button Command="{Binding SetBorderColorCommand}" CommandParameter="#e91e8c" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                        <Border Classes="swatch" Width="28" Height="28" CornerRadius="5" Background="#e91e8c" BorderThickness="2" ToolTip.Tip="Pink"
+                                Classes.selected="{Binding CollectionBorderColor, Converter={StaticResource StrEq}, ConverterParameter=#e91e8c}"/>
+                    </Button>
+                    <Button Command="{Binding SetBorderColorCommand}" CommandParameter="#8e44ad" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                        <Border Classes="swatch" Width="28" Height="28" CornerRadius="5" Background="#8e44ad" BorderThickness="2" ToolTip.Tip="Purple"
+                                Classes.selected="{Binding CollectionBorderColor, Converter={StaticResource StrEq}, ConverterParameter=#8e44ad}"/>
+                    </Button>
+                    <Button Command="{Binding SetBorderColorCommand}" CommandParameter="#95a5a6" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                        <Border Classes="swatch" Width="28" Height="28" CornerRadius="5" Background="#95a5a6" BorderThickness="2" ToolTip.Tip="Gray"
+                                Classes.selected="{Binding CollectionBorderColor, Converter={StaticResource StrEq}, ConverterParameter=#95a5a6}"/>
+                    </Button>
+                    <Button Command="{Binding SetBorderColorCommand}" CommandParameter="#ecf0f1" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                        <Border Classes="swatch" Width="28" Height="28" CornerRadius="5" Background="#ecf0f1" BorderThickness="2" ToolTip.Tip="White"
+                                Classes.selected="{Binding CollectionBorderColor, Converter={StaticResource StrEq}, ConverterParameter=#ecf0f1}"/>
+                    </Button>
+                </WrapPanel>
+
+                <Rectangle Height="1" Fill="#0f3460" Margin="0,0,0,16"/>
+
+                <CheckBox IsChecked="{Binding ShowMyCollection}"
+                          Content="Show My Collection tab"
+                          Foreground="#e0e0e0" FontSize="12" Cursor="Hand"/>
+
+                <CheckBox IsChecked="{Binding ShowLegalityCheck}"
+                          Content="Show deck format legality checker (Standard / Expanded)"
+                          Foreground="#e0e0e0" FontSize="12" Cursor="Hand"
+                          Margin="0,10,0,0"/>
+
+                <Rectangle Height="1" Fill="#0f3460" Margin="0,16,0,16"/>
+
+                <TextBlock Text="Achievement sound"
+                           Foreground="#8888aa" FontSize="12" Margin="0,0,0,10"/>
+
+                <StackPanel Orientation="Horizontal">
+                    <Button Command="{Binding SetAchievementSoundCommand}" CommandParameter="xbox"
+                            Theme="{StaticResource SwatchBtnStyle}" Margin="0,0,8,0">
+                        <Border Classes="soundChoice" Padding="12,6" CornerRadius="4" BorderThickness="2"
+                                Classes.selected="{Binding AchievementSound, Converter={StaticResource StrEq}, ConverterParameter=xbox}">
+                            <TextBlock Text="🎮 Xbox" Foreground="#e0e0e0" FontSize="12"/>
+                        </Border>
+                    </Button>
+                    <Button Command="{Binding SetAchievementSoundCommand}" CommandParameter="ps4"
+                            Theme="{StaticResource SwatchBtnStyle}" Margin="0,0,8,0">
+                        <Border Classes="soundChoice" Padding="12,6" CornerRadius="4" BorderThickness="2"
+                                Classes.selected="{Binding AchievementSound, Converter={StaticResource StrEq}, ConverterParameter=ps4}">
+                            <TextBlock Text="🎮 PS4" Foreground="#e0e0e0" FontSize="12"/>
+                        </Border>
+                    </Button>
+                    <Button Command="{Binding SetAchievementSoundCommand}" CommandParameter="none"
+                            Theme="{StaticResource SwatchBtnStyle}">
+                        <Border Classes="soundChoice" Padding="12,6" CornerRadius="4" BorderThickness="2"
+                                Classes.selected="{Binding AchievementSound, Converter={StaticResource StrEq}, ConverterParameter=none}">
+                            <TextBlock Text="🔇 None" Foreground="#e0e0e0" FontSize="12"/>
+                        </Border>
+                    </Button>
+                </StackPanel>
+
+            </StackPanel>
+        </TabItem>
+
+        <!-- ===== ONGLET LANGUAGES ===== -->
+        <TabItem Header="Languages">
+            <StackPanel Margin="20">
+                <TextBlock Text="Choose which languages to track for your collection. English is always tracked. Once more than one is checked, each card's quantity field becomes a per-language select instead of a simple counter."
+                           Foreground="#8888aa" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,16"/>
+                <ItemsControl ItemsSource="{Binding LanguageOptions}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:LanguageOptionViewModel">
+                            <CheckBox IsChecked="{Binding IsTracked}"
+                                      IsEnabled="{Binding IsEnabled}"
+                                      Content="{Binding Label}"
+                                      Foreground="#e0e0e0" FontSize="12" Cursor="Hand"
+                                      Margin="0,0,0,10"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </TabItem>
+
+        <!-- ===== ONGLET SYNC ===== -->
+        <TabItem Header="Sync">
+            <StackPanel Margin="24,20,24,16">
+
+                <TextBlock Text="Cardex API key" Foreground="#8888aa" FontSize="12" Margin="0,0,0,10"/>
+                <TextBlock Foreground="#e0e0e0" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12" LineHeight="16">
+                    <Run Text="Syncs your collection, wants, tags and achievements with the mobile app. Get a free key at "/><Run Text="cardex-api.dev" FontFamily="Menlo, Consolas, monospace" Foreground="#ffd700"/><Run Text=" and paste it below."/>
+                </TextBlock>
+
+                <TextBox Text="{Binding CollectionSyncApiKey}"
+                         Theme="{StaticResource DarkTextBoxStyle}"
+                         Padding="8,5" FontSize="12" Margin="0,0,0,16"/>
+
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                    <Button Command="{Binding SyncNowCommand}"
+                            Theme="{StaticResource PanelBtn}"
+                            Content="🔄  Sync now" Margin="0,0,8,0"/>
+                    <Button Command="{Binding RestoreLastSyncBackupCommand}"
+                            Theme="{StaticResource PanelBtn}"
+                            Content="♻  Restore last backup"
+                            ToolTip.Tip="Undo the last sync import using the local backup taken right before it"/>
+                </StackPanel>
+
+                <TextBlock Text="{Binding LastSyncStatusText}" Foreground="#8888aa" FontSize="11" Margin="0,0,0,14"/>
+
+                <WrapPanel>
+                    <TextBlock Text="Collection on your phone too ? Grab the companion app: "
+                               Foreground="#8888aa" FontSize="11"/>
+                    <Button Theme="{StaticResource BareButtonStyle}"
+                            Command="{Binding OpenMobileAppReleasesCommand}">
+                        <TextBlock Text="CardexMobile releases ↗" Foreground="#ffd700" FontSize="11"
+                                   TextDecorations="Underline"/>
+                    </Button>
+                </WrapPanel>
+
+            </StackPanel>
+        </TabItem>
+
+        <!-- ===== ONGLET MY TAGS ===== -->
+        <TabItem Header="My Tags">
+            <Grid Margin="24,20,24,16" RowDefinitions="Auto,*">
+
+                <!-- Création d'un nouveau tag -->
+                <StackPanel Grid.Row="0">
+                    <TextBlock Text="New tag" Foreground="#8888aa" FontSize="12" Margin="0,0,0,10"/>
+
+                    <Grid Margin="0,0,0,12" ColumnDefinitions="*,16,24,8,Auto">
+                        <TextBox Grid.Column="0"
+                                 Theme="{StaticResource DarkTextBoxStyle}"
+                                 Text="{Binding NewTagName}"
+                                 Padding="8,5" FontSize="12"/>
+                        <!-- Pastille couleur sélectionnée -->
+                        <Border Grid.Column="2" Width="20" Height="20" CornerRadius="4"
+                                Background="{Binding PendingTagBrush}"
+                                VerticalAlignment="Center"/>
+                        <Button Grid.Column="4"
+                                Command="{Binding AddTagCommand}"
+                                Theme="{StaticResource PanelBtn}"
+                                Content="Add" Padding="14,5"/>
+                    </Grid>
+
+                    <!-- Palette de couleurs -->
+                    <WrapPanel Orientation="Horizontal" Margin="0,0,0,16">
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#3a7fc1" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Classes="swatch" Width="22" Height="22" CornerRadius="4" Background="#3a7fc1" BorderThickness="2" ToolTip.Tip="Sky Blue"
+                                    Classes.selected="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#3a7fc1}"/>
+                        </Button>
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#1565c0" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Classes="swatch" Width="22" Height="22" CornerRadius="4" Background="#1565c0" BorderThickness="2" ToolTip.Tip="Navy Blue"
+                                    Classes.selected="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#1565c0}"/>
+                        </Button>
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#4ecdc4" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Classes="swatch" Width="22" Height="22" CornerRadius="4" Background="#4ecdc4" BorderThickness="2" ToolTip.Tip="Teal"
+                                    Classes.selected="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#4ecdc4}"/>
+                        </Button>
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#27ae60" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Classes="swatch" Width="22" Height="22" CornerRadius="4" Background="#27ae60" BorderThickness="2" ToolTip.Tip="Green"
+                                    Classes.selected="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#27ae60}"/>
+                        </Button>
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#8bc34a" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Classes="swatch" Width="22" Height="22" CornerRadius="4" Background="#8bc34a" BorderThickness="2" ToolTip.Tip="Lime"
+                                    Classes.selected="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#8bc34a}"/>
+                        </Button>
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#f1c40f" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Classes="swatch" Width="22" Height="22" CornerRadius="4" Background="#f1c40f" BorderThickness="2" ToolTip.Tip="Yellow"
+                                    Classes.selected="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#f1c40f}"/>
+                        </Button>
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#e67e22" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Classes="swatch" Width="22" Height="22" CornerRadius="4" Background="#e67e22" BorderThickness="2" ToolTip.Tip="Orange"
+                                    Classes.selected="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#e67e22}"/>
+                        </Button>
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#e74c3c" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Classes="swatch" Width="22" Height="22" CornerRadius="4" Background="#e74c3c" BorderThickness="2" ToolTip.Tip="Red"
+                                    Classes.selected="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#e74c3c}"/>
+                        </Button>
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#e91e8c" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Classes="swatch" Width="22" Height="22" CornerRadius="4" Background="#e91e8c" BorderThickness="2" ToolTip.Tip="Pink"
+                                    Classes.selected="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#e91e8c}"/>
+                        </Button>
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#8e44ad" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Classes="swatch" Width="22" Height="22" CornerRadius="4" Background="#8e44ad" BorderThickness="2" ToolTip.Tip="Purple"
+                                    Classes.selected="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#8e44ad}"/>
+                        </Button>
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#95a5a6" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Classes="swatch" Width="22" Height="22" CornerRadius="4" Background="#95a5a6" BorderThickness="2" ToolTip.Tip="Gray"
+                                    Classes.selected="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#95a5a6}"/>
+                        </Button>
+                        <Button Command="{Binding SelectNewTagColorCommand}" CommandParameter="#ecf0f1" Theme="{StaticResource SwatchBtnStyle}" Margin="3">
+                            <Border Classes="swatch" Width="22" Height="22" CornerRadius="4" Background="#ecf0f1" BorderThickness="2" ToolTip.Tip="White"
+                                    Classes.selected="{Binding PendingTagColor, Converter={StaticResource StrEq}, ConverterParameter=#ecf0f1}"/>
+                        </Button>
+                    </WrapPanel>
+
+                    <Rectangle Height="1" Fill="#0f3460" Margin="0,0,0,12"/>
+                </StackPanel>
+
+                <!-- Liste des tags existants -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Tags}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:TagViewModel">
+                                <StackPanel Margin="0,4,0,8">
+                                    <!-- Nom + boutons -->
+                                    <Grid ColumnDefinitions="20,*,Auto,Auto">
+                                        <Border Width="14" Height="14" CornerRadius="3"
+                                                Background="{Binding Brush}"
+                                                VerticalAlignment="Center"/>
+                                        <TextBox Grid.Column="1"
+                                                 Theme="{StaticResource DarkTextBoxStyle}"
+                                                 Text="{Binding Name}"
+                                                 CornerRadius="3"
+                                                 Padding="6,3" FontSize="12" Margin="8,0,6,0"/>
+                                        <Button Grid.Column="2"
+                                                Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).UpdateTagCommand}"
+                                                CommandParameter="{Binding}"
+                                                Theme="{StaticResource BareButtonStyle}"
+                                                Content="✓" ToolTip.Tip="Save"
+                                                Foreground="#27ae60" FontSize="14"
+                                                Padding="4,2" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="3"
+                                                Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).DeleteTagCommand}"
+                                                CommandParameter="{Binding}"
+                                                Theme="{StaticResource BareButtonStyle}"
+                                                Content="✕" ToolTip.Tip="Delete"
+                                                Foreground="#8888aa" FontSize="12"
+                                                Padding="6,2" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <!-- Palette couleur -->
+                                    <WrapPanel Orientation="Horizontal" Margin="20,5,0,0">
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#3a7fc1" Theme="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Classes="swatch" Width="16" Height="16" CornerRadius="3" Background="#3a7fc1" BorderThickness="2"
+                                                    Classes.selected="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#3a7fc1}"/>
+                                        </Button>
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#1565c0" Theme="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Classes="swatch" Width="16" Height="16" CornerRadius="3" Background="#1565c0" BorderThickness="2"
+                                                    Classes.selected="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#1565c0}"/>
+                                        </Button>
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#4ecdc4" Theme="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Classes="swatch" Width="16" Height="16" CornerRadius="3" Background="#4ecdc4" BorderThickness="2"
+                                                    Classes.selected="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#4ecdc4}"/>
+                                        </Button>
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#27ae60" Theme="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Classes="swatch" Width="16" Height="16" CornerRadius="3" Background="#27ae60" BorderThickness="2"
+                                                    Classes.selected="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#27ae60}"/>
+                                        </Button>
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#8bc34a" Theme="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Classes="swatch" Width="16" Height="16" CornerRadius="3" Background="#8bc34a" BorderThickness="2"
+                                                    Classes.selected="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#8bc34a}"/>
+                                        </Button>
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#f1c40f" Theme="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Classes="swatch" Width="16" Height="16" CornerRadius="3" Background="#f1c40f" BorderThickness="2"
+                                                    Classes.selected="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#f1c40f}"/>
+                                        </Button>
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#e67e22" Theme="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Classes="swatch" Width="16" Height="16" CornerRadius="3" Background="#e67e22" BorderThickness="2"
+                                                    Classes.selected="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#e67e22}"/>
+                                        </Button>
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#e74c3c" Theme="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Classes="swatch" Width="16" Height="16" CornerRadius="3" Background="#e74c3c" BorderThickness="2"
+                                                    Classes.selected="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#e74c3c}"/>
+                                        </Button>
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#e91e8c" Theme="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Classes="swatch" Width="16" Height="16" CornerRadius="3" Background="#e91e8c" BorderThickness="2"
+                                                    Classes.selected="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#e91e8c}"/>
+                                        </Button>
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#8e44ad" Theme="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Classes="swatch" Width="16" Height="16" CornerRadius="3" Background="#8e44ad" BorderThickness="2"
+                                                    Classes.selected="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#8e44ad}"/>
+                                        </Button>
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#95a5a6" Theme="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Classes="swatch" Width="16" Height="16" CornerRadius="3" Background="#95a5a6" BorderThickness="2"
+                                                    Classes.selected="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#95a5a6}"/>
+                                        </Button>
+                                        <Button Command="{Binding SetColorCommand}" CommandParameter="#ecf0f1" Theme="{StaticResource SwatchBtnStyle}" Margin="2">
+                                            <Border Classes="swatch" Width="16" Height="16" CornerRadius="3" Background="#ecf0f1" BorderThickness="2"
+                                                    Classes.selected="{Binding Color, Converter={StaticResource StrEq}, ConverterParameter=#ecf0f1}"/>
+                                        </Button>
+                                    </WrapPanel>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+            </Grid>
+        </TabItem>
+
+        <!-- ===== ONGLET ACHIEVEMENTS ===== -->
+        <TabItem Header="Achievements">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="24,20,24,16">
+                <ItemsControl ItemsSource="{Binding Achievements}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AchievementViewModel">
+                            <Border Classes="achievement" Classes.unlocked="{Binding IsUnlocked}"
+                                    Margin="0,0,0,8" CornerRadius="6" Padding="12,10">
+                                <Grid ColumnDefinitions="40,*,Auto">
+                                    <!-- Emoji ou icône personnalisée -->
+                                    <Grid Grid.Column="0" Width="40" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                        <TextBlock Text="{Binding Emoji}"
+                                                   FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   IsVisible="{Binding !HasIcon}"/>
+                                        <Image Source="{Binding IconImage}" Width="32" Height="32"
+                                               RenderOptions.BitmapInterpolationMode="HighQuality"
+                                               IsVisible="{Binding HasIcon}"/>
+                                    </Grid>
+                                    <!-- Nom + description -->
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">
+                                        <TextBlock Text="{Binding Name}"
+                                                   Foreground="#e0e0e0" FontSize="12" FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding DisplayDescription}"
+                                                   Foreground="#8888aa" FontSize="10" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                    <!-- Date ou cadenas -->
+                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                        <TextBlock Text="{Binding UnlockedAtText}"
+                                                   Foreground="#ffd700" FontSize="9"
+                                                   HorizontalAlignment="Right"
+                                                   IsVisible="{Binding IsUnlocked}"/>
+                                        <TextBlock Text="🔒" FontSize="14" HorizontalAlignment="Right"
+                                                   IsVisible="{Binding !IsUnlocked}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </TabItem>
+
+        <!-- ===== ONGLET TEMPLATES ===== -->
+        <TabItem Header="Templates">
+            <Grid Margin="24,20,24,16" RowDefinitions="Auto,Auto,*,Auto">
+
+                <!-- Description -->
+                <StackPanel Grid.Row="0" Margin="0,0,0,14">
+                    <TextBlock Text="Import template" Foreground="#8888aa" FontSize="12" Margin="0,0,0,10"/>
+                    <TextBlock Foreground="#e0e0e0" FontSize="11" TextWrapping="Wrap" LineHeight="18">
+                        <Run Text="Format: "/><Run Text="CODE-NUMBER" FontFamily="Menlo, Consolas, monospace" Foreground="#ffd700"/><Run Text=" or "/><Run Text="CODE-NUMBER x3" FontFamily="Menlo, Consolas, monospace" Foreground="#ffd700"/><Run Text=" for a quantity. "/><Run Text="Examples: " Foreground="#8888aa"/><Run Text="PRE-1" FontFamily="Menlo, Consolas, monospace" Foreground="#ffd700"/><Run Text=",  " Foreground="#8888aa"/><Run Text="BS-4 x2" FontFamily="Menlo, Consolas, monospace" Foreground="#ffd700"/><Run Text=",  " Foreground="#8888aa"/><Run Text="NEOG-7" FontFamily="Menlo, Consolas, monospace" Foreground="#ffd700"/>
+                    </TextBlock>
+                    <TextBlock Foreground="#8888aa" FontSize="10" TextWrapping="Wrap" Margin="0,6,0,0" LineHeight="16"
+                               Text="CODE can be the SHORT code (2–4 chars, see table below), the official PTCGO key, the raw set ID, or the full set name. Lines starting with # are ignored. Importing twice adds quantities."/>
+                </StackPanel>
+
+                <!-- En-tête colonne -->
+                <Grid Grid.Row="1" Margin="0,0,0,4" ColumnDefinitions="56,110,*,130">
+                    <TextBlock Grid.Column="0" Text="SHORT" Foreground="#ffd700" FontSize="10" FontWeight="Bold"/>
+                    <TextBlock Grid.Column="1" Text="KEY" Foreground="#8888aa" FontSize="10" FontWeight="Bold"/>
+                    <TextBlock Grid.Column="2" Text="SET NAME" Foreground="#8888aa" FontSize="10" FontWeight="Bold"/>
+                    <TextBlock Grid.Column="3" Text="SERIES" Foreground="#8888aa" FontSize="10" FontWeight="Bold"/>
+                </Grid>
+
+                <Rectangle Grid.Row="1" Height="1" Fill="#0f3460" VerticalAlignment="Bottom"/>
+
+                <!-- Liste des sets -->
+                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Margin="0,4,0,8">
+                    <ItemsControl ItemsSource="{Binding TemplateSets}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:TemplateSetEntry">
+                                <Grid Margin="0,2,0,2" ColumnDefinitions="56,110,*,130">
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding ShortCode}"
+                                               Foreground="#ffd700" FontSize="11"
+                                               FontFamily="Menlo, Consolas, monospace" FontWeight="Bold"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Key}"
+                                               Foreground="#8888aa" FontSize="11"
+                                               FontFamily="Menlo, Consolas, monospace"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding Name}"
+                                               Foreground="#e0e0e0" FontSize="11"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="3"
+                                               Text="{Binding Series}"
+                                               Foreground="#8888aa" FontSize="10"
+                                               TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- Bouton -->
+                <Button Grid.Row="3"
+                        Command="{Binding GenerateImportTemplateCommand}"
+                        Theme="{StaticResource PanelBtn}"
+                        Content="💾  Save template file"
+                        HorizontalAlignment="Left"/>
+            </Grid>
+        </TabItem>
+
+        <!-- ===== ONGLET IGNORED SETS ===== -->
+        <TabItem Header="Ignored Sets">
+            <Grid Margin="24,20,24,16" RowDefinitions="Auto,*">
+
+                <TextBlock Grid.Row="0" Foreground="#8888aa" FontSize="11" TextWrapping="Wrap"
+                           Margin="0,0,0,14"
+                           Text="Ignored sets no longer appear in the sidebar. Check a whole block to ignore every set in it."/>
+
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Series}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:SeriesViewModel">
+                                <StackPanel IsVisible="{Binding IsRealSeriesGroup}">
+                                    <Expander IsExpanded="False" Margin="0,2" Theme="{StaticResource SeriesExpanderStyle}">
+                                        <Expander.Header>
+                                            <StackPanel Orientation="Horizontal">
+                                                <CheckBox IsThreeState="True"
+                                                          IsChecked="{Binding AreAllIgnored, Mode=OneWay}"
+                                                          Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ToggleSeriesIgnoredCommand}"
+                                                          CommandParameter="{Binding}"
+                                                          VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBlock Text="{Binding SeriesName}"
+                                                           Foreground="{StaticResource BrushHighlight}"
+                                                           FontSize="11" FontWeight="Bold"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Expander.Header>
+                                        <ItemsControl ItemsSource="{Binding Sets}" Margin="24,4,0,4" FontWeight="Normal">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:SetViewModel">
+                                                    <CheckBox IsChecked="{Binding IsIgnored}"
+                                                              Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ToggleSetIgnoredCommand}"
+                                                              CommandParameter="{Binding}"
+                                                              Content="{Binding Name}"
+                                                              Foreground="#e0e0e0" FontSize="12"
+                                                              Cursor="Hand" Margin="0,3"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Expander>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </TabItem>
+
+        <!-- ===== ONGLET RACCOURCIS ===== -->
+        <TabItem x:Name="ShortcutsTab" Header="Shortcuts">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="24,20,24,16">
+                <StackPanel>
+
+                    <TextBlock Text="General" Foreground="#8888aa" FontSize="11"
+                               Margin="0,0,0,10"/>
+
+                    <Grid Margin="0,0,0,8" ColumnDefinitions="160,*">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <Border Classes="shortcutKey"><TextBlock Text="⌘" Foreground="#e0e0e0" FontSize="11"/></Border>
+                            <TextBlock Text="+" Foreground="#8888aa" FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <Border Classes="shortcutKey"><TextBlock Text="E" Foreground="#e0e0e0" FontSize="11"/></Border>
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="Export CSV" Foreground="#e0e0e0" FontSize="12" VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <Grid Margin="0,0,0,8" ColumnDefinitions="160,*">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <Border Classes="shortcutKey"><TextBlock Text="⌘" Foreground="#e0e0e0" FontSize="11"/></Border>
+                            <TextBlock Text="+" Foreground="#8888aa" FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <Border Classes="shortcutKey"><TextBlock Text="B" Foreground="#e0e0e0" FontSize="11"/></Border>
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="Backup collection" Foreground="#e0e0e0" FontSize="12" VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <Grid Margin="0,0,0,8" ColumnDefinitions="160,*">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <Border Classes="shortcutKey"><TextBlock Text="⌘" Foreground="#e0e0e0" FontSize="11"/></Border>
+                            <TextBlock Text="+" Foreground="#8888aa" FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <Border Classes="shortcutKey"><TextBlock Text="R" Foreground="#e0e0e0" FontSize="11"/></Border>
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="Restore collection" Foreground="#e0e0e0" FontSize="12" VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <Grid Margin="0,0,0,8" ColumnDefinitions="160,*">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <Border Classes="shortcutKey"><TextBlock Text="⌘" Foreground="#e0e0e0" FontSize="11"/></Border>
+                            <TextBlock Text="+" Foreground="#8888aa" FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <Border Classes="shortcutKey"><TextBlock Text="F" Foreground="#e0e0e0" FontSize="11"/></Border>
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="Focus search" Foreground="#e0e0e0" FontSize="12" VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <Grid Margin="0,0,0,24" ColumnDefinitions="160,*">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <Border Classes="shortcutKey"><TextBlock Text="⌘" Foreground="#e0e0e0" FontSize="11"/></Border>
+                            <TextBlock Text="+" Foreground="#8888aa" FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <Border Classes="shortcutKey"><TextBlock Text="A" Foreground="#e0e0e0" FontSize="11"/></Border>
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="Check / Uncheck all" Foreground="#e0e0e0" FontSize="12" VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <TextBlock Text="Binder view" Foreground="#8888aa" FontSize="11"
+                               Margin="0,0,0,10"/>
+
+                    <Grid Margin="0,0,0,8" ColumnDefinitions="160,*">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <Border Classes="shortcutKey"><TextBlock Text="Left click" Foreground="#e0e0e0" FontSize="11"/></Border>
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="Toggle owned" Foreground="#e0e0e0" FontSize="12" VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <Grid Margin="0,0,0,8" ColumnDefinitions="160,*">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <Border Classes="shortcutKey"><TextBlock Text="⇧ Shift" Foreground="#e0e0e0" FontSize="11"/></Border>
+                            <TextBlock Text="+" Foreground="#8888aa" FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <Border Classes="shortcutKey"><TextBlock Text="Left click" Foreground="#e0e0e0" FontSize="11"/></Border>
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="Toggle wanted" Foreground="#e0e0e0" FontSize="12" VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <Grid Margin="0,0,0,8" ColumnDefinitions="160,*">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <Border Classes="shortcutKey"><TextBlock Text="⌘" Foreground="#e0e0e0" FontSize="11"/></Border>
+                            <TextBlock Text="+" Foreground="#8888aa" FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <Border Classes="shortcutKey"><TextBlock Text="Left click" Foreground="#e0e0e0" FontSize="11"/></Border>
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="Toggle excluded" Foreground="#e0e0e0" FontSize="12" VerticalAlignment="Center"/>
+                    </Grid>
+
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+
+    </TabControl>
+</Window>
