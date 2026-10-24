@@ -1792,11 +1792,16 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    // Origine taguée lors d'une synchro manuelle depuis cette machine — distincte de "Desktop
+    // (Mac)" (portage Avalonia séparé, voir MACOS_PORT.md) pour que l'avertissement d'écrasement
+    // et la détection de synchro en attente identifient correctement la provenance.
+    private const string DesktopSyncOrigin = "Desktop (Windows)";
+
     // Synchronisation manuelle (bouton Settings) : pousse l'état local vers l'API Cardex, taggé
-    // "desktop". Si le serveur montre que la dernière synchro connue vient du mobile et est plus
-    // récente que notre dernier sync connu, on prévient avant d'écraser (décision utilisateur :
-    // avertir, ne pas bloquer) — contrairement à AutoPullSyncIfNeededAsync (lancée au démarrage)
-    // qui rapatrie automatiquement sans demander.
+    // DesktopSyncOrigin. Si le serveur montre que la dernière synchro connue vient d'un autre
+    // appareil et est plus récente que notre dernier sync connu, on prévient avant d'écraser
+    // (décision utilisateur : avertir, ne pas bloquer) — contrairement à AutoPullSyncIfNeededAsync
+    // (lancée au démarrage) qui rapatrie automatiquement sans demander.
     [RelayCommand]
     private async Task SyncNowAsync()
     {
@@ -1814,7 +1819,7 @@ public partial class MainViewModel : ObservableObject
             var syncService = new CollectionSyncService(_db, _settings, apiKey);
             var remote = await syncService.FetchRemoteStateAsync();
 
-            if (remote is not null && remote.Origin != "desktop")
+            if (remote is not null && remote.Origin != DesktopSyncOrigin)
             {
                 var remoteUpdatedAt = DateTime.Parse(remote.UpdatedAt, null, System.Globalization.DateTimeStyles.RoundtripKind);
                 if (_settings.LastCollectionSyncAt is null || remoteUpdatedAt > _settings.LastCollectionSyncAt)
@@ -1829,9 +1834,9 @@ public partial class MainViewModel : ObservableObject
                 }
             }
 
-            var updatedAt = await syncService.PushAsync("desktop");
+            var updatedAt = await syncService.PushAsync(DesktopSyncOrigin);
             _settings.LastCollectionSyncAt = updatedAt;
-            _settings.LastCollectionSyncOrigin = "desktop";
+            _settings.LastCollectionSyncOrigin = DesktopSyncOrigin;
             _settings.Save();
             OnPropertyChanged(nameof(LastSyncStatusText));
             StatusText = "Collection synced.";
@@ -1861,7 +1866,7 @@ public partial class MainViewModel : ObservableObject
         {
             var syncService = new CollectionSyncService(_db, _settings, apiKey);
             var remote = await syncService.FetchRemoteStateAsync();
-            if (remote is null || remote.Origin == "desktop") return;
+            if (remote is null || remote.Origin == DesktopSyncOrigin) return;
 
             var remoteUpdatedAt = DateTime.Parse(remote.UpdatedAt, null, System.Globalization.DateTimeStyles.RoundtripKind);
             if (_settings.LastCollectionSyncAt is { } lastKnown && remoteUpdatedAt <= lastKnown) return;
