@@ -725,6 +725,12 @@
                     </TextBlock>
 
                     <TextBlock FontSize="13" Foreground="#e0e0e0" Margin="0,0,0,6" TextWrapping="Wrap">
+                        <Run Text="Of those,"/>
+                        <Run Text="{Binding TotalHoloCards, Mode=OneWay}" FontWeight="Bold" Foreground="#ffd700"/>
+                        <Run Text="are holo."/>
+                    </TextBlock>
+
+                    <TextBlock FontSize="13" Foreground="#e0e0e0" Margin="0,0,0,6" TextWrapping="Wrap">
                         <Run Text="Out of the"/>
                         <Run Text="{Binding SetsBegun, Mode=OneWay}" FontWeight="Bold" Foreground="#ffd700"/>
                         <Run Text="sets you've begun,"/>
@@ -756,18 +762,12 @@
                         <Run Text="cards."/>
                     </TextBlock>
 
-                    <TextBlock FontSize="13" Foreground="#e0e0e0" Margin="0,0,0,6" TextWrapping="Wrap">
+                    <TextBlock FontSize="13" Foreground="#e0e0e0" Margin="0,0,0,16" TextWrapping="Wrap">
                         <Run Text="You've unlocked"/>
                         <Run Text="{Binding UnlockedAchievements, Mode=OneWay}" FontWeight="Bold" Foreground="#ffd700"/>
                         <Run Text="achievements out of"/>
                         <Run Text="{Binding TotalAchievements, Mode=OneWay}" FontWeight="Bold" Foreground="#ffd700"/>
                         <Run Text="."/>
-                    </TextBlock>
-
-                    <TextBlock FontSize="13" Foreground="#e0e0e0" Margin="0,0,0,16" TextWrapping="Wrap">
-                        <Run Text="Of those,"/>
-                        <Run Text="{Binding TotalHoloCards, Mode=OneWay}" FontWeight="Bold" Foreground="#ffd700"/>
-                        <Run Text="are holo."/>
                     </TextBlock>
 
                     <TextBlock Text="MOST-COMPLETED SERIES" Foreground="#8888aa" FontSize="11" FontWeight="Bold" Margin="0,0,0,8"/>
