@@ -25,6 +25,8 @@ public partial class App : Application
         await db.Database.EnsureCreatedAsync();
         try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE OwnedCards ADD COLUMN Quantity INTEGER NOT NULL DEFAULT 1"); }
         catch { }
+        try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE OwnedCards ADD COLUMN IsHolo INTEGER NOT NULL DEFAULT 0"); }
+        catch { }
         try { await db.Database.ExecuteSqlRawAsync(@"
             CREATE TABLE IF NOT EXISTS CachedSets (
                 SetId TEXT PRIMARY KEY NOT NULL, Name TEXT NOT NULL DEFAULT '',
@@ -206,8 +208,10 @@ public partial class App : Application
 
             if (toUpdate.Count == 0) return;
 
-            // Batch updates in groups of 500 to avoid SQL parameter limits
-            db.ChangeTracker.AutoDetectChangesEnabled = false;
+            // Batch updates in groups of 500 to avoid SQL parameter limits. AutoDetectChangesEnabled
+            // reste à sa valeur par défaut (true) : le mettre à false empêcherait SaveChangesAsync de
+            // détecter la mutation de Supertype faite via un simple setter — le batch tournerait sans
+            // erreur mais sans jamais rien persister (bug trouvé côté mobile, même code copié).
             foreach (var batch in toUpdate.Chunk(500))
             {
                 var ids = batch.Select(x => x.Id).ToList();
@@ -224,10 +228,6 @@ public partial class App : Application
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"BackfillSupertypes failed: {ex}");
-        }
-        finally
-        {
-            db.ChangeTracker.AutoDetectChangesEnabled = true;
         }
     }
 

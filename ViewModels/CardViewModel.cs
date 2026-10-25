@@ -24,6 +24,7 @@ public partial class CardViewModel : ObservableObject
     [ObservableProperty] private bool _isLoadingImage;
     [ObservableProperty] private bool _isWanted;
     [ObservableProperty] private bool _isExcluded;
+    [ObservableProperty] private bool _isHolo;
 
     // Some fallback sets (see TCGdex) don't have an image URL at all for certain cards.
     public bool HasNoImage => string.IsNullOrEmpty(ImageUrl);
@@ -162,7 +163,8 @@ public partial class CardViewModel : ObservableObject
         string cardId, string name, string number, string setId,
         string imageUrl, string? imageLargeUrl, string? rarity, int quantity, bool isWanted, bool isExcluded,
         ImageCacheService imageCache, string? supertype = null, string? subtypes = null,
-        IReadOnlyList<string>? trackedLanguages = null, Dictionary<string, int>? languageQuantities = null)
+        IReadOnlyList<string>? trackedLanguages = null, Dictionary<string, int>? languageQuantities = null,
+        bool isHolo = false)
     {
         CardId = cardId;
         Name = name;
@@ -177,6 +179,7 @@ public partial class CardViewModel : ObservableObject
         _isOwned = quantity > 0;
         _isWanted = isWanted;
         _isExcluded = isExcluded;
+        _isHolo = isHolo;
         _imageCache = imageCache;
 
         IsMultiLanguageMode = trackedLanguages is { Count: > 1 };

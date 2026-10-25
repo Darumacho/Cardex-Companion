@@ -226,6 +226,15 @@
                                     </Popup>
                                 </Grid>
 
+                                <!-- Holo : n'a de sens que pour une carte possédée -->
+                                <CheckBox Margin="0,4,0,0"
+                                          IsChecked="{Binding IsHolo}"
+                                          Visibility="{Binding IsOwned, Converter={StaticResource BoolToVis}}"
+                                          Foreground="{StaticResource BrushText}"
+                                          FontSize="11"
+                                          Content="Holo"
+                                          Cursor="Hand"/>
+
                                 <!-- Tag selector -->
                                 <ComboBox ItemsSource="{Binding DataContext.TagsWithNone, RelativeSource={RelativeSource AncestorType=Window}}"
                                           SelectedItem="{Binding SelectedTag}"
@@ -1097,12 +1106,18 @@
                                 <Run Text="cards."/>
                             </TextBlock>
 
-                            <TextBlock FontSize="12" Foreground="#e0e0e0" Margin="0,0,0,10" TextWrapping="Wrap">
+                            <TextBlock FontSize="12" Foreground="#e0e0e0" Margin="0,0,0,6" TextWrapping="Wrap">
                                 <Run Text="You've unlocked"/>
                                 <Run Text="{Binding UnlockedAchievements, Mode=OneWay}" FontWeight="Bold" Foreground="#ffd700"/>
                                 <Run Text="achievements out of"/>
                                 <Run Text="{Binding TotalAchievements, Mode=OneWay}" FontWeight="Bold" Foreground="#ffd700"/>
                                 <Run Text="."/>
+                            </TextBlock>
+
+                            <TextBlock FontSize="12" Foreground="#e0e0e0" Margin="0,0,0,10" TextWrapping="Wrap">
+                                <Run Text="Of those,"/>
+                                <Run Text="{Binding TotalHoloCards, Mode=OneWay}" FontWeight="Bold" Foreground="#ffd700"/>
+                                <Run Text="are holo."/>
                             </TextBlock>
 
                             <TextBlock Text="MOST-COMPLETED SERIES" Foreground="{StaticResource BrushSubtext}" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>

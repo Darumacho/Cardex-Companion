@@ -7,6 +7,7 @@ namespace Cardex.ViewModels;
 public class CollectionStatsViewModel
 {
     public int TotalOwnedCards { get; init; }
+    public int TotalHoloCards { get; init; }
     public int TotalSets { get; init; }
     public int SetsBegun { get; init; }
     public int SetsComplete { get; init; }
