@@ -919,10 +919,11 @@ public partial class MainViewModel : ObservableObject
         StatusText = $"Loading {set.Name}…";
         try
         {
-            var ownedMap = (await _db.OwnedCards
+            var ownedRows = await _db.OwnedCards
                 .Where(o => o.SetId == set.SetId)
-                .ToListAsync())
-                .ToDictionary(o => o.CardId, o => o.Quantity);
+                .ToListAsync();
+            var ownedMap = ownedRows.ToDictionary(o => o.CardId, o => o.Quantity);
+            var holoIds = ownedRows.Where(o => o.IsHolo).Select(o => o.CardId).ToHashSet();
 
             var langMap = await BuildLanguageMapAsync(set.SetId, ownedMap);
 
@@ -951,7 +952,7 @@ public partial class MainViewModel : ObservableObject
 
                 BuildCardViewModels(cachedCards.Select(c =>
                     new CardData(c.CardId, c.Name, c.Number, c.SetId, c.ImageSmall, c.ImageLarge, c.Rarity, c.CmLow, c.TcgLow, c.PricesUpdatedAt, c.CmUrl, c.TcgUrl, c.Supertype, c.Subtypes)),
-                    ownedMap, wantedIds, excludedIds, set, langMap, cardTagMap);
+                    ownedMap, wantedIds, excludedIds, set, langMap, cardTagMap, holoIds);
                 StatusText = $"{set.Name} — {set.CompletionText}";
                 _ = RefreshPricesIfNeededAsync(set);
             }
@@ -959,7 +960,7 @@ public partial class MainViewModel : ObservableObject
             {
                 try
                 {
-                    await LoadCardsFromTcgdexAsync(set, ownedMap, wantedIds, excludedIds, langMap);
+                    await LoadCardsFromTcgdexAsync(set, ownedMap, wantedIds, excludedIds, langMap, holoIds);
                     StatusText = $"{set.Name} — {set.CompletionText}";
                 }
                 catch (Exception ex)
@@ -999,7 +1000,7 @@ public partial class MainViewModel : ObservableObject
                             c.Cardmarket?.Prices?.LowPrice, ExtractTcgLow(c), now,
                             c.Cardmarket?.Url, c.Tcgplayer?.Url, c.Supertype,
                             c.Subtypes is { Count: > 0 } ? string.Join(", ", c.Subtypes) : null)),
-                        ownedMap, wantedIds, excludedIds, set, langMap);
+                        ownedMap, wantedIds, excludedIds, set, langMap, holoIds: holoIds);
                     StatusText = $"{set.Name} — {set.CompletionText}";
                 }
                 catch (Exception ex)
@@ -1027,7 +1028,8 @@ public partial class MainViewModel : ObservableObject
     // appel avec tous les détails (prix, rareté) — il faut d'abord la liste brève du set, puis
     // un appel par carte. Acceptable ici car ces sets de secours sont peu nombreux.
     private async Task LoadCardsFromTcgdexAsync(SetViewModel set, Dictionary<string, int> ownedMap,
-        HashSet<string> wantedIds, HashSet<string> excludedIds, Dictionary<string, Dictionary<string, int>> langMap)
+        HashSet<string> wantedIds, HashSet<string> excludedIds, Dictionary<string, Dictionary<string, int>> langMap,
+        HashSet<string>? holoIds = null)
     {
         var detail = await _tcgdexService.GetSetDetailAsync(set.SetId)
             ?? throw new InvalidOperationException("Set not found on TCGdex");
@@ -1069,7 +1071,7 @@ public partial class MainViewModel : ObservableObject
         _db.CachedCards.AddRange(cachedCards);
         await _db.SaveChangesAsync();
 
-        BuildCardViewModels(cardData.OrderBy(c => CardNumberSort(c.Number)), ownedMap, wantedIds, excludedIds, set, langMap);
+        BuildCardViewModels(cardData.OrderBy(c => CardNumberSort(c.Number)), ownedMap, wantedIds, excludedIds, set, langMap, holoIds: holoIds);
     }
 
     // Construit (une fois, à la première ouverture d'un set) la map CardId -> quantité par langue
@@ -1129,7 +1131,7 @@ public partial class MainViewModel : ObservableObject
     private void BuildCardViewModels(IEnumerable<CardData> cards, Dictionary<string, int> ownedMap,
         HashSet<string> wantedIds, HashSet<string> excludedIds, SetViewModel set,
         Dictionary<string, Dictionary<string, int>> langMap,
-        Dictionary<string, int>? cardTagMap = null)
+        Dictionary<string, int>? cardTagMap = null, HashSet<string>? holoIds = null)
     {
         var deckMap = IsDeckBuilderTabActive
             ? DeckBuilder.DeckEntries.GroupBy(e => e.CardId).ToDictionary(g => g.Key, g => g.Sum(e => e.Quantity))
@@ -1149,7 +1151,8 @@ public partial class MainViewModel : ObservableObject
                 wantedIds.Contains(card.Id),
                 excludedIds.Contains(card.Id),
                 _imageCache, card.Supertype, card.Subtypes,
-                trackedLanguages, langMap.GetValueOrDefault(card.Id))
+                trackedLanguages, langMap.GetValueOrDefault(card.Id),
+                holoIds?.Contains(card.Id) ?? false)
             {
                 CmLow = card.CmLow,
                 TcgLow = card.TcgLow,
@@ -1175,6 +1178,8 @@ public partial class MainViewModel : ObservableObject
                     await OnCardWantedChangedAsync(vm, set);
                 else if (e.PropertyName == nameof(CardViewModel.IsExcluded))
                     await OnCardExcludedChangedAsync(vm, set);
+                else if (e.PropertyName == nameof(CardViewModel.IsHolo))
+                    await OnCardHoloChangedAsync(vm);
             };
             vm.OnTagChanged = OnCardTagChangedAsync;
 
@@ -1204,6 +1209,17 @@ public partial class MainViewModel : ObservableObject
             var wantedCount = await _db.WantedCards.CountAsync();
             if (wantedCount >= 10) await AchievementService.CheckAsync("wanted_10", _db);
         }
+    }
+
+    // Pas de sens de marquer "holo" une carte non possédée — le toggle est désactivé dans la vue
+    // tant que Quantity == 0 (voir CardTemplate dans MainWindow.xaml), donc l'entrée OwnedCards
+    // existe toujours ici en pratique ; no-op défensif sinon plutôt que de créer une possession.
+    private async Task OnCardHoloChangedAsync(CardViewModel card)
+    {
+        var entry = await _db.OwnedCards.FindAsync(card.CardId);
+        if (entry is null) return;
+        entry.IsHolo = card.IsHolo;
+        await _db.SaveChangesAsync();
     }
 
     private async Task LoadWantedCardsAsync()
@@ -1680,16 +1696,19 @@ public partial class MainViewModel : ObservableObject
 
         var ownedRows = await _db.OwnedCards
             .Where(o => o.Quantity > 0)
-            .Join(_db.CachedCards, o => o.CardId, c => c.CardId, (o, c) => new { o.Quantity, c.Name, c.Rarity })
+            .Join(_db.CachedCards, o => o.CardId, c => c.CardId, (o, c) => new { o.Quantity, o.IsHolo, c.Name, c.Rarity, c.Supertype })
             .ToListAsync();
 
         var totalOwned = ownedRows.Count;
+        var totalHolo = ownedRows.Count(r => r.IsHolo);
 
         // Regroupe par nom d'espèce nettoyé des décorations TCG (voir CleanSpeciesName) : sans
         // ça, "Lugia", "Shining Lugia", "Lugia V", "Lugia VSTAR"... sont comptés séparément et
         // aucune variante individuelle ne ressort comme "la plus collectée" même en en possédant
-        // beaucoup au total.
+        // beaucoup au total. Filtré sur Supertype "Pokémon" : sinon Energy/Trainer homonymes
+        // (ex. "Boost Energy" vs un Pokémon) faussaient le classement.
         var topPokemon = ownedRows
+            .Where(r => r.Supertype == "Pokémon")
             .GroupBy(r => PokeSpriteService.CleanSpeciesName(r.Name))
             .Select(g => new { Name = g.Key, Count = g.Sum(r => r.Quantity) })
             .OrderByDescending(g => g.Count)
@@ -1736,6 +1755,7 @@ public partial class MainViewModel : ObservableObject
         Stats = new CollectionStatsViewModel
         {
             TotalOwnedCards = totalOwned,
+            TotalHoloCards = totalHolo,
             TotalSets = allSets.Count,
             SetsBegun = setsBegun,
             SetsComplete = setsComplete,

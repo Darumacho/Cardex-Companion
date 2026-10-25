@@ -522,6 +522,10 @@
                     </TextBlock>
 
                     <TextBlock FontSize="13" Foreground="#e0e0e0" Margin="0,0,0,6" TextWrapping="Wrap">
+                        <Run Text="Of those, "/><Run Text="{Binding TotalHoloCards}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" are holo."/>
+                    </TextBlock>
+
+                    <TextBlock FontSize="13" Foreground="#e0e0e0" Margin="0,0,0,6" TextWrapping="Wrap">
                         <Run Text="Out of the "/><Run Text="{Binding SetsBegun}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" sets you've begun, "/><Run Text="{Binding SetsComplete}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" are complete."/>
                     </TextBlock>
 

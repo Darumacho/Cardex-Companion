@@ -227,6 +227,15 @@
                                     </Popup>
                                 </Grid>
 
+                                <!-- Holo : n'a de sens que pour une carte possédée -->
+                                <CheckBox Margin="0,4,0,0"
+                                          IsChecked="{Binding IsHolo}"
+                                          IsVisible="{Binding IsOwned}"
+                                          Foreground="{StaticResource BrushText}"
+                                          FontSize="11"
+                                          Content="Holo"
+                                          Cursor="Hand"/>
+
                                 <!-- Tag selector -->
                                 <ComboBox ItemsSource="{Binding $parent[Window].((vm:MainViewModel)DataContext).TagsWithNone}"
                                           SelectedItem="{Binding SelectedTag}"
@@ -796,6 +805,10 @@
                                     <!-- Espaces explicites dans les Run : Avalonia ne les insère pas entre deux Run comme WPF -->
                                     <TextBlock FontSize="12" Foreground="#e0e0e0" Margin="0,0,0,6" TextWrapping="Wrap">
                                         <Run Text="You have "/><Run Text="{Binding TotalOwnedCards}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" total cards, spread across "/><Run Text="{Binding TotalSets}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" sets."/>
+                                    </TextBlock>
+
+                                    <TextBlock FontSize="12" Foreground="#e0e0e0" Margin="0,0,0,6" TextWrapping="Wrap">
+                                        <Run Text="Of those, "/><Run Text="{Binding TotalHoloCards}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" are holo."/>
                                     </TextBlock>
 
                                     <TextBlock FontSize="12" Foreground="#e0e0e0" Margin="0,0,0,6" TextWrapping="Wrap">
