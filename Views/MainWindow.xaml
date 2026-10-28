@@ -1089,6 +1089,15 @@
                             </TextBlock>
 
                             <TextBlock FontSize="12" Foreground="#e0e0e0" TextWrapping="Wrap" Margin="0,0,0,6">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding DataContext.StatsTeamMode, RelativeSource={RelativeSource AncestorType=Border}}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
                                 <Run Text="Your most-collected Pokémon is"/>
                                 <InlineUIContainer BaselineAlignment="Center">
                                     <Image Source="{Binding TopPokemonSprite}" Width="28" Height="28"
@@ -1111,6 +1120,53 @@
                                 <Run Text="{Binding TopPokemonCount, Mode=OneWay}" FontWeight="Bold" Foreground="#ffd700"/>
                                 <Run Text="cards."/>
                             </TextBlock>
+
+                            <!-- Mode "équipe" : les 6 Pokémon les plus collectés, façon équipe de combat. -->
+                            <TextBlock FontSize="12" Foreground="#e0e0e0" Margin="0,0,0,6" TextWrapping="Wrap">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding DataContext.StatsTeamMode, RelativeSource={RelativeSource AncestorType=Border}}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                                <Run Text="Your team of favourite Pokémon is :"/>
+                            </TextBlock>
+                            <ItemsControl ItemsSource="{Binding TopPokemonTeam}" Margin="0,0,0,6">
+                                <ItemsControl.Style>
+                                    <Style TargetType="ItemsControl">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding DataContext.StatsTeamMode, RelativeSource={RelativeSource AncestorType=Border}}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ItemsControl.Style>
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:PokemonTeamMember}">
+                                        <StackPanel Orientation="Vertical" Margin="0,0,8,6" Width="56" HorizontalAlignment="Center">
+                                            <Image Source="{Binding Sprite}" Width="30" Height="30"
+                                                   RenderOptions.BitmapScalingMode="NearestNeighbor"
+                                                   HorizontalAlignment="Center"
+                                                   Visibility="{Binding HasSprite, Converter={StaticResource BoolToVis}}"/>
+                                            <TextBlock Text="{Binding Name}" Foreground="#e0e0e0" FontSize="10" FontWeight="Bold"
+                                                       TextAlignment="Center" TextWrapping="Wrap"/>
+                                            <TextBlock Foreground="#ffd700" FontSize="9" TextAlignment="Center">
+                                                <Run Text="×"/><Run Text="{Binding Count, Mode=OneWay}"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
 
                             <TextBlock FontSize="12" Foreground="#e0e0e0" Margin="0,0,0,10" TextWrapping="Wrap">
                                 <Run Text="You've unlocked"/>

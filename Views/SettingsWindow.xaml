@@ -716,6 +716,11 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="24,20,24,16">
                 <StackPanel DataContext="{Binding Stats}">
 
+                    <CheckBox IsChecked="{Binding DataContext.StatsTeamMode, RelativeSource={RelativeSource AncestorType=Window}}"
+                              Content="Team mode (show top 6 most-collected Pokémon)"
+                              Foreground="#e0e0e0" FontSize="12" Cursor="Hand"
+                              Margin="0,0,0,14"/>
+
                     <TextBlock FontSize="13" Foreground="#e0e0e0" Margin="0,0,0,6">
                         <Run Text="You have"/>
                         <Run Text="{Binding TotalOwnedCards, Mode=OneWay}" FontWeight="Bold" Foreground="#ffd700"/>
@@ -739,6 +744,15 @@
                     </TextBlock>
 
                     <TextBlock FontSize="13" Foreground="#e0e0e0" TextWrapping="Wrap" Margin="0,0,0,6">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding DataContext.StatsTeamMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
                         <Run Text="Your most-collected Pokémon is"/>
                         <InlineUIContainer BaselineAlignment="Center">
                             <Image Source="{Binding TopPokemonSprite}" Width="32" Height="32"
@@ -761,6 +775,63 @@
                         <Run Text="{Binding TopPokemonCount, Mode=OneWay}" FontWeight="Bold" Foreground="#ffd700"/>
                         <Run Text="cards."/>
                     </TextBlock>
+
+                    <!-- Mode "équipe" : les 6 Pokémon les plus collectés, façon équipe de combat. -->
+                    <TextBlock FontSize="13" Foreground="#e0e0e0" Margin="0,0,0,8" TextWrapping="Wrap">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding DataContext.StatsTeamMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                        <Run Text="Your team of favourite Pokémon is :"/>
+                    </TextBlock>
+                    <ItemsControl ItemsSource="{Binding TopPokemonTeam}" Margin="0,0,0,16">
+                        <ItemsControl.Style>
+                            <Style TargetType="ItemsControl">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding DataContext.StatsTeamMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ItemsControl.Style>
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:PokemonTeamMember}">
+                                <StackPanel Orientation="Vertical" Margin="0,0,10,10" Width="64" HorizontalAlignment="Center">
+                                    <Image Source="{Binding Sprite}" Width="36" Height="36"
+                                           RenderOptions.BitmapScalingMode="NearestNeighbor"
+                                           HorizontalAlignment="Center">
+                                        <Image.Style>
+                                            <Style TargetType="Image">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding HasSprite}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Image.Style>
+                                    </Image>
+                                    <TextBlock Text="{Binding Name}" Foreground="#e0e0e0" FontSize="11" FontWeight="Bold"
+                                               TextAlignment="Center" TextWrapping="Wrap"/>
+                                    <TextBlock Foreground="#ffd700" FontSize="10" TextAlignment="Center">
+                                        <Run Text="×"/><Run Text="{Binding Count, Mode=OneWay}"/>
+                                    </TextBlock>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
                     <TextBlock FontSize="13" Foreground="#e0e0e0" Margin="0,0,0,16" TextWrapping="Wrap">
                         <Run Text="You've unlocked"/>

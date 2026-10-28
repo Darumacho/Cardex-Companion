@@ -9,6 +9,7 @@ public class AppSettings
     public string CollectionBorderColor { get; set; } = "#3a7fc1";
     public bool ShowMyCollection { get; set; } = true;
     public bool ShowStats { get; set; } = true;
+    public bool StatsTeamMode { get; set; } = false;
     public bool ShowLegalityCheck { get; set; } = true;
     public string AchievementSound { get; set; } = "xbox";
     public bool HomeFavoritesExpanded    { get; set; } = true;
