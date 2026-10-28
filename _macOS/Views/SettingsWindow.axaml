@@ -516,6 +516,11 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="24,20,24,16">
                 <StackPanel DataContext="{Binding Stats}" x:DataType="vm:CollectionStatsViewModel">
 
+                    <CheckBox IsChecked="{Binding $parent[Window].((vm:MainViewModel)DataContext).StatsTeamMode}"
+                              Content="Team mode (show top 6 most-collected Pokémon)"
+                              Foreground="#e0e0e0" FontSize="12" Cursor="Hand"
+                              Margin="0,0,0,14"/>
+
                     <!-- Espaces explicites dans les Run : Avalonia ne les insère pas entre deux Run comme WPF -->
                     <TextBlock FontSize="13" Foreground="#e0e0e0" Margin="0,0,0,6">
                         <Run Text="You have "/><Run Text="{Binding TotalOwnedCards}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" total cards, spread across "/><Run Text="{Binding TotalSets}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" sets."/>
@@ -529,12 +534,40 @@
                         <Run Text="Out of the "/><Run Text="{Binding SetsBegun}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" sets you've begun, "/><Run Text="{Binding SetsComplete}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" are complete."/>
                     </TextBlock>
 
-                    <TextBlock FontSize="13" Foreground="#e0e0e0" TextWrapping="Wrap" Margin="0,0,0,6">
+                    <TextBlock FontSize="13" Foreground="#e0e0e0" TextWrapping="Wrap" Margin="0,0,0,6"
+                               IsVisible="{Binding !$parent[Window].((vm:MainViewModel)DataContext).StatsTeamMode}">
                         <Run Text="Your most-collected Pokémon is "/><InlineUIContainer BaselineAlignment="Center"><Image Source="{Binding TopPokemonSprite}" Width="32" Height="32"
                                    Margin="2,0,2,0"
                                    RenderOptions.BitmapInterpolationMode="None"
                                    IsVisible="{Binding HasTopPokemonSprite}"/></InlineUIContainer><Run Text="{Binding TopPokemonName}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" with "/><Run Text="{Binding TopPokemonCount}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" cards."/>
                     </TextBlock>
+
+                    <!-- Mode "équipe" : les 6 Pokémon les plus collectés, façon équipe de combat. -->
+                    <TextBlock FontSize="13" Foreground="#e0e0e0" Margin="0,0,0,8" TextWrapping="Wrap"
+                               IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).StatsTeamMode}"
+                               Text="Your team of favourite Pokémon is :"/>
+                    <ItemsControl ItemsSource="{Binding TopPokemonTeam}" Margin="0,0,0,16"
+                                  IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).StatsTeamMode}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:PokemonTeamMember">
+                                <StackPanel Orientation="Vertical" Margin="0,0,10,10" Width="64" HorizontalAlignment="Center">
+                                    <Image Source="{Binding Sprite}" Width="36" Height="36"
+                                           RenderOptions.BitmapInterpolationMode="None"
+                                           HorizontalAlignment="Center"
+                                           IsVisible="{Binding HasSprite}"/>
+                                    <TextBlock Text="{Binding Name}" Foreground="#e0e0e0" FontSize="11" FontWeight="Bold"
+                                               TextAlignment="Center" TextWrapping="Wrap"/>
+                                    <TextBlock Foreground="#ffd700" FontSize="10" TextAlignment="Center"
+                                               Text="{Binding Count, StringFormat='×{0}'}"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
                     <TextBlock FontSize="13" Foreground="#e0e0e0" Margin="0,0,0,16" TextWrapping="Wrap">
                         <Run Text="You've unlocked "/><Run Text="{Binding UnlockedAchievements}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" achievements out of "/><Run Text="{Binding TotalAchievements}" FontWeight="Bold" Foreground="#ffd700"/><Run Text="."/>

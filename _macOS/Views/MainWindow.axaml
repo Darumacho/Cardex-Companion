@@ -815,12 +815,40 @@
                                         <Run Text="Out of the "/><Run Text="{Binding SetsBegun}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" sets you've begun, "/><Run Text="{Binding SetsComplete}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" are complete."/>
                                     </TextBlock>
 
-                                    <TextBlock FontSize="12" Foreground="#e0e0e0" TextWrapping="Wrap" Margin="0,0,0,6">
+                                    <TextBlock FontSize="12" Foreground="#e0e0e0" TextWrapping="Wrap" Margin="0,0,0,6"
+                                               IsVisible="{Binding !$parent[Window].((vm:MainViewModel)DataContext).StatsTeamMode}">
                                         <Run Text="Your most-collected Pokémon is "/><InlineUIContainer BaselineAlignment="Center"><Image Source="{Binding TopPokemonSprite}" Width="28" Height="28"
                                                    Margin="2,0,2,0"
                                                    RenderOptions.BitmapInterpolationMode="None"
                                                    IsVisible="{Binding HasTopPokemonSprite}"/></InlineUIContainer><Run Text="{Binding TopPokemonName}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" with "/><Run Text="{Binding TopPokemonCount}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" cards."/>
                                     </TextBlock>
+
+                                    <!-- Mode "équipe" : les 6 Pokémon les plus collectés, façon équipe de combat. -->
+                                    <TextBlock FontSize="12" Foreground="#e0e0e0" Margin="0,0,0,6" TextWrapping="Wrap"
+                                               IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).StatsTeamMode}"
+                                               Text="Your team of favourite Pokémon is :"/>
+                                    <ItemsControl ItemsSource="{Binding TopPokemonTeam}" Margin="0,0,0,6"
+                                                  IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).StatsTeamMode}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel Orientation="Horizontal"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:PokemonTeamMember">
+                                                <StackPanel Orientation="Vertical" Margin="0,0,8,6" Width="56" HorizontalAlignment="Center">
+                                                    <Image Source="{Binding Sprite}" Width="30" Height="30"
+                                                           RenderOptions.BitmapInterpolationMode="None"
+                                                           HorizontalAlignment="Center"
+                                                           IsVisible="{Binding HasSprite}"/>
+                                                    <TextBlock Text="{Binding Name}" Foreground="#e0e0e0" FontSize="10" FontWeight="Bold"
+                                                               TextAlignment="Center" TextWrapping="Wrap"/>
+                                                    <TextBlock Foreground="#ffd700" FontSize="9" TextAlignment="Center"
+                                                               Text="{Binding Count, StringFormat='×{0}'}"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
 
                                     <TextBlock FontSize="12" Foreground="#e0e0e0" Margin="0,0,0,10" TextWrapping="Wrap">
                                         <Run Text="You've unlocked "/><Run Text="{Binding UnlockedAchievements}" FontWeight="Bold" Foreground="#ffd700"/><Run Text=" achievements out of "/><Run Text="{Binding TotalAchievements}" FontWeight="Bold" Foreground="#ffd700"/><Run Text="."/>
