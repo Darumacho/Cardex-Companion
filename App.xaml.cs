@@ -116,8 +116,9 @@ public partial class App : Application
         var tcgService = new PokemonTcgService(settings.ApiKey);
         var tcgdexService = new TCGdexService();
         var imageCache = new ImageCacheService();
+        var cardexApiService = new CardexApiService(LoadCardexApiKey());
 
-        MainVm = new MainViewModel(tcgService, tcgdexService, imageCache, db);
+        MainVm = new MainViewModel(tcgService, tcgdexService, imageCache, db, cardexApiService);
 
         var asm = Assembly.GetExecutingAssembly();
 
@@ -160,7 +161,6 @@ public partial class App : Application
         // lancement, pour ne pas ralentir chaque démarrage alors que le catalogue ne change pas si souvent.
         if (settings.LastCardexSyncAt is null || DateTime.UtcNow - settings.LastCardexSyncAt.Value > TimeSpan.FromDays(7))
         {
-            var cardexApiService = new CardexApiService(LoadCardexApiKey());
             await DiscoverNewCardexEntriesAsync(db, cardexApiService, tcgdexService);
             await SyncFromCardexApiAsync(db, cardexApiService);
             settings.LastCardexSyncAt = DateTime.UtcNow;

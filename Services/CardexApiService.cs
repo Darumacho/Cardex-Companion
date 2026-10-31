@@ -68,6 +68,11 @@ public class CardexApiService
 public record CardexApiSet(string Id, string Name, string Series, int Total, string ReleaseDate,
     string? LogoUrl, string? SymbolUrl, bool StandardLegal, bool ExpandedLegal, string Source);
 
+// PricesUpdatedAt délibérément absent : l'API renvoie ce champ dans des formats non-ISO8601
+// incohérents selon les cartes (ex. "2026-08-29 13:31:32.867804" sans "T"/offset, vu sur
+// me2pt5-1), ce qui fait planter tout le JsonSerializer.Deserialize de la page concernée — les
+// appelants restampent plutôt la date à DateTime.UtcNow au moment de l'enregistrement local.
 public record CardexApiCard(string Id, string SetId, string Name, string Number, string? ImageSmall,
     string? ImageLarge, string? Rarity, string? Supertype, List<string>? Subtypes, List<string>? Types,
-    string Source);
+    string Source, decimal? CardmarketLowPrice, decimal? TcgplayerLowPrice, string? CardmarketUrl,
+    string? TcgplayerUrl);

@@ -1737,7 +1737,7 @@
                         </Style.Triggers>
                     </Style>
                 </ScrollViewer.Style>
-                <ItemsControl ItemsSource="{Binding SelectedSet.Cards}"
+                <ItemsControl ItemsSource="{Binding SelectedSet.FilteredCards}"
                               ItemTemplate="{StaticResource BinderCardTemplate}"
                               Loaded="BinderItemsControl_Loaded">
                     <ItemsControl.ItemsPanel>

@@ -20,6 +20,7 @@ public partial class MainViewModel : ObservableObject
     private readonly TCGdexService _tcgdexService;
     private readonly ImageCacheService _imageCache;
     private readonly AppDbContext _db;
+    private readonly CardexApiService _cardexApi;
     private readonly UpdateService _updateService = new();
     private readonly PokeSpriteService _pokeSprite = new();
     private readonly AppSettings _settings;
@@ -394,12 +395,13 @@ public partial class MainViewModel : ObservableObject
         await RefreshTagSectionsAsync();
     }
 
-    public MainViewModel(PokemonTcgService tcgService, TCGdexService tcgdexService, ImageCacheService imageCache, AppDbContext db)
+    public MainViewModel(PokemonTcgService tcgService, TCGdexService tcgdexService, ImageCacheService imageCache, AppDbContext db, CardexApiService cardexApi)
     {
         _tcgService = tcgService;
         _tcgdexService = tcgdexService;
         _imageCache = imageCache;
         _db = db;
+        _cardexApi = cardexApi;
         _settings = AppSettings.Load();
         DeckBuilder = new DeckBuilderViewModel(db, imageCache);
         _showMyCollection = _settings.ShowMyCollection;
@@ -718,6 +720,47 @@ public partial class MainViewModel : ObservableObject
         var set = SelectedSet;
         set.Cards.Clear();
         set.IsLoading = true;
+        StatusText = $"Refreshing {set.Name}…";
+
+        // L'API Cardex est nettement plus rapide/fiable que pokemontcg.io pour cette opération
+        // précise (mesuré : ~0,3-0,4s et 100% de réussite contre 2-8s et de fréquents 500/502 sur
+        // pokemontcg.io, y compris sur des sets conséquents comme Cosmic Eclipse/Ascended Heroes) —
+        // le bouton reload la favorise donc en priorité, avec repli sur pokemontcg.io (chemin
+        // existant, via SelectSetAsync) si Cardex échoue ou renvoie un résultat incomplet.
+        // Scope volontairement limité au reload : le chargement initial d'un set non encore en
+        // cache continue de passer par pokemontcg.io/TCGdex comme avant, non touché ici.
+        try
+        {
+            var cardexCards = await _cardexApi.GetSetCardsAsync(set.SetId);
+            if (cardexCards.Count > 0 && (set.Total == 0 || cardexCards.Count >= set.Total))
+            {
+                await _db.CachedCards.Where(c => c.SetId == set.SetId).ExecuteDeleteAsync();
+                var now = DateTime.UtcNow;
+                _db.CachedCards.AddRange(cardexCards.Select((c, i) => new CachedCard
+                {
+                    CardId = c.Id, SetId = set.SetId, Name = c.Name, Number = c.Number,
+                    ImageSmall = c.ImageSmall ?? "", ImageLarge = c.ImageLarge,
+                    Rarity = c.Rarity, SortOrder = i,
+                    CmLow = c.CardmarketLowPrice, TcgLow = c.TcgplayerLowPrice, PricesUpdatedAt = now,
+                    CmUrl = c.CardmarketUrl, TcgUrl = c.TcgplayerUrl,
+                    Supertype = c.Supertype,
+                    Subtypes = c.Subtypes is { Count: > 0 } ? string.Join(", ", c.Subtypes) : null,
+                    Types    = c.Types    is { Count: > 0 } ? string.Join(", ", c.Types)    : null,
+                }));
+                await _db.SaveChangesAsync();
+                await AchievementService.CheckAsync("refresh_set", _db);
+                await SelectSetAsync(set);
+                // SelectSetAsync(set) réassigne SelectedSet = set avec la MÊME référence déjà
+                // sélectionnée : le setter généré par [ObservableProperty] compare par égalité et
+                // n'émet donc aucun PropertyChanged pour "SelectedSet", alors que le binding XAML
+                // "SelectedSet.FilteredCards" ne se réévalue, dans ce cas précis, qu'en réaction à
+                // CE signal précis (pas seulement à celui de FilteredCards lui-même) — d'où la page
+                // restée vierge jusqu'à changer de set et revenir. On force le signal manquant.
+                OnPropertyChanged(nameof(SelectedSet));
+                return;
+            }
+        }
+        catch { /* best-effort : retombe sur pokemontcg.io ci-dessous */ }
 
         await _db.CachedCards
             .Where(c => c.SetId == set.SetId)
@@ -725,6 +768,7 @@ public partial class MainViewModel : ObservableObject
 
         await AchievementService.CheckAsync("refresh_set", _db);
         await SelectSetAsync(set);
+        OnPropertyChanged(nameof(SelectedSet));
     }
 
     [RelayCommand]
@@ -983,6 +1027,14 @@ public partial class MainViewModel : ObservableObject
                     var apiCards = (await _tcgService.GetCardsAsync(set.SetId))
                         .OrderBy(c => CardNumberSort(c.Number))
                         .ToList();
+
+                    // Garde-fou indépendant du fix de pagination ci-dessus (PokemonTcgService) :
+                    // l'API peut renvoyer un résultat "réussi" (pas d'exception) mais incomplet pour
+                    // d'autres raisons (données manquantes côté pokemontcg.io, tri par numéro bancal
+                    // sur certains sets). Sans ce contrôle, un reload affichait silencieusement un
+                    // set incomplet comme s'il était à jour — StatusText prévient au moins l'utilisateur.
+                    var incomplete = set.Total > 0 && apiCards.Count < set.Total;
+
                     var now = DateTime.UtcNow;
 
                     _db.CachedCards.AddRange(apiCards.Select((c, i) => new CachedCard
@@ -1008,7 +1060,9 @@ public partial class MainViewModel : ObservableObject
                             c.Cardmarket?.Url, c.Tcgplayer?.Url, c.Supertype,
                             c.Subtypes is { Count: > 0 } ? string.Join(", ", c.Subtypes) : null)),
                         ownedMap, wantedIds, excludedIds, set, langMap, holoIds: holoIds);
-                    StatusText = $"{set.Name} — {set.CompletionText}";
+                    StatusText = incomplete
+                        ? $"{set.Name} — only {apiCards.Count}/{set.Total} cards returned by the API, try refreshing again"
+                        : $"{set.Name} — {set.CompletionText}";
                 }
                 catch (Exception ex)
                 {
