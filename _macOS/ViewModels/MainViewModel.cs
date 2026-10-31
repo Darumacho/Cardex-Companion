@@ -80,6 +80,7 @@ public partial class MainViewModel : ObservableObject
     public DeckBuilderViewModel DeckBuilder { get; }
     [ObservableProperty] private bool _showMyCollection = true;
     [ObservableProperty] private bool _showStats = true;
+    [ObservableProperty] private bool _statsTeamMode = false;
     [ObservableProperty] private bool _showLegalityCheck = true;
     [ObservableProperty] private int  _totalOwnedCards;
     [ObservableProperty] private bool _isFavoritesSectionExpanded    = true;
@@ -152,6 +153,12 @@ public partial class MainViewModel : ObservableObject
     partial void OnShowStatsChanged(bool value)
     {
         _settings.ShowStats = value;
+        _settings.Save();
+    }
+
+    partial void OnStatsTeamModeChanged(bool value)
+    {
+        _settings.StatsTeamMode = value;
         _settings.Save();
     }
 
@@ -398,6 +405,7 @@ public partial class MainViewModel : ObservableObject
         DeckBuilder = new DeckBuilderViewModel(db, imageCache);
         _showMyCollection = _settings.ShowMyCollection;
         _showStats = _settings.ShowStats;
+        _statsTeamMode = _settings.StatsTeamMode;
         _showLegalityCheck = _settings.ShowLegalityCheck;
         _isFavoritesSectionExpanded = _settings.HomeFavoritesExpanded;
         _isMyCollectionSectionExpanded = _settings.HomeMyCollectionExpanded;
@@ -1707,12 +1715,13 @@ public partial class MainViewModel : ObservableObject
         // aucune variante individuelle ne ressort comme "la plus collectée" même en en possédant
         // beaucoup au total. Filtré sur Supertype "Pokémon" : sinon Energy/Trainer homonymes
         // (ex. "Boost Energy" vs un Pokémon) faussaient le classement.
-        var topPokemon = ownedRows
+        var topPokemonRanked = ownedRows
             .Where(r => r.Supertype == "Pokémon")
             .GroupBy(r => PokeSpriteService.CleanSpeciesName(r.Name))
             .Select(g => new { Name = g.Key, Count = g.Sum(r => r.Quantity) })
             .OrderByDescending(g => g.Count)
-            .FirstOrDefault();
+            .ToList();
+        var topPokemon = topPokemonRanked.FirstOrDefault();
 
         var rarityBreakdown = ownedRows
             .GroupBy(r => string.IsNullOrEmpty(r.Rarity) ? "Unknown" : r.Rarity!)
@@ -1737,19 +1746,27 @@ public partial class MainViewModel : ObservableObject
 
         // Best-effort : nom non reconnu par PokeAPI (carte Trainer/Energy, forme trop exotique) ou
         // API indisponible -> pas de sprite, l'UI masque simplement l'image dans ce cas.
-        Bitmap? topPokemonSprite = null;
-        if (topPokemon is not null)
+        async Task<Bitmap?> FetchSpriteAsync(string name)
         {
-            var spriteUrl = await _pokeSprite.GetSpriteUrlAsync(topPokemon.Name);
-            if (spriteUrl is not null)
-            {
-                var raw = await _imageCache.GetImageAsync(spriteUrl, $"pokesprite-{topPokemon.Name}");
-                // Les icônes "box" PokeAPI (Sword/Shield, Gen 7, Scarlet/Violet) ont un gros
-                // padding transparent autour du sprite réel (ex. ~20x20px de dessin dans un
-                // canevas 68x68) — sans ce recadrage, l'icône affichée minuscule dans un
-                // conteneur petit paraît quasi invisible.
-                if (raw is not null) topPokemonSprite = CropTransparentPadding(raw);
-            }
+            var spriteUrl = await _pokeSprite.GetSpriteUrlAsync(name);
+            if (spriteUrl is null) return null;
+            var raw = await _imageCache.GetImageAsync(spriteUrl, $"pokesprite-{name}");
+            // Les icônes "box" PokeAPI (Sword/Shield, Gen 7, Scarlet/Violet) ont un gros padding
+            // transparent autour du sprite réel (ex. ~20x20px de dessin dans un canevas 68x68) —
+            // sans ce recadrage, l'icône affichée minuscule dans un conteneur petit paraît quasi
+            // invisible.
+            return raw is not null ? CropTransparentPadding(raw) : null;
+        }
+
+        Bitmap? topPokemonSprite = topPokemon is not null ? await FetchSpriteAsync(topPokemon.Name) : null;
+
+        // Mode "équipe" : les 6 premiers, avec le sprite du premier déjà récupéré ci-dessus pour
+        // éviter un fetch en double.
+        var topPokemonTeam = new List<PokemonTeamMember>();
+        foreach (var entry in topPokemonRanked.Take(6))
+        {
+            var sprite = entry == topPokemon ? topPokemonSprite : await FetchSpriteAsync(entry.Name);
+            topPokemonTeam.Add(new PokemonTeamMember { Name = entry.Name, Count = entry.Count, Sprite = sprite });
         }
 
         Stats = new CollectionStatsViewModel
@@ -1762,6 +1779,7 @@ public partial class MainViewModel : ObservableObject
             TopPokemonName = topPokemon?.Name,
             TopPokemonCount = topPokemon?.Count ?? 0,
             TopPokemonSprite = topPokemonSprite,
+            TopPokemonTeam = topPokemonTeam,
             RarityBreakdown = rarityBreakdown,
             TopCategories = topCategories,
             UnlockedAchievements = Achievements.Count(a => a.IsUnlocked),
