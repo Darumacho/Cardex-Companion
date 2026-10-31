@@ -64,15 +64,16 @@ public partial class App : Application
         var tcgService = new PokemonTcgService(settings.ApiKey);
         var tcgdexService = new TCGdexService();
         var imageCache = new ImageCacheService();
+        var cardexApiService = new CardexApiService(StartupService.LoadCardexApiKey());
 
-        MainVm = new MainViewModel(tcgService, tcgdexService, imageCache, db)
+        MainVm = new MainViewModel(tcgService, tcgdexService, imageCache, db, cardexApiService)
         {
             AppLogo = StartupService.LoadResource("Cardex.Logo.png"),
             AppName = StartupService.LoadCroppedResource("Cardex.Name.png"),
         };
         window.DataContext = MainVm;
 
-        await StartupService.SeedAndSyncAsync(db, settings, tcgdexService);
+        await StartupService.SeedAndSyncAsync(db, settings, tcgdexService, cardexApiService);
         await MainVm.LoadSetsAsync();
         await MainVm.CheckPendingSyncAsync();
         _ = MainVm.CheckForUpdateAsync();

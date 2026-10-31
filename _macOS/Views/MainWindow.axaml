@@ -1203,7 +1203,7 @@
                               Background="{StaticResource BrushBg}"
                               ScrollChanged="BinderScrollViewer_ScrollChanged"
                               IsVisible="{Binding IsBinderView}">
-                    <ItemsControl ItemsSource="{Binding SelectedSet.Cards, FallbackValue={x:Null}}"
+                    <ItemsControl ItemsSource="{Binding SelectedSet.FilteredCards, FallbackValue={x:Null}}"
                                   ItemTemplate="{StaticResource BinderCardTemplate}"
                                   Loaded="BinderItemsControl_Loaded">
                         <ItemsControl.ItemsPanel>

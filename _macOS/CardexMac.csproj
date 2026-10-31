@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0</TargetFramework>
-    <Version>3.1.1</Version>
+    <Version>3.2</Version>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <!-- Mêmes noms que le projet WPF : namespaces Cardex.*, ressources Cardex.*, Cardex.app -->

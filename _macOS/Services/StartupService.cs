@@ -107,7 +107,10 @@ public static class StartupService
     }
 
     // Même enchaînement que la fin de App.OnStartup (WPF), avant LoadSetsAsync.
-    public static async Task SeedAndSyncAsync(AppDbContext db, AppSettings settings, TCGdexService tcgdexService)
+    // cardexApiService : créé une seule fois au démarrage (App.axaml.cs) et partagé avec
+    // MainViewModel, qui s'en sert aussi pour le bouton de rechargement d'un set (3.2).
+    public static async Task SeedAndSyncAsync(AppDbContext db, AppSettings settings, TCGdexService tcgdexService,
+        CardexApiService cardexApiService)
     {
         await BackfillShortCodesAsync(db);
         await SeedDbFromEmbeddedAsync(db);
@@ -119,7 +122,6 @@ public static class StartupService
         // lancement, pour ne pas ralentir chaque démarrage alors que le catalogue ne change pas si souvent.
         if (settings.LastCardexSyncAt is null || DateTime.UtcNow - settings.LastCardexSyncAt.Value > TimeSpan.FromDays(7))
         {
-            var cardexApiService = new CardexApiService(LoadCardexApiKey());
             await DiscoverNewCardexEntriesAsync(db, cardexApiService, tcgdexService);
             await SyncFromCardexApiAsync(db, cardexApiService);
             settings.LastCardexSyncAt = DateTime.UtcNow;
@@ -426,7 +428,7 @@ public static class StartupService
     // .gitignore) — jamais dans le code source suivi par git, mais bien embarquée dans l'exe
     // (contrairement à un simple fichier copié à côté, qui ne suivrait pas si l'exe est déplacé
     // seul). Même mécanisme que les seeds JSON (EmbeddedResource + GetManifestResourceStream).
-    private static string LoadCardexApiKey()
+    public static string LoadCardexApiKey()
     {
         try
         {
