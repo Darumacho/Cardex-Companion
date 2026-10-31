@@ -1,4 +1,6 @@
+using System.Net;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Text.Json;
 
 namespace Cardex.Services;
@@ -14,7 +16,35 @@ public class CardexApiService
 
     public CardexApiService(string apiKey)
     {
-        _http = new HttpClient { BaseAddress = new Uri("https://cardex-api.dev/api/") };
+        // Le AAAA de cardex-api.dev pointe vers une IPv6 injoignable (bug DNS côté hébergement,
+        // voir NOTE_CARDEX_API_IPV6.md) — sur un réseau avec IPv6 actif, laisser le résolveur par
+        // défaut choisir fait pendre chaque nouvelle connexion ~75s avant de retomber sur IPv4.
+        // Même contournement que CollectionSyncService : forcer la résolution en IPv4 + timeout
+        // court, en attendant la correction DNS côté hébergement.
+        var handler = new SocketsHttpHandler
+        {
+            ConnectCallback = async (context, cancellationToken) =>
+            {
+                var addresses = await Dns.GetHostAddressesAsync(
+                    context.DnsEndPoint.Host, AddressFamily.InterNetwork, cancellationToken);
+                var socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+                try
+                {
+                    await socket.ConnectAsync(new IPEndPoint(addresses[0], context.DnsEndPoint.Port), cancellationToken);
+                    return new NetworkStream(socket, ownsSocket: true);
+                }
+                catch
+                {
+                    socket.Dispose();
+                    throw;
+                }
+            }
+        };
+        _http = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://cardex-api.dev/api/"),
+            Timeout = TimeSpan.FromSeconds(10)
+        };
         if (!string.IsNullOrEmpty(apiKey))
             _http.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
     }
