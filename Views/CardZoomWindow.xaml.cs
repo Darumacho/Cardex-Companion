@@ -10,7 +10,24 @@ public partial class CardZoomWindow : Window
     private readonly ImageCacheService _imageCache;
     private readonly string _cardId;
 
-    public CardZoomWindow(string name, string number, string? rarity, string imageUrl, string cardId, ImageCacheService imageCache)
+    // Une seule fenêtre de zoom par carte : on réactive celle déjà ouverte.
+    private static readonly Dictionary<string, CardZoomWindow> _openWindows = new();
+
+    public static void ShowFor(string name, string number, string? rarity, string imageUrl, string cardId, ImageCacheService imageCache)
+    {
+        if (_openWindows.TryGetValue(cardId, out var existing))
+        {
+            if (existing.WindowState == WindowState.Minimized) existing.WindowState = WindowState.Normal;
+            existing.Activate();
+            return;
+        }
+        var win = new CardZoomWindow(name, number, rarity, imageUrl, cardId, imageCache);
+        _openWindows[cardId] = win;
+        win.Closed += (_, _) => _openWindows.Remove(cardId);
+        win.Show();
+    }
+
+    private CardZoomWindow(string name, string number, string? rarity, string imageUrl, string cardId, ImageCacheService imageCache)
     {
         InitializeComponent();
         _imageUrl = imageUrl;

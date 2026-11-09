@@ -80,8 +80,7 @@ public partial class DeckBrowserCardVm : ObservableObject
             ?? (ImageUrl.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
                 ? ImageUrl[..^4] + "_hires.png"
                 : ImageUrl);
-        var win = new Views.CardZoomWindow(Name, Number, Rarity, url, CardId, _imageCache);
-        win.Show();
+        Views.CardZoomWindow.ShowFor(Name, Number, Rarity, url, CardId, _imageCache);
     }
 
     public async Task LoadImageAsync()
@@ -152,8 +151,7 @@ public partial class DeckEntryVm : ObservableObject
             ?? (ImageUrl.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
                 ? ImageUrl[..^4] + "_hires.png"
                 : ImageUrl);
-        var win = new Views.CardZoomWindow(Name, Number, Rarity, url, CardId, _imageCache);
-        win.Show();
+        Views.CardZoomWindow.ShowFor(Name, Number, Rarity, url, CardId, _imageCache);
     }
 
     partial void OnQuantityChanged(int value)

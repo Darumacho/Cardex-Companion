@@ -200,8 +200,7 @@ public partial class CardViewModel : ObservableObject
             ?? (ImageUrl.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
                 ? ImageUrl[..^4] + "_hires.png"
                 : ImageUrl);
-        var win = new Views.CardZoomWindow(Name, Number, Rarity, url, CardId, _imageCache);
-        win.Show();
+        Views.CardZoomWindow.ShowFor(Name, Number, Rarity, url, CardId, _imageCache);
     }
 
     [RelayCommand]
