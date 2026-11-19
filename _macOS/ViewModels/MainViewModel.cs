@@ -82,6 +82,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _showMyCollection = true;
     [ObservableProperty] private bool _showStats = true;
     [ObservableProperty] private bool _statsTeamMode = false;
+    [ObservableProperty] private bool _showSetArtworkInSearch = false;
     [ObservableProperty] private bool _showLegalityCheck = true;
     [ObservableProperty] private int  _totalOwnedCards;
     [ObservableProperty] private bool _isFavoritesSectionExpanded    = true;
@@ -161,6 +162,16 @@ public partial class MainViewModel : ObservableObject
     {
         _settings.StatsTeamMode = value;
         _settings.Save();
+    }
+
+    partial void OnShowSetArtworkInSearchChanged(bool value)
+    {
+        _settings.ShowSetArtworkInSearch = value;
+        _settings.Save();
+        // Les logos ne sont chargés nativement que pour le set actuellement ouvert
+        // (LoadLogoAsync, voir SelectSetAsync) — activer l'option doit rattraper tous les sets
+        // jamais ouverts individuellement, sinon la sidebar afficherait des cases vides pour eux.
+        if (value) _ = LoadLogosAsync(Series.SelectMany(s => s.Sets).ToList());
     }
 
     private void OnLanguageOptionPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -408,6 +419,7 @@ public partial class MainViewModel : ObservableObject
         _showMyCollection = _settings.ShowMyCollection;
         _showStats = _settings.ShowStats;
         _statsTeamMode = _settings.StatsTeamMode;
+        _showSetArtworkInSearch = _settings.ShowSetArtworkInSearch;
         _showLegalityCheck = _settings.ShowLegalityCheck;
         _isFavoritesSectionExpanded = _settings.HomeFavoritesExpanded;
         _isMyCollectionSectionExpanded = _settings.HomeMyCollectionExpanded;
@@ -473,7 +485,11 @@ public partial class MainViewModel : ObservableObject
         get
         {
             var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-            return v is null ? "v?" : $"v{v.Major}.{v.Minor}";
+            if (v is null) return "v?";
+            // Tronquait le patch (ex. 3.2.1 -> "v3.2") : Major.Minor.Build reflète directement le
+            // <Version> du csproj (3.2 -> AssemblyVersion 3.2.0.0, 3.2.1 -> 3.2.1.0) — n'affiche le
+            // 3e segment que s'il est non nul, pour ne pas montrer "v3.0.0" sur les versions sans patch.
+            return v.Build > 0 ? $"v{v.Major}.{v.Minor}.{v.Build}" : $"v{v.Major}.{v.Minor}";
         }
     }
 
@@ -693,6 +709,7 @@ public partial class MainViewModel : ObservableObject
             await ApplyOwnedCountsAsync();
             RefreshSpecialGroups();
             _ = LoadSymbolsAsync(Series.SelectMany(s => s.Sets).ToList());
+            if (ShowSetArtworkInSearch) _ = LoadLogosAsync(Series.SelectMany(s => s.Sets).ToList());
             _ = LoadWantedCardsAsync();
             _ = LoadDuplicateCardsAsync();
             _ = LoadTagsAsync();
@@ -1383,6 +1400,25 @@ public partial class MainViewModel : ObservableObject
             {
                 var img = await _imageCache.GetImageAsync(set.SymbolUrl, $"sym_{set.SetId}");
                 set.SymbolImage = img;
+            }
+            catch { }
+            finally { semaphore.Release(); }
+        });
+        await Task.WhenAll(tasks);
+    }
+
+    // Pendant de LoadSymbolsAsync pour l'artwork (voir ShowSetArtworkInSearch) : skip les sets déjà
+    // chargés (via LoadLogoAsync à l'ouverture d'un set) pour ne pas re-télécharger inutilement.
+    private async Task LoadLogosAsync(IReadOnlyList<SetViewModel> sets)
+    {
+        using var semaphore = new SemaphoreSlim(8, 8);
+        var tasks = sets.Where(s => s.LogoImage is null).Select(async set =>
+        {
+            await semaphore.WaitAsync();
+            try
+            {
+                var img = await _imageCache.GetImageAsync(set.LogoUrl, $"logo_{set.SetId}");
+                set.LogoImage = img;
             }
             catch { }
             finally { semaphore.Release(); }
