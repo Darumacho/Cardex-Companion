@@ -10,6 +10,9 @@ public class AppSettings
     public bool ShowMyCollection { get; set; } = true;
     public bool ShowStats { get; set; } = true;
     public bool StatsTeamMode { get; set; } = false;
+    // Inverse du défaut mobile (voir CardexMobile AppSettings.ShowSetIconInSearch) : desktop
+    // montre l'icône par défaut dans la sidebar, cocher cette option bascule sur l'artwork.
+    public bool ShowSetArtworkInSearch { get; set; } = false;
     public bool ShowLegalityCheck { get; set; } = true;
     public string AchievementSound { get; set; } = "xbox";
     public bool HomeFavoritesExpanded    { get; set; } = true;

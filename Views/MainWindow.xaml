@@ -312,13 +312,40 @@
                                       Style="{StaticResource StarButtonStyle}"
                                       FontSize="13"
                                       VerticalAlignment="Center"/>
-                        <!-- Symbole du set -->
+                        <!-- Symbole du set (défaut) ou artwork si ShowSetArtworkInSearch est activé. -->
                         <Image Grid.Column="1"
                                Source="{Binding SymbolImage}"
                                Width="16" Height="16"
                                Stretch="Uniform"
                                RenderOptions.BitmapScalingMode="HighQuality"
-                               VerticalAlignment="Center"/>
+                               VerticalAlignment="Center">
+                            <Image.Style>
+                                <Style TargetType="Image">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding DataContext.ShowSetArtworkInSearch, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Image.Style>
+                        </Image>
+                        <Image Grid.Column="1"
+                               Source="{Binding LogoImage}"
+                               Width="20" Height="18"
+                               Stretch="Uniform"
+                               RenderOptions.BitmapScalingMode="HighQuality"
+                               VerticalAlignment="Center">
+                            <Image.Style>
+                                <Style TargetType="Image">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding DataContext.ShowSetArtworkInSearch, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Image.Style>
+                        </Image>
                         <TextBlock Grid.Column="2"
                                    Text="{Binding Name}"
                                    Foreground="{StaticResource BrushText}"
