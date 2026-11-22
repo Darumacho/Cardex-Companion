@@ -8,6 +8,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -33,6 +34,11 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<SearchResultViewModel> WantedCards { get; } = [];
     public ObservableCollection<SearchResultViewModel> DuplicateCards { get; } = [];
     public ObservableCollection<TagViewModel> Tags { get; } = [];
+
+    // La vue n'a pas accès au contrôle de cartes depuis ce ViewModel — ce event notifie MainWindow
+    // (abonné depuis App.xaml.cs) une fois la carte ciblée localisée, pour qu'elle scrolle jusqu'à
+    // elle. Voir OpenSearchResultAsync.
+    public event Action<CardViewModel>? ScrollToCardRequested;
     public ObservableCollection<TagSectionViewModel> TagSections { get; } = [];
     public ObservableCollection<AchievementViewModel> Achievements { get; } = [];
 
@@ -522,9 +528,16 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            var q = query.Trim();
-            var cards = await _db.CachedCards
-                .Where(c => EF.Functions.Like(c.Name, $"%{q}%") || EF.Functions.Like(c.Number, $"%{q}%"))
+            var q = NormalizeStarDelta(query.Trim());
+            var (namePart, numberPart) = SplitNameAndNumber(q);
+
+            var queryable = namePart is not null
+                // "regice 97", "charizard ex 105"... : dernier mot numérique isolé pour le numéro,
+                // le reste pour le nom — sinon "regice 97" ne matchait ni Name ni Number en entier.
+                ? _db.CachedCards.Where(c => EF.Functions.Like(c.Name, $"%{namePart}%") && c.Number == numberPart)
+                : _db.CachedCards.Where(c => EF.Functions.Like(c.Name, $"%{q}%") || EF.Functions.Like(c.Number, $"%{q}%"));
+
+            var cards = await queryable
                 .OrderBy(c => c.Name)
                 .Take(100)
                 .ToListAsync(token);
@@ -566,6 +579,27 @@ public partial class MainViewModel : ObservableObject
         catch (OperationCanceledException) { }
     }
 
+    // Isole un numéro de collection en fin de requête ("regice 97" -> ("regice", "97")) pour
+    // permettre une recherche nom+numéro combinée — sans ça, "regice 97" ne matchait ni Name
+    // ("Regice") ni Number ("97") en entier puisque LIKE compare la requête complète. Ne s'applique
+    // que si un mot précède le nombre (sinon une recherche numéro seul, déjà gérée par le OR).
+    private static (string? NamePart, string? NumberPart) SplitNameAndNumber(string query)
+    {
+        var tokens = query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (tokens.Length < 2 || !tokens[^1].All(char.IsDigit))
+            return (null, null);
+        return (string.Join(' ', tokens[..^1]), tokens[^1]);
+    }
+
+    // "star"/"delta" en mot entier -> symboles Unicode littéraux du catalogue (★ Gold Star, δ Delta
+    // Species — 177 cartes concernées). \b évite "staraptor" (pas de frontière de mot après "star",
+    // collé à "aptor").
+    private static readonly Regex StarWordPattern = new(@"\bstar\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex DeltaWordPattern = new(@"\bdelta\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static string NormalizeStarDelta(string query) =>
+        DeltaWordPattern.Replace(StarWordPattern.Replace(query, "★"), "δ");
+
     [RelayCommand]
     private async Task OpenSearchResultAsync(SearchResultViewModel result)
     {
@@ -573,7 +607,19 @@ public partial class MainViewModel : ObservableObject
         if (set is null) return;
         GlobalSearch = "";
         SearchResults.Clear();
+
+        // Avant de charger (SelectSetAsync ne réinitialise rien si le set était déjà chargé — un
+        // filtre resté actif d'une visite précédente pourrait masquer la carte ciblée ci-dessous).
+        set.ResetFilters();
+
         await SelectSetAsync(set);
+
+        var card = set.Cards.FirstOrDefault(c => c.CardId == result.CardId);
+        if (card is not null)
+        {
+            card.IsHighlighted = true;
+            ScrollToCardRequested?.Invoke(card);
+        }
     }
 
     [RelayCommand]

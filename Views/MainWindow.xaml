@@ -26,10 +26,14 @@
         <!-- Template carte -->
         <DataTemplate x:Key="CardTemplate" DataType="{x:Type vm:CardViewModel}">
             <Border Width="170" Margin="6" CornerRadius="8"
-                    Background="{StaticResource BrushPanel}"
-                    BorderThickness="2">
+                    Background="{StaticResource BrushPanel}">
                 <Border.Style>
                     <Style TargetType="Border">
+                        <!-- BorderThickness déplacé ici (hors attribut direct de l'élément) : une
+                             valeur locale sur l'élément prime TOUJOURS sur les Setter/Trigger d'un
+                             Style, ce qui rendait le Setter BorderThickness="4" du trigger
+                             IsHighlighted ci-dessous silencieusement sans effet. -->
+                        <Setter Property="BorderThickness" Value="2"/>
                         <Setter Property="BorderBrush" Value="Transparent"/>
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsWanted}" Value="True">
@@ -37,6 +41,14 @@
                             </DataTrigger>
                             <DataTrigger Binding="{Binding IsOwned}" Value="True">
                                 <Setter Property="BorderBrush" Value="{StaticResource BrushHighlight}"/>
+                            </DataTrigger>
+                            <!-- En dernier : les triggers WPF s'appliquent dans l'ordre de
+                                 déclaration, celui-ci prend le dessus sur owned/wanted ci-dessus
+                                 pendant les quelques secondes qui suivent une arrivée depuis la
+                                 recherche globale. -->
+                            <DataTrigger Binding="{Binding IsHighlighted}" Value="True">
+                                <Setter Property="BorderBrush" Value="{StaticResource BrushSearchHighlight}"/>
+                                <Setter Property="BorderThickness" Value="4"/>
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
@@ -448,11 +460,15 @@
 
         <!-- Template binder (vue classeur) -->
         <DataTemplate x:Key="BinderCardTemplate" DataType="{x:Type vm:CardViewModel}">
-            <Border Width="118" Margin="3" CornerRadius="6" BorderThickness="2"
+            <Border Width="118" Margin="3" CornerRadius="6"
                     Cursor="Hand"
                     ToolTip="{Binding Name}">
                 <Border.Style>
                     <Style TargetType="Border">
+                        <!-- BorderThickness déplacé ici — même piège que CardTemplate ci-dessus
+                             (valeur locale sur l'élément toujours prioritaire sur un Setter de
+                             Style/Trigger). -->
+                        <Setter Property="BorderThickness" Value="2"/>
                         <Setter Property="BorderBrush" Value="Transparent"/>
                         <Setter Property="Opacity" Value="0.3"/>
                         <Style.Triggers>
@@ -472,6 +488,12 @@
                                 <Setter Property="BorderBrush" Value="#ffd700"/>
                                 <Setter Property="Opacity" Value="1"/>
                             </MultiDataTrigger>
+                            <!-- En dernier : prend le dessus sur tout ce qui précède. -->
+                            <DataTrigger Binding="{Binding IsHighlighted}" Value="True">
+                                <Setter Property="BorderBrush" Value="{StaticResource BrushSearchHighlight}"/>
+                                <Setter Property="BorderThickness" Value="4"/>
+                                <Setter Property="Opacity" Value="1"/>
+                            </DataTrigger>
                         </Style.Triggers>
                     </Style>
                 </Border.Style>
@@ -1764,7 +1786,8 @@
                         </Style.Triggers>
                     </Style>
                 </ScrollViewer.Style>
-                <ItemsControl ItemsSource="{Binding SelectedSet.FilteredCards}"
+                <ItemsControl x:Name="BinderItemsControl"
+                              ItemsSource="{Binding SelectedSet.FilteredCards}"
                               ItemTemplate="{StaticResource BinderCardTemplate}"
                               Loaded="BinderItemsControl_Loaded">
                     <ItemsControl.ItemsPanel>

@@ -72,6 +72,7 @@ public partial class App : Application
             AppName = StartupService.LoadCroppedResource("Cardex.Name.png"),
         };
         window.DataContext = MainVm;
+        MainVm.ScrollToCardRequested += window.ScrollToCard;
 
         await StartupService.SeedAndSyncAsync(db, settings, tcgdexService, cardexApiService);
         await MainVm.LoadSetsAsync();

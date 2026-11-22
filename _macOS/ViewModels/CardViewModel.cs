@@ -22,9 +22,27 @@ public partial class CardViewModel : ObservableObject
 
     [ObservableProperty] private Bitmap? _cardImage;
     [ObservableProperty] private bool _isLoadingImage;
-    [ObservableProperty] private bool _isWanted;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowWantedBorder))]
+    private bool _isWanted;
     [ObservableProperty] private bool _isExcluded;
     [ObservableProperty] private bool _isHolo;
+
+    // Surlignage temporaire après navigation depuis la recherche globale (voir
+    // MainViewModel.OpenSearchResultAsync / ScrollToCardRequested) — remis à false par le
+    // code-behind après quelques secondes.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowOwnedBorder))]
+    [NotifyPropertyChangedFor(nameof(ShowWantedBorder))]
+    private bool _isHighlighted;
+
+    // Les classes de style "owned"/"wanted" (Border.card.owned/.wanted dans MainWindow.axaml) ne
+    // doivent pas s'appliquer en même temps que "highlighted" : contrairement à WPF (ordre de
+    // déclaration déterministe), la spécificité CSS d'Avalonia donne la priorité à
+    // Border.card.owned.wanted (3 classes) même si .highlighted est déclaré après — neutraliser les
+    // classes owned/wanted à la source est plus fiable que de jouer sur l'ordre des styles.
+    public bool ShowOwnedBorder  => IsOwned  && !IsHighlighted;
+    public bool ShowWantedBorder => IsWanted && !IsHighlighted;
 
     // Some fallback sets (see TCGdex) don't have an image URL at all for certain cards.
     public bool HasNoImage => string.IsNullOrEmpty(ImageUrl);
@@ -81,7 +99,10 @@ public partial class CardViewModel : ObservableObject
             OnPropertyChanged(nameof(TotalLabel));
             var shouldBeOwned = _quantity > 0;
             if (_isOwned != shouldBeOwned)
+            {
                 SetProperty(ref _isOwned, shouldBeOwned, nameof(IsOwned));
+                OnPropertyChanged(nameof(ShowOwnedBorder));
+            }
         }
     }
 
@@ -91,6 +112,7 @@ public partial class CardViewModel : ObservableObject
         set
         {
             if (!SetProperty(ref _isOwned, value)) return;
+            OnPropertyChanged(nameof(ShowOwnedBorder));
             if (IsMultiLanguageMode)
             {
                 if (value)

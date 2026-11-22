@@ -77,8 +77,9 @@
             <Border Classes="card" Width="170" Margin="6" CornerRadius="8"
                     Background="{StaticResource BrushPanel}"
                     BorderThickness="2"
-                    Classes.wanted="{Binding IsWanted}"
-                    Classes.owned="{Binding IsOwned}">
+                    Classes.wanted="{Binding ShowWantedBorder}"
+                    Classes.owned="{Binding ShowOwnedBorder}"
+                    Classes.highlighted="{Binding IsHighlighted}">
                 <Grid>
                     <StackPanel>
                         <!-- Image carte -->
@@ -370,8 +371,9 @@
                     Background="Transparent"
                     Cursor="Hand"
                     ToolTip.Tip="{Binding Name}"
-                    Classes.owned="{Binding IsOwned}"
-                    Classes.wanted="{Binding IsWanted}"
+                    Classes.owned="{Binding ShowOwnedBorder}"
+                    Classes.wanted="{Binding ShowWantedBorder}"
+                    Classes.highlighted="{Binding IsHighlighted}"
                     Tapped="BinderCard_Tapped">
                 <Grid>
                     <Border Background="#111122" CornerRadius="4"/>
@@ -474,6 +476,12 @@
         <Style Selector="Border.card"><Setter Property="BorderBrush" Value="Transparent"/></Style>
         <Style Selector="Border.card.wanted"><Setter Property="BorderBrush" Value="#ffd700"/></Style>
         <Style Selector="Border.card.owned"><Setter Property="BorderBrush" Value="{StaticResource BrushHighlight}"/></Style>
+        <!-- Classes.owned/.wanted sont neutralisées (ShowOwnedBorder/ShowWantedBorder) tant que
+             highlighted est actif (voir CardViewModel) — pas de conflit de spécificité possible. -->
+        <Style Selector="Border.card.highlighted">
+            <Setter Property="BorderBrush" Value="{StaticResource BrushSearchHighlight}"/>
+            <Setter Property="BorderThickness" Value="4"/>
+        </Style>
 
         <!-- Set dans la sidebar -->
         <Style Selector="Border.setItem">
@@ -507,6 +515,11 @@
         </Style>
         <Style Selector="Border.binder.owned.wanted">
             <Setter Property="BorderBrush" Value="#ffd700"/>
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <Style Selector="Border.binder.highlighted">
+            <Setter Property="BorderBrush" Value="{StaticResource BrushSearchHighlight}"/>
+            <Setter Property="BorderThickness" Value="4"/>
             <Setter Property="Opacity" Value="1"/>
         </Style>
 
@@ -1211,7 +1224,8 @@
                               Background="{StaticResource BrushBg}"
                               ScrollChanged="BinderScrollViewer_ScrollChanged"
                               IsVisible="{Binding IsBinderView}">
-                    <ItemsControl ItemsSource="{Binding SelectedSet.FilteredCards, FallbackValue={x:Null}}"
+                    <ItemsControl x:Name="BinderItemsControl"
+                                  ItemsSource="{Binding SelectedSet.FilteredCards, FallbackValue={x:Null}}"
                                   ItemTemplate="{StaticResource BinderCardTemplate}"
                                   Loaded="BinderItemsControl_Loaded">
                         <ItemsControl.ItemsPanel>

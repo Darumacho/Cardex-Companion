@@ -11,12 +11,19 @@
         <Color x:Key="ColorText">#e0e0e0</Color>
         <Color x:Key="ColorSubtext">#8888aa</Color>
 
+        <!-- Dédié au surlignage temporaire "carte ciblée depuis la recherche" (MainViewModel.
+             ScrollToCardRequested) — distinct de CollectionBorderBrush ci-dessous, qui est
+             configurable par l'utilisateur (Réglages → Collection border) et ne doit pas être
+             réutilisé pour un usage fixe/sémantique différent. -->
+        <Color x:Key="ColorSearchHighlight">#3a7fc1</Color>
+
         <SolidColorBrush x:Key="BrushBg" Color="{StaticResource ColorBg}"/>
         <SolidColorBrush x:Key="BrushPanel" Color="{StaticResource ColorPanel}"/>
         <SolidColorBrush x:Key="BrushAccent" Color="{StaticResource ColorAccent}"/>
         <SolidColorBrush x:Key="BrushHighlight" Color="{StaticResource ColorHighlight}"/>
         <SolidColorBrush x:Key="BrushText" Color="{StaticResource ColorText}"/>
         <SolidColorBrush x:Key="BrushSubtext" Color="{StaticResource ColorSubtext}"/>
+        <SolidColorBrush x:Key="BrushSearchHighlight" Color="{StaticResource ColorSearchHighlight}"/>
         <SolidColorBrush x:Key="CollectionBorderBrush" Color="#3a7fc1"/>
 
         <!-- Button style : set sidebar -->

@@ -141,6 +141,7 @@ public partial class App : Application
         Resources["MagnifierCursor"] = CursorHelper.CreateMagnifier();
 
         var window = new MainWindow { DataContext = MainVm };
+        MainVm.ScrollToCardRequested += window.ScrollToCard;
 
         var iconPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logo.ico");
         if (System.IO.File.Exists(iconPath))

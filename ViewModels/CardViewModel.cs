@@ -26,6 +26,11 @@ public partial class CardViewModel : ObservableObject
     [ObservableProperty] private bool _isExcluded;
     [ObservableProperty] private bool _isHolo;
 
+    // Surlignage temporaire après navigation depuis la recherche globale (voir
+    // MainViewModel.OpenSearchResultAsync / ScrollToCardRequested) — remis à false par le
+    // code-behind après quelques secondes.
+    [ObservableProperty] private bool _isHighlighted;
+
     // Some fallback sets (see TCGdex) don't have an image URL at all for certain cards.
     public bool HasNoImage => string.IsNullOrEmpty(ImageUrl);
     [ObservableProperty] private int _deckQuantity;

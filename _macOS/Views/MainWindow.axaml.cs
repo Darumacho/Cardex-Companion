@@ -104,6 +104,31 @@ public partial class MainWindow : Window
     private async void BinderItemsControl_Loaded(object? sender, RoutedEventArgs e)
         => await LoadVisibleCardImagesAsync(60);
 
+    // Venant de la recherche globale avec une carte ciblée (voir MainViewModel.OpenSearchResultAsync)
+    // — scrolle jusqu'à elle dans la vue actuellement visible (grille ou classeur) et surligne
+    // brièvement. Dispatcher.UIThread.Post (priorité par défaut, exécuté après le layout en cours) :
+    // le changement de FilteredCards qui précède cet appel n'a pas forcément encore été traité par
+    // l'ItemsControl à cet instant précis.
+    public void ScrollToCard(CardViewModel card)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (DataContext is not MainViewModel vm) return;
+            var itemsControl = vm.IsBinderView ? BinderItemsControl : CardsItemsControl;
+
+            if (itemsControl.ContainerFromItem(card) is Control container)
+                container.BringIntoView();
+        });
+
+        _ = ClearHighlightAfterDelayAsync(card);
+    }
+
+    private static async Task ClearHighlightAfterDelayAsync(CardViewModel card)
+    {
+        await Task.Delay(4000);
+        card.IsHighlighted = false;
+    }
+
     public void FocusSearch()
     {
         Activate();

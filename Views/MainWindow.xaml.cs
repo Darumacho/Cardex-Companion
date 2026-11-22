@@ -1,6 +1,7 @@
 ﻿using Cardex.Services;
 using Cardex.ViewModels;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -29,6 +30,30 @@ public partial class MainWindow : Window
         InitializeComponent();
         AchievementService.Unlocked += def =>
             Dispatcher.BeginInvoke(() => ShowAchievementToast(def));
+    }
+
+    // Venant de la recherche globale avec une carte ciblée (voir MainViewModel.OpenSearchResultAsync)
+    // — scrolle jusqu'à elle dans la vue actuellement visible (grille ou classeur) et surligne
+    // brièvement. DispatcherPriority.Loaded : attend la fin du passage de layout qui suit le
+    // changement de FilteredCards, sinon le conteneur de l'item n'est pas encore généré.
+    public void ScrollToCard(CardViewModel card)
+    {
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
+        {
+            if (DataContext is not MainViewModel vm) return;
+            var itemsControl = vm.IsBinderView ? BinderItemsControl : CardsItemsControl;
+
+            if (itemsControl.ItemContainerGenerator.ContainerFromItem(card) is FrameworkElement container)
+                container.BringIntoView();
+        });
+
+        _ = ClearHighlightAfterDelayAsync(card);
+    }
+
+    private static async Task ClearHighlightAfterDelayAsync(CardViewModel card)
+    {
+        await Task.Delay(4000);
+        card.IsHighlighted = false;
     }
 
     private static string? GetSoundPath(string soundKey)

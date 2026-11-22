@@ -55,6 +55,19 @@ public partial class SetViewModel : ObservableObject
 
     public ObservableCollection<CardViewModel> Cards { get; } = [];
 
+    // Appelé avant de cibler une carte précise (voir MainViewModel.OpenSearchResultAsync) — sinon un
+    // filtre resté actif d'une visite précédente de ce set (possiblement déjà chargé, voir
+    // SelectSetAsync qui ne réinitialise rien dans ce cas) pourrait la masquer hors de FilteredCards.
+    public void ResetFilters()
+    {
+        ShowDupesOnly = false;
+        ShowWantsOnly = false;
+        ShowOwnedOnly = false;
+        ShowMissingOnly = false;
+        SearchText = "";
+        SelectedRarity = AllRarities;
+    }
+
     public IReadOnlyList<string> AvailableRarities =>
         new[] { AllRarities }
             .Concat(Cards
