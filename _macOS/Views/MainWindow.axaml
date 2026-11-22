@@ -76,7 +76,6 @@
         <DataTemplate x:Key="CardTemplate" x:DataType="vm:CardViewModel">
             <Border Classes="card" Width="170" Margin="6" CornerRadius="8"
                     Background="{StaticResource BrushPanel}"
-                    BorderThickness="2"
                     Classes.wanted="{Binding ShowWantedBorder}"
                     Classes.owned="{Binding ShowOwnedBorder}"
                     Classes.highlighted="{Binding IsHighlighted}">
@@ -367,7 +366,7 @@
 
         <!-- Template binder (vue classeur) : clic = possédée, ⇧+clic = voulue, ⌘+clic = exclue -->
         <DataTemplate x:Key="BinderCardTemplate" x:DataType="vm:CardViewModel">
-            <Border Classes="binder" Width="118" Margin="3" CornerRadius="6" BorderThickness="2"
+            <Border Classes="binder" Width="118" Margin="3" CornerRadius="6"
                     Background="Transparent"
                     Cursor="Hand"
                     ToolTip.Tip="{Binding Name}"
@@ -473,7 +472,12 @@
          qui s'applique l'emporte, comme le dernier trigger côté WPF). -->
     <Window.Styles>
         <!-- Carte (vue liste) -->
-        <Style Selector="Border.card"><Setter Property="BorderBrush" Value="Transparent"/></Style>
+        <!-- BorderThickness en Setter et non en attribut du Border : une valeur locale prime sur
+             tout style, le BorderThickness="4" de .highlighted serait ignoré (même piège que WPF). -->
+        <Style Selector="Border.card">
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
         <Style Selector="Border.card.wanted"><Setter Property="BorderBrush" Value="#ffd700"/></Style>
         <Style Selector="Border.card.owned"><Setter Property="BorderBrush" Value="{StaticResource BrushHighlight}"/></Style>
         <!-- Classes.owned/.wanted sont neutralisées (ShowOwnedBorder/ShowWantedBorder) tant que
@@ -503,6 +507,7 @@
         <!-- Carte (vue classeur) -->
         <Style Selector="Border.binder">
             <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="2"/>
             <Setter Property="Opacity" Value="0.3"/>
         </Style>
         <Style Selector="Border.binder.owned">

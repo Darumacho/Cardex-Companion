@@ -528,14 +528,20 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            var q = NormalizeStarDelta(query.Trim());
+            var q = query.Trim();
             var (namePart, numberPart) = SplitNameAndNumber(q);
+            // Brut ET normalisé : des noms contiennent "Star" en toutes lettres ("Star Piece",
+            // "Team Star Grunt") — la seule version ★ ne les trouvait plus.
+            var qSym = NormalizeStarDelta(q);
+            var namePartSym = namePart is null ? null : NormalizeStarDelta(namePart);
 
             var queryable = namePart is not null
                 // "regice 97", "charizard ex 105"... : dernier mot numérique isolé pour le numéro,
                 // le reste pour le nom — sinon "regice 97" ne matchait ni Name ni Number en entier.
-                ? _db.CachedCards.Where(c => EF.Functions.Like(c.Name, $"%{namePart}%") && c.Number == numberPart)
-                : _db.CachedCards.Where(c => EF.Functions.Like(c.Name, $"%{q}%") || EF.Functions.Like(c.Number, $"%{q}%"));
+                ? _db.CachedCards.Where(c => (EF.Functions.Like(c.Name, $"%{namePart}%") || EF.Functions.Like(c.Name, $"%{namePartSym}%"))
+                                             && c.Number == numberPart)
+                : _db.CachedCards.Where(c => EF.Functions.Like(c.Name, $"%{q}%") || EF.Functions.Like(c.Name, $"%{qSym}%")
+                                             || EF.Functions.Like(c.Number, $"%{q}%"));
 
             var cards = await queryable
                 .OrderBy(c => c.Name)

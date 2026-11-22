@@ -106,9 +106,9 @@ public partial class MainWindow : Window
 
     // Venant de la recherche globale avec une carte ciblée (voir MainViewModel.OpenSearchResultAsync)
     // — scrolle jusqu'à elle dans la vue actuellement visible (grille ou classeur) et surligne
-    // brièvement. Dispatcher.UIThread.Post (priorité par défaut, exécuté après le layout en cours) :
-    // le changement de FilteredCards qui précède cet appel n'a pas forcément encore été traité par
-    // l'ItemsControl à cet instant précis.
+    // brièvement. DispatcherPriority.Loaded : passe après le layout qui suit le changement de
+    // FilteredCards — à la priorité par défaut, le conteneur existe mais n'a pas encore de position,
+    // et BringIntoView scrollerait au mauvais endroit (ou pas du tout).
     public void ScrollToCard(CardViewModel card)
     {
         Dispatcher.UIThread.Post(() =>
@@ -118,7 +118,7 @@ public partial class MainWindow : Window
 
             if (itemsControl.ContainerFromItem(card) is Control container)
                 container.BringIntoView();
-        });
+        }, DispatcherPriority.Loaded);
 
         _ = ClearHighlightAfterDelayAsync(card);
     }
